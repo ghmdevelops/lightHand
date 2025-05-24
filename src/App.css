@@ -36,3 +36,10 @@
     transform: rotate(360deg);
   }
 }
+
+@media (max-width: 576px) {
+  .navbar .btn {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+}
