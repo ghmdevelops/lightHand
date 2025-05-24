@@ -1,0 +1,10 @@
+body {
+  background: #f7f7f7;
+}
+
+@media (max-width: 576px) {
+  .navbar .btn {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+}
