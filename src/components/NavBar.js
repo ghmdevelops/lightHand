@@ -8,6 +8,8 @@ export default function NavBar({
   onLogout,
   dark,
   setDark,
+  cartsCount, // número de carrinhos salvos
+  onShowCarts, // callback para abrir a tela de carrinhos
 }) {
   return (
     <nav
@@ -35,6 +37,7 @@ export default function NavBar({
           id="navbarBtns"
         >
           <ul className="navbar-nav mb-2 mb-lg-0 align-items-lg-center">
+            {/* Dark/Light Mode */}
             <li className="nav-item me-3">
               <button
                 className={`btn btn-${dark ? "light" : "dark"} btn-sm`}
@@ -45,6 +48,29 @@ export default function NavBar({
                 {dark ? "🌙 Dark" : "☀️ Light"}
               </button>
             </li>
+
+            {/* Ícone de Carrinho com badge, só quando logado */}
+            {user && (
+              <li className="nav-item me-3 position-relative">
+                <button
+                  className="btn btn-outline-primary btn-sm position-relative"
+                  onClick={onShowCarts}
+                  title="Meus Carrinhos"
+                  style={{ borderRadius: "20px" }}
+                >
+                  🛒
+                  {cartsCount > 0 && (
+                    <span
+                      className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                      style={{ fontSize: "0.65rem" }}
+                    >
+                      {cartsCount}
+                    </span>
+                  )}
+                </button>
+              </li>
+            )}
+
             {user ? (
               <>
                 <li className="nav-item me-2">

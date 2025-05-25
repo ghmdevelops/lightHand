@@ -1,75 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { auth, db } from '../firebase';
-import { ref, get, set, update } from 'firebase/database';
+import React, { useState, useEffect } from "react";
+import { auth, db } from "../firebase";
+import { ref, get, update, remove } from "firebase/database";
 
 export default function UserProfile({ user }) {
   const [form, setForm] = useState({
-    nome: '',
-    sobrenome: '',
-    cep: '',
-    celular: ''
+    nome: "",
+    sobrenome: "",
+    cep: "",
+    celular: "",
   });
   const [loading, setLoading] = useState(true);
   const [salvo, setSalvo] = useState(false);
 
+  const [carts, setCarts] = useState([]);
+  const [cartsLoading, setCartsLoading] = useState(true);
+
   useEffect(() => {
     if (!user) return;
-    const userRef = ref(db, `usuarios/${user.uid}`);
-    get(userRef).then((snapshot) => {
-      if (snapshot.exists()) {
-        const dados = snapshot.val();
+    // Perfil
+    get(ref(db, `usuarios/${user.uid}`)).then((snap) => {
+      if (snap.exists()) {
+        const d = snap.val();
         setForm({
-          nome: dados.nome || '',
-          sobrenome: dados.sobrenome || '',
-          cep: dados.cep || '',
-          celular: dados.celular || ''
+          nome: d.nome || "",
+          sobrenome: d.sobrenome || "",
+          cep: d.cep || "",
+          celular: d.celular || "",
         });
       }
       setLoading(false);
     });
+    // Carrinhos
+    get(ref(db, `usuarios/${user.uid}/carts`)).then((snap) => {
+      const data = snap.val() || {};
+      const arr = Object.entries(data)
+        .map(([id, c]) => ({ id, ...c }))
+        .sort((a, b) => b.criadoEm - a.criadoEm);
+      setCarts(arr);
+      setCartsLoading(false);
+    });
   }, [user]);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async (e) => {
+  const handleChange = (e) =>
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    const userRef = ref(db, `usuarios/${user.uid}`);
-    await update(userRef, form);
+    await update(ref(db, `usuarios/${user.uid}`), form);
     setSalvo(true);
     setTimeout(() => setSalvo(false), 2000);
   };
 
-  if (loading) return <div>Carregando...</div>;
+  const handleDeleteCart = async (id) => {
+    await remove(ref(db, `usuarios/${user.uid}/carts/${id}`));
+    setCarts((c) => c.filter((x) => x.id !== id));
+  };
+
+  if (loading) return <div>Carregando perfil...</div>;
 
   return (
-    <div className="container mt-4" style={{maxWidth: 500}}>
+    <div className="container mt-4" style={{ maxWidth: 600 }}>
       <h4 className="mb-4">Meu Perfil</h4>
-      <form onSubmit={handleSave}>
+      <form onSubmit={handleSaveProfile}>
         <div className="mb-3">
           <label className="form-label">E-mail</label>
           <input className="form-control" value={user.email} disabled />
         </div>
-        <div className="mb-3">
-          <label className="form-label">Nome</label>
-          <input className="form-control" name="nome" value={form.nome} onChange={handleChange} />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Sobrenome</label>
-          <input className="form-control" name="sobrenome" value={form.sobrenome} onChange={handleChange} />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">CEP</label>
-          <input className="form-control" name="cep" value={form.cep} onChange={handleChange} />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Celular</label>
-          <input className="form-control" name="celular" value={form.celular} onChange={handleChange} />
-        </div>
-        <button className="btn btn-primary w-100" type="submit">Salvar Dados</button>
+        {["nome", "sobrenome", "cep", "celular"].map((field) => (
+          <div className="mb-3" key={field}>
+            <label className="form-label">
+              {field.charAt(0).toUpperCase() + field.slice(1)}
+            </label>
+            <input
+              className="form-control"
+              name={field}
+              value={form[field]}
+              onChange={handleChange}
+            />
+          </div>
+        ))}
+        <button className="btn btn-primary w-100" type="submit">
+          Salvar Dados
+        </button>
       </form>
-      {salvo && <div className="alert alert-success mt-3">Dados salvos com sucesso!</div>}
+      {salvo && (
+        <div className="alert alert-success mt-3">
+          Perfil atualizado com sucesso!
+        </div>
+      )}
+
+      <hr className="my-4" />
+
+      <h4 className="mb-3">Meus Carrinhos Salvos</h4>
+      {cartsLoading ? (
+        <div>Carregando carrinhos…</div>
+      ) : carts.length === 0 ? (
+        <div className="alert alert-info">Você não tem carrinhos salvos.</div>
+      ) : (
+        <ul className="list-group mb-4">
+          {carts.map((cart) => {
+            const total = cart.items.reduce(
+              (sum, it) => sum + Number(it.price),
+              0
+            );
+            return (
+              <li
+                key={cart.id}
+                className="list-group-item d-flex justify-content-between align-items-start"
+              >
+                <div>
+                  <small className="text-muted">
+                    {new Date(cart.criadoEm).toLocaleString()}
+                  </small>
+                  <ul className="mt-1 mb-1">
+                    {cart.items.map((it, idx) => (
+                      <li key={idx} style={{ fontSize: 14 }}>
+                        {it.name} — R${" "}
+                        {Number(it.price).toFixed(2).replace(".", ",")}
+                      </li>
+                    ))}
+                  </ul>
+                  <div>
+                    <strong>
+                      {cart.items.length}{" "}
+                      {cart.items.length !== 1 ? "itens" : "item"} — Total: R${" "}
+                      {total.toFixed(2).replace(".", ",")}
+                    </strong>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-outline-danger btn-sm"
+                  onClick={() => handleDeleteCart(cart.id)}
+                >
+                  Excluir
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

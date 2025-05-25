@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import OfertasMercado from "./OfertasMercado";
 import MercadosAtivosGlobal from "./MercadosAtivosGlobal";
+import ProdutosPage from "./ProdutosPage"; // Importa a nova página do carrinho
 
 export default function BuscarMercadosOSM({ user }) {
   const [mercados, setMercados] = useState([]);
@@ -13,6 +14,7 @@ export default function BuscarMercadosOSM({ user }) {
     pais: "",
   });
   const [mercadoSelecionado, setMercadoSelecionado] = useState(null);
+  const [mostrarCarrinho, setMostrarCarrinho] = useState(false); // novo estado
 
   const getEnderecoFromCoords = async (lat, lon) => {
     try {
@@ -100,6 +102,7 @@ export default function BuscarMercadosOSM({ user }) {
     );
   };
 
+  // Mostrar tela de ofertas do mercado selecionado
   if (mercadoSelecionado) {
     return (
       <OfertasMercado
@@ -110,8 +113,22 @@ export default function BuscarMercadosOSM({ user }) {
     );
   }
 
+  // Mostrar tela do carrinho/produtos
+  if (mostrarCarrinho) {
+    return <ProdutosPage onVoltar={() => setMostrarCarrinho(false)} />;
+  }
+
+  // Tela padrão (busca de mercados)
   return (
     <div className="container my-4">
+      <button
+        className="btn btn-primary"
+        onClick={() => setMostrarCarrinho(true)}
+        style={{ minWidth: 200, fontWeight: 600, letterSpacing: 1.2 }}
+      >
+        🛒 Montar Carrinho
+      </button>
+      <hr />
       <button
         className="btn btn-success mb-3"
         onClick={handleBuscar}

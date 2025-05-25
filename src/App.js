@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { auth } from "./firebase";
+import { auth, db } from "./firebase";
+import { ref, onValue } from "firebase/database";
 
 import NavBar from "./components/NavBar";
 import LandingPage from "./components/LandingPage";
@@ -17,6 +18,11 @@ export default function App() {
     return saved === null ? true : saved === "true";
   });
 
+  // ---- Novo estado pra contar carrinhos salvos ----
+  const [cartsCount, setCartsCount] = useState(0);
+  const [showCarts, setShowCarts] = useState(false);
+
+  // Dark mode persistido
   useEffect(() => {
     document.body.className = dark
       ? "bg-dark text-light"
@@ -24,18 +30,29 @@ export default function App() {
     localStorage.setItem("darkMode", dark);
   }, [dark]);
 
+  // Auth listener
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((usuario) => {
-      if (usuario) {
-        setUser(usuario);
-        setTela("home");
-      } else {
-        setUser(null);
-        setTela("landing");
-      }
+    const unsubscribe = auth.onAuthStateChanged((u) => {
+      setUser(u);
+      setTela(u ? "home" : "landing");
+      setShowCarts(false);
     });
     return unsubscribe;
   }, []);
+
+  // Se usuário logado, subscribe à contagem de carts
+  useEffect(() => {
+    if (!user) {
+      setCartsCount(0);
+      return;
+    }
+    const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
+    const off = onValue(cartsRef, (snap) => {
+      const data = snap.val() || {};
+      setCartsCount(Object.keys(data).length);
+    });
+    return () => off();
+  }, [user]);
 
   const navProps = {
     user,
@@ -45,6 +62,11 @@ export default function App() {
     onLogout: () => auth.signOut(),
     dark,
     setDark,
+    cartsCount,
+    onShowCarts: () => {
+      setShowCarts(true);
+      setTela("perfil"); // ou outra tela se preferir
+    },
   };
 
   return (
@@ -54,6 +76,7 @@ export default function App() {
       }`}
     >
       <NavBar {...navProps} />
+
       <div className="flex-grow-1">
         {!user ? (
           tela === "landing" ? (
@@ -75,12 +98,16 @@ export default function App() {
               dark={dark}
             />
           ) : null
+        ) : showCarts ? (
+          // Mostra a lista de carrinhos salvos (UserProfile faz isso)
+          <UserProfile user={user} dark={dark} />
         ) : tela === "home" ? (
-          <Home user={user} onLogout={() => auth.signOut()} dark={dark} />
+          <Home user={user} dark={dark} />
         ) : tela === "perfil" ? (
           <UserProfile user={user} dark={dark} />
         ) : null}
       </div>
+
       <Footer dark={dark} />
     </div>
   );
