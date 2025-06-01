@@ -1,5 +1,5 @@
 import React from "react";
-import SobrePage from "./SobrePage";
+import { Link } from "react-router-dom";
 
 export default function Footer({ dark }) {
   return (
@@ -44,18 +44,9 @@ export default function Footer({ dark }) {
           </span>
           {/* Botão Saiba Mais */}
           <div className="mt-2">
-            <a
-              href="/sobre"
-              className="btn btn-outline-success btn-sm"
-              style={{
-                borderRadius: "20px",
-                fontWeight: 500,
-                letterSpacing: 0.5,
-              }}
-              title="Saiba Mais"
-            >
-              Saiba Mais
-            </a>
+           <Link to="/sobre" className="btn btn-outline-success btn-sm" title="Saiba Mais">
+    Saiba Mais
+  </Link>
           </div>
         </div>
 
