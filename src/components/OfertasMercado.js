@@ -1,3 +1,4 @@
+// src/components/OfertasMercado.js
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
 import {
@@ -6,65 +7,109 @@ import {
   push,
   remove,
   update,
-  set,
+  set as firebaseSet,
   get,
+  serverTimestamp,
 } from "firebase/database";
 
-export default function OfertasMercado({ mercado, user, onVoltar }) {
+export default function OfertasMercado({
+  mercado,
+  user,
+  onVoltar,
+  setUltimaVisita, // opcional: callback para avisar App.js qual ID acabou de visitar
+}) {
   const [ofertas, setOfertas] = useState([]);
   const [novo, setNovo] = useState({ valor: "", objeto: "" });
   const [editando, setEditando] = useState(null);
   const [editInput, setEditInput] = useState({ valor: "", objeto: "" });
 
+  // 1) Lê todas as ofertas em tempo real de mercAdos/{mercado.id}/ofertas
   useEffect(() => {
     const ofertasRef = ref(db, `mercados/${mercado.id}/ofertas`);
-    const off = onValue(ofertasRef, (snap) => {
+    const unsubscribe = onValue(ofertasRef, (snap) => {
       const data = snap.val() || {};
-      setOfertas(Object.entries(data).map(([id, o]) => ({ id, ...o })));
+      const arr = Object.entries(data).map(([id, o]) => ({ id, ...o }));
+      setOfertas(arr);
     });
-    return () => off();
+    return () => unsubscribe();
   }, [mercado.id]);
+
+  // 2) Ao montar (ou mudar mercado.id / user.uid), registra a visita em "visitados"
+  useEffect(() => {
+    if (!user || !mercado?.id) return;
+
+    const visitaPath = `usuarios/${user.uid}/visitados/${mercado.id}`;
+    const visitaRef = ref(db, visitaPath);
+
+    // Verifica se já existe essa visita (para não sobrescrever timestamp a cada re-render)
+    get(visitaRef).then((snap) => {
+      if (!snap.exists()) {
+        const visitaObj = {
+          nome: mercado.nome,
+          rua: mercado.rua || "",
+          estado: mercado.estado || "",
+          pais: mercado.pais || "",
+          timestamp: Date.now(),
+        };
+        firebaseSet(visitaRef, visitaObj)
+          .then(() => {
+            // se você quiser avisar App.js que essa é a última visita:
+            if (typeof setUltimaVisita === "function") {
+              setUltimaVisita(mercado.id.toString());
+            }
+          })
+          .catch((err) => {
+            console.error("Erro ao registrar visita:", err);
+          });
+      }
+    });
+  }, [mercado.id, user, setUltimaVisita]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!novo.valor || !novo.objeto) return;
+    if (!novo.valor.trim() || !novo.objeto.trim()) return;
 
     const mercadoRef = ref(db, `mercados/${mercado.id}`);
-
     const snapshot = await get(mercadoRef);
+
     if (!snapshot.exists()) {
-      await set(mercadoRef, {
+      await firebaseSet(mercadoRef, {
         nome: mercado.nome,
-        rua: mercado.rua,
-        estado: mercado.estado,
-        pais: mercado.pais,
+        rua: mercado.rua || "",
+        estado: mercado.estado || "",
+        pais: mercado.pais || "",
       });
     }
 
     const ofertasRef = ref(db, `mercados/${mercado.id}/ofertas`);
     await push(ofertasRef, {
       usuario: user.uid,
-      valor: novo.valor,
-      objeto: novo.objeto,
+      valor: novo.valor.trim(),
+      objeto: novo.objeto.trim(),
       criadoEm: Date.now(),
     });
 
-    await set(ref(db, `usuarios/${user.uid}/mercadosAtivos/${mercado.id}`), {
-      nome: mercado.nome,
-      rua: mercado.rua,
-      estado: mercado.estado,
-      pais: mercado.pais,
-      dataUltimaOferta: Date.now(),
-      valorUltimaOferta: novo.valor,
-      objetoUltimaOferta: novo.objeto,
-    });
+    await firebaseSet(
+      ref(db, `usuarios/${user.uid}/mercadosAtivos/${mercado.id}`),
+      {
+        nome: mercado.nome,
+        rua: mercado.rua || "",
+        estado: mercado.estado || "",
+        pais: mercado.pais || "",
+        dataUltimaOferta: Date.now(),
+        valorUltimaOferta: novo.valor.trim(),
+        objetoUltimaOferta: novo.objeto.trim(),
+      }
+    );
 
     setNovo({ valor: "", objeto: "" });
   };
 
   const handleDelete = (ofertaId) => {
     const ofertaRef = ref(db, `mercados/${mercado.id}/ofertas/${ofertaId}`);
-    remove(ofertaRef);
+    remove(ofertaRef).catch((err) => {
+      console.error("Erro ao excluir oferta:", err);
+    });
   };
 
   const startEdit = (oferta) => {
@@ -75,11 +120,16 @@ export default function OfertasMercado({ mercado, user, onVoltar }) {
   const saveEdit = (ofertaId) => {
     const ofertaRef = ref(db, `mercados/${mercado.id}/ofertas/${ofertaId}`);
     update(ofertaRef, {
-      valor: editInput.valor,
-      objeto: editInput.objeto,
-    });
-    setEditando(null);
-    setEditInput({ valor: "", objeto: "" });
+      valor: editInput.valor.trim(),
+      objeto: editInput.objeto.trim(),
+    })
+      .then(() => {
+        setEditando(null);
+        setEditInput({ valor: "", objeto: "" });
+      })
+      .catch((err) => {
+        console.error("Erro ao salvar edição:", err);
+      });
   };
 
   const cancelEdit = () => {
@@ -192,11 +242,9 @@ export default function OfertasMercado({ mercado, user, onVoltar }) {
                       : oferta.usuario.substr(0, 8)}
                     <br />
                     {oferta.criadoEm && (
-                      <>
-                        <span className="text-secondary">
-                          {formatarDataHora(oferta.criadoEm)}
-                        </span>
-                      </>
+                      <span className="text-secondary">
+                        {formatarDataHora(oferta.criadoEm)}
+                      </span>
                     )}
                   </small>
                 </div>

@@ -1,13 +1,43 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
+}
+
+/* src/components/PassaportePage.css */
+
+/* Container do card ganha position: relative para podermos posicionar o selo */
+.passaporte-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  padding-top: 12px; /* para dar um espaço extra no topo do selo, se precisar */
+}
+
+/* Estilo do selo (stamp) no canto do card */
+.passaporte-stamp {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(220, 53, 69, 0.85); /* vermelho translúcido */
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transform: rotate(-20deg);
+  pointer-events: none; /* o selo não atrapalha cliques no conteúdo */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.passaporte-stamp i {
+  margin-right: 4px;
 }
