@@ -1,5 +1,6 @@
 // src/components/BuscarMercadosOSM.js
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // ← importa useNavigate
 import OfertasMercado from "./OfertasMercado";
 import MercadosAtivosGlobal from "./MercadosAtivosGlobal";
 import ProdutosPage from "./ProdutosPage";
@@ -22,6 +23,8 @@ export default function BuscarMercadosOSM({ user }) {
   const [mercadoSelecionado, setMercadoSelecionado] = useState(null);
   const [mostrarCarrinho, setMostrarCarrinho] = useState(false);
   const [favoritos, setFavoritos] = useState(new Set());
+
+  const navigate = useNavigate(); // ← inicializa navigate
 
   // Carrega favoritos do usuário
   useEffect(() => {
@@ -176,7 +179,6 @@ export default function BuscarMercadosOSM({ user }) {
         mercado={mercadoSelecionado}
         user={user}
         onVoltar={() => setMercadoSelecionado(null)}
-        // Remova setUltimaVisita pois não está definido aqui
       />
     );
   }
@@ -189,7 +191,34 @@ export default function BuscarMercadosOSM({ user }) {
   // Renderização principal: botões e lista de cards de mercado
   return (
     <div className="container my-5 px-2 px-md-4">
-      {/* Botão “Montar Carrinho” */}
+      {/* 1A) Botão “Marketplace Local” */}
+      <div className="d-flex justify-content-end mb-3">
+        <button
+          className="btn btn-outline-primary btn-lg me-2"
+          onClick={() => navigate("/produtores")}
+          style={{
+            borderRadius: 30,
+            fontWeight: 600,
+            letterSpacing: 1,
+            background: "transparent",
+            border: "2px solid #198754",
+            color: "#198754",
+            transition: "all 0.3s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#198754";
+            e.currentTarget.style.color = "#fff";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#198754";
+          }}
+        >
+          <i className="fa-solid fa-seedling me-2"></i> Marketplace Local orgânicos
+        </button>
+      </div>
+
+      {/* 1B) Botão “Montar Carrinho” */}
       <div className="d-flex justify-content-end mb-4">
         <button
           className="btn btn-primary btn-lg d-flex align-items-center"

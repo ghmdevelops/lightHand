@@ -222,6 +222,9 @@ export default function NavBar({
                 <Dropdown.Item as={Link} to="/perfil">
                   <i className="bi bi-person-circle me-2" /> Perfil
                 </Dropdown.Item>
+                <Dropdown.Item as={Link} to="/cesta-mensal">
+                  <i className="bi bi-basket3 me-2"></i> Cesta Mensal
+                </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/passaporte">
                   <i className="bi bi-forward me-2" /> Passaporte
                 </Dropdown.Item>
@@ -360,6 +363,13 @@ export default function NavBar({
                         onClick={() => setExpanded(false)}
                       >
                         <i className="bi bi-person-circle me-2" /> Perfil
+                      </Dropdown.Item>
+                      <Dropdown.Item
+                        as={Link}
+                        to="/cesta-mensal"
+                        onClick={() => setExpanded(false)}
+                      >
+                        <i className="bi bi-basket3 me-2"></i> Cesta Mensal
                       </Dropdown.Item>
                       <Dropdown.Item
                         as={Link}

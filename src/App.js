@@ -19,6 +19,9 @@ import CuponsPage from "./components/CuponsPage";
 import PassaportePage from "./components/PassaportePage";
 import TrocasPage from "./components/TrocasPage";
 
+import CestaMensalPage from "./components/CestaMensalPage";
+import MarketplaceProdutoresPage from "./components/MarketplaceProdutoresPage";
+
 export default function App() {
   const [tela, setTela] = useState("landing");
   const [user, setUser] = useState(null);
@@ -193,6 +196,31 @@ export default function App() {
               element={
                 user ? (
                   <TrocasPage onVoltar={() => window.history.back()} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+
+            <Route
+              path="/produtores"
+              element={
+                user ? (
+                  <MarketplaceProdutoresPage
+                    user={user}
+                    onVoltar={() => window.history.back()}
+                  />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+
+            <Route
+              path="/cesta-mensal"
+              element={
+                user ? (
+                  <CestaMensalPage onVoltar={() => window.history.back()} />
                 ) : (
                   <Navigate to="/" replace />
                 )
