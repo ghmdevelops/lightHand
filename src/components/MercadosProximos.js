@@ -23,6 +23,7 @@ export default function BuscarMercadosOSM({ user }) {
   const [mercadoSelecionado, setMercadoSelecionado] = useState(null);
   const [mostrarCarrinho, setMostrarCarrinho] = useState(false);
   const [favoritos, setFavoritos] = useState(new Set());
+  const [mostrarOfertasUsuarios, setMostrarOfertasUsuarios] = useState(false);
 
   const navigate = useNavigate(); // ← inicializa navigate
 
@@ -134,7 +135,6 @@ export default function BuscarMercadosOSM({ user }) {
     );
   };
 
-  // Adiciona ou remove mercado dos favoritos
   const toggleFavorito = async (market) => {
     if (!user) return;
     const favRef = ref(db, `usuarios/${user.uid}/favoritos/${market.id}`);
@@ -157,7 +157,6 @@ export default function BuscarMercadosOSM({ user }) {
     }
   };
 
-  // Registra visita e abre a tela de ofertas
   const registrarVisitaEVerOfertas = async (market) => {
     if (user) {
       const visitRef = ref(db, `usuarios/${user.uid}/visitados/${market.id}`);
@@ -172,7 +171,6 @@ export default function BuscarMercadosOSM({ user }) {
     setMercadoSelecionado(market);
   };
 
-  // Se um mercado foi selecionado, renderiza OfertasMercado
   if (mercadoSelecionado) {
     return (
       <OfertasMercado
@@ -183,15 +181,12 @@ export default function BuscarMercadosOSM({ user }) {
     );
   }
 
-  // Se for para mostrar carrinho, renderiza ProdutosPage
   if (mostrarCarrinho) {
     return <ProdutosPage onVoltar={() => setMostrarCarrinho(false)} />;
   }
 
-  // Renderização principal: botões e lista de cards de mercado
   return (
     <div className="container my-5 px-2 px-md-4">
-      {/* 1A) Botão “Marketplace Local” */}
       <div className="d-flex justify-content-end mb-3">
         <button
           className="btn btn-outline-primary btn-lg me-2"
@@ -214,14 +209,31 @@ export default function BuscarMercadosOSM({ user }) {
             e.currentTarget.style.color = "#198754";
           }}
         >
-          <i className="fa-solid fa-seedling me-2"></i> Marketplace Local orgânicos
+          <i className="fa-solid fa-seedling me-2"></i> Marketplace Local
+          orgânicos
         </button>
       </div>
 
-      {/* 1B) Botão “Montar Carrinho” */}
-      <div className="d-flex justify-content-end mb-4">
+      <div className="text-center mb-5">
         <button
-          className="btn btn-primary btn-lg d-flex align-items-center"
+          className="btn btn-success btn-x px-5 py-3 my-3"
+          onClick={handleBuscar}
+          disabled={buscando}
+          style={{
+            borderRadius: 40,
+            fontWeight: 700,
+            fontSize: "1.15rem",
+            background: "linear-gradient(135deg, #1abc9c 0%, #198754 100%)",
+            border: "none",
+            boxShadow: "0 8px 30px rgba(26, 188, 156, 0.3)",
+          }}
+        >
+          <FontAwesomeIcon icon={faStore} style={{ fontSize: "1.2rem" }} />
+          {buscando ? "Buscando..." : "Buscar Mercados"}
+        </button>
+
+        <button
+          className="btn btn-success btn-xl px-5 py-3 my-3"
           onClick={() => setMostrarCarrinho(true)}
           style={{
             borderRadius: 30,
@@ -237,26 +249,6 @@ export default function BuscarMercadosOSM({ user }) {
         </button>
       </div>
 
-      {/* Botão “Buscar Mercados” */}
-      <div className="text-center mb-5">
-        <button
-          className="btn btn-success btn-xl px-5 py-3"
-          onClick={handleBuscar}
-          disabled={buscando}
-          style={{
-            borderRadius: 40,
-            fontWeight: 700,
-            fontSize: "1.15rem",
-            background: "linear-gradient(135deg, #1abc9c 0%, #198754 100%)",
-            border: "none",
-            boxShadow: "0 8px 30px rgba(26, 188, 156, 0.3)",
-          }}
-        >
-          {buscando ? "Buscando..." : "Buscar Mercados"}
-        </button>
-      </div>
-
-      {/* Se existe posição, exibe alerta com dados de latitude/longitude e endereço */}
       {pos && (
         <div
           className="alert mb-5 p-4"
@@ -288,15 +280,24 @@ export default function BuscarMercadosOSM({ user }) {
         </div>
       )}
 
-      {/* Mercados com ofertas de usuários (componente separado) */}
-      <h5 className="mb-3" style={{ fontWeight: 600 }}>
-        Mercados com ofertas de usuários
+      <h5
+        className="mb-3 d-flex align-items-center"
+        style={{ fontWeight: 600, cursor: "pointer", userSelect: "none" }}
+        onClick={() => setMostrarOfertasUsuarios((prev) => !prev)}
+      >
+        <span style={{ marginRight: "8px" }}>
+          Mercados com ofertas de usuários
+        </span>
+        <span style={{ fontSize: "1.2rem", color: "#198754" }}>
+          {mostrarOfertasUsuarios ? "▼" : "▲"}
+        </span>
       </h5>
-      <MercadosAtivosGlobal onSelecionar={setMercadoSelecionado} />
+      {mostrarOfertasUsuarios && (
+        <MercadosAtivosGlobal onSelecionar={setMercadoSelecionado} />
+      )}
 
       <hr className="my-5" />
 
-      {/* Lista de Mercados próximos */}
       <h5 className="mb-4" style={{ fontWeight: 600 }}>
         Mercados próximos
       </h5>

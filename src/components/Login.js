@@ -1,9 +1,8 @@
-// src/components/Login.js
 import React, { useState } from "react";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
-export default function Login({ onAuth, showRegister }) {
+export default function Login({ onAuth, showRegister}) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [showSenha, setShowSenha] = useState(false);
@@ -24,7 +23,6 @@ export default function Login({ onAuth, showRegister }) {
     <div
       className="d-flex justify-content-center align-items-center vh-100"
       style={{
-        /* Fundo com degradê suave que combina com LightHand */
         background: "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
         position: "relative",
         overflow: "hidden",
