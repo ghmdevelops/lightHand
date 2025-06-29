@@ -36,7 +36,7 @@ export default function NavBar({
       style={{
         backdropFilter: "blur(8px)",
         background: dark ? "rgba(30, 30, 30, 0.87)" : "rgba(255,255,255,0.85)",
-        borderBottom: dark ? "1px solid #3D3C3A" : "1px solid #19875422",
+        borderBottom: dark ? "1px solid #3D3C3A" : "1px solid #1E90FF",
         boxShadow: "0 2px 12px #0002",
         transition: "background 0.3s",
         zIndex: 1030,
@@ -70,44 +70,9 @@ export default function NavBar({
         </Navbar.Brand>
 
         <div className="d-flex d-lg-none ms-auto align-items-center gap-2">
-          {user && (
-            <Button
-              size="sm"
-              variant="outline-success"
-              onClick={onShowCarts}
-              style={{
-                borderRadius: "999px",
-                background: dark ? "#232b2675" : "#e9f9f5",
-                transition: "all 0.3s",
-                position: "relative",
-                width: "36px",
-                height: "36px",
-                padding: 0,
-              }}
-              title="Meus Carrinhos"
-              className="d-flex justify-content-center align-items-center"
-            >
-              <i className="fa-solid fa-cart-shopping" />
-              {Number(cartsCount) > 0 && (
-                <Badge
-                  bg="danger"
-                  pill
-                  style={{
-                    fontSize: ".65rem",
-                    position: "absolute",
-                    top: "2px",
-                    right: "-2px",
-                  }}
-                >
-                  {cartsCount}
-                </Badge>
-              )}
-            </Button>
-          )}
-
           <Button
             size="sm"
-            variant={dark ? "outline-light" : "outline-success"}
+            variant={dark ? "outline-light" : "outline-primary"}
             onClick={() => setDark((d) => !d)}
             style={{
               width: "40px",
@@ -129,10 +94,8 @@ export default function NavBar({
               className={`fa-solid ${dark ? "fa-sun" : "fa-moon"}`}
               style={{
                 fontSize: "1rem",
-                color: dark ? "#ffc107" : "#198754",
-                filter: `drop-shadow(0 0 4px ${
-                  dark ? "#ffc10799" : "#19875455"
-                })`,
+                color: dark ? "#ffc107" : "#0059FF",
+                filter: `drop-shadow(0 0 4px ${dark ? "#ffc107" : "#0059FF"})`,
                 transition: "color 0.3s, filter 0.3s",
               }}
             />
@@ -142,7 +105,7 @@ export default function NavBar({
             <>
               <Button
                 size="sm"
-                variant={dark ? "outline-light" : "outline-success"}
+                variant={dark ? "outline-light" : "outline-primary"}
                 style={{
                   borderRadius: "50%",
                   width: "40px",
@@ -165,7 +128,7 @@ export default function NavBar({
 
               <Button
                 size="sm"
-                variant={dark ? "outline-light" : "outline-success"}
+                variant={dark ? "outline-light" : "outline-primary"}
                 style={{
                   borderRadius: "50%",
                   width: "40px",
@@ -238,7 +201,7 @@ export default function NavBar({
                   Olá, {user.displayName || user.email}
                 </Dropdown.Header>
                 <Dropdown.Item as={Link} to="/perfil">
-                  <i className="bi bi-person-circle me-2" /> Perfil
+                  <i className="bi bi-person-circle me-2" /> Perfil/Carrinho
                 </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/cesta-mensal">
                   <i className="bi bi-basket3 me-2"></i> Cesta Mensal
@@ -273,7 +236,7 @@ export default function NavBar({
             <Nav.Item className="d-none d-lg-flex">
               <Button
                 size="sm"
-                variant={dark ? "light" : "outline-success"}
+                variant={dark ? "light" : "outline-primary"}
                 onClick={() => setDark((d) => !d)}
                 style={{
                   borderRadius: "999px",
@@ -294,9 +257,9 @@ export default function NavBar({
                   className={`fa-solid ${dark ? "fa-sun" : "fa-moon"}`}
                   style={{
                     fontSize: "1rem",
-                    color: dark ? "#ffc107" : "#198754",
+                    color: dark ? "#ffc107" : "#0059FF",
                     filter: `drop-shadow(0 0 4px ${
-                      dark ? "#ffc10788" : "#19875444"
+                      dark ? "#0059FF" : "#0059FF"
                     })`,
                     transition: "color 0.3s, filter 0.3s",
                   }}
@@ -427,7 +390,7 @@ export default function NavBar({
                 <Nav.Item className="d-none d-lg-flex">
                   <Button
                     size="sm"
-                    variant={dark ? "outline-light" : "outline-success"}
+                    variant={dark ? "outline-light" : "outline-primary"}
                     onClick={onLogin}
                     title="Login"
                     style={{
@@ -453,7 +416,7 @@ export default function NavBar({
                 <Nav.Item className="d-none d-lg-flex">
                   <Button
                     size="sm"
-                    variant={dark ? "outline-light" : "outline-success"}
+                    variant={dark ? "outline-light" : "outline-primary"}
                     onClick={onRegister}
                     title="Registrar"
                     style={{

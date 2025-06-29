@@ -50,7 +50,13 @@ export default function FavoritosPage({ user, onVoltar }) {
   }
 
   return (
-    <div className="container my-5 px-3 px-md-4">
+    <div
+      className="container my-5 px-3 px-md-4"
+      style={{
+        zIndex: 2,
+        paddingTop: "40px",
+      }}
+    >
       <button
         className="btn btn-link mb-4"
         onClick={onVoltar}
@@ -60,7 +66,7 @@ export default function FavoritosPage({ user, onVoltar }) {
       </button>
 
       <h2 className="mb-4">Meus Favoritos</h2>
-      <p className="text-muted mb-5">
+      <p className="mb-5">
         Aqui você verá todos os mercados que marcou como favorito.
       </p>
 

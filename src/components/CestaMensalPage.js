@@ -51,7 +51,7 @@ export default function CestaMensalPage({ onVoltar }) {
         <p style={{ lineHeight: 1.6, fontSize: "1rem" }}>
           Escolha um plano e garanta sua cesta mensal cheia de ofertas.
         </p>
-        <button className="btn btn-success btn-lg neon-btn">
+        <button className="btn btn-primary btn-lg neon-btn">
           Assine a Cesta Mensal
         </button>
       </section>

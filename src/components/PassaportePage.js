@@ -60,12 +60,18 @@ export default function PassaportePage({ user, onVoltar }) {
   const estadosDistintosCount = new Set(visitados.map((m) => m.estado)).size;
 
   return (
-    <div className="container my-5 px-3 px-md-4">
+    <div
+      className="container my-5 px-3 px-md-4"
+      style={{
+        zIndex: 2,
+        paddingTop: "90px",
+      }}
+    >
       {!loading && visitados.length > 0 && (
         <div className="mb-4">
-          <h5>Seu Nível Atual:</h5>
+          <h5>Seu Nível Atual</h5>
           {conquistas.length === 0 ? (
-            <div className="text-muted mb-2">Sem conquistas ainda</div>
+            <div className=" mb-2">Sem conquistas ainda</div>
           ) : (
             <ul>
               {conquistas.map((badge) => (
@@ -120,7 +126,7 @@ export default function PassaportePage({ user, onVoltar }) {
                         width: 64,
                         height: 64,
                         borderRadius: "50%",
-                        background: "#198754",
+                        background: "#2F539B",
                         color: "#fff",
                         fontWeight: 700,
                         fontSize: "1.5rem",

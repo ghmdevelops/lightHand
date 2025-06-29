@@ -41,7 +41,12 @@ export default function CuponsPage() {
     });
     setCupons((prev) => [
       ...prev,
-      { id: newRef.key, code: novoCodigo.trim(), criadoEm: Date.now(), status: "ativo" },
+      {
+        id: newRef.key,
+        code: novoCodigo.trim(),
+        criadoEm: Date.now(),
+        status: "ativo",
+      },
     ]);
     setNovoCodigo("");
   };
@@ -68,9 +73,18 @@ export default function CuponsPage() {
   }
 
   return (
-    <div className="container my-5 px-3 px-md-4">
+    <div
+      className="container my-5 px-3 px-md-4"
+      style={{
+        zIndex: 2,
+        paddingTop: "90px",
+      }}
+    >
       <h2 className="mb-4">Pagamentos &amp; Cupons</h2>
-      <form className="row g-2 align-items-center mb-4" onSubmit={handleAddCoupon}>
+      <form
+        className="row g-2 align-items-center mb-4"
+        onSubmit={handleAddCoupon}
+      >
         <div className="col-auto">
           <input
             className="form-control"
@@ -81,7 +95,7 @@ export default function CuponsPage() {
           />
         </div>
         <div className="col-auto">
-          <button className="btn btn-success" type="submit">
+          <button className="btn btn-primary" type="submit">
             Adicionar Cupom
           </button>
         </div>
@@ -121,8 +135,9 @@ export default function CuponsPage() {
           ))}
         </ul>
       )}
-      <p className="text-muted">
-        Aqui você pode cadastrar seus cupons de desconto e gerenciar o status deles (ativo/usado).
+      <p>
+        Aqui você pode cadastrar seus cupons de desconto e gerenciar o status
+        deles (ativo/usado).
       </p>
     </div>
   );

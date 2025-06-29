@@ -34,10 +34,9 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
       />
 
       <style>{`
-        /* ------------- GLASS CARD ------------- */
         .glass-card {
           background: ${getGlassBg(dark)};
-          box-shadow: 0 10px 36px 0 #3bf78742, 0 2px 16px 0 #2be5ab66;
+          box-shadow: 0 10px 36px 0 #728FCE, 0 2px 16px 0 rgba(43, 229, 217, 0.4);
           border-radius: 2.2rem;
           border: 1.5px solid rgba(255,255,255,0.19);
           backdrop-filter: blur(18px);
@@ -45,11 +44,10 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           position: relative;
         }
         .glass-card:hover {
-          box-shadow: 0 12px 54px 0 #3bf78785, 0 2.5px 22px 0 #47ffc790;
+          box-shadow: 0 12px 54px 0 #728FCE, 0 2.5px 22px 0 rgba(71, 255, 255, 0.56);
           transform: scale(1.028);
         }
 
-        /* Ícones animados no card */
         .cart-icon-animate {
           animation: bounceIn 1.2s cubic-bezier(.43,1.43,.58,1.06);
           display: inline-block;
@@ -57,7 +55,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           cursor: pointer;
         }
         .cart-icon-animate:hover {
-          filter: brightness(1.19) drop-shadow(0 0 25px #3bf787cc);
+          filter: brightness(1.19) drop-shadow(0 0 25px #728FCE);
           transform: scale(1.15) rotate(-4deg);
         }
         @keyframes bounceIn {
@@ -67,20 +65,19 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           100% { transform: scale(1) translateY(0); opacity: 1;}
         }
 
-        /* Botões neon */
         .neon-btn {
-          box-shadow: 0 0 8px #3bf78777, 0 0 0 #3bf78700;
+          box-shadow: 0 0 8px #728FCE, 0 0 0 rgba(59, 225, 247, 0);
           transition: box-shadow 0.18s, background 0.18s, color 0.17s;
-          border-radius: 100px !important;
+          border-radius: 10px !important;
           font-weight: 600;
           font-size: 1.17rem;
           letter-spacing: 1.5px;
         }
         .neon-btn:hover, .neon-btn:focus {
-          box-shadow: 0 0 22px #3bf787dd, 0 0 60px #5ff7e588;
-          background: #3bf787 !important;
-          color: #222 !important;
-          border-color: #3bf787 !important;
+          box-shadow: 0 0 22px #2F539B, 0 0 60px rgba(95, 247, 229, 0.77);
+          background: #2F539B !important;
+          color: #fff !important;
+          border-color: #2F539B !important;
         }
 
         /* Linha “glass” */
@@ -91,7 +88,6 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           margin: 2rem 0 1.5rem 0;
         }
 
-        /* Imagens decorativas no fundo do card hero */
         .bg-card-imgs {
           pointer-events: none;
           position: absolute;
@@ -114,7 +110,6 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           transform: rotate(15deg) scale(1.1);
         }
 
-        /* Scroll Indicator (seta para baixo) */
         .scroll-indicator {
           position: absolute;
           bottom: 16px;
@@ -130,7 +125,6 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           100%     { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
 
-        /* ------------- SEÇÕES ABAIXO DO HERO ------------- */
         .feature-card {
           border: none;
           border-radius: 1rem;
@@ -145,7 +139,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         }
         .feature-icon {
           font-size: 2.2rem;
-          color: #3bf787;
+          color: #1E90FF;
           margin-bottom: 12px;
         }
 
@@ -157,7 +151,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         }
         .step-icon {
           font-size: 2.5rem;
-          color: #3bf787;
+          color: #1E90FF;
           background: ${getGlassBg(dark)};
           border-radius: 50%;
           display: inline-flex;
@@ -193,13 +187,13 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           border-radius: 50%;
           object-fit: cover;
           margin-bottom: 12px;
-          border: 2px solid #3bf787;
+          border: 2px solid #1E90FF;
         }
         .testimonial-navigation {
           margin-top: 1rem;
         }
         .testimonial-navigation button {
-          background: #3bf78766;
+          background: #728FCE;
           border: none;
           width: 12px;
           height: 12px;
@@ -208,7 +202,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           transition: background 0.3s;
         }
         .testimonial-navigation button.active {
-          background: #3bf787dd;
+          background: #1E90FF;
         }
       `}</style>
 
@@ -250,16 +244,16 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             <div
               style={{
                 fontSize: "160px",
-                color: "#198754",
+                color: "#1E90FF",
                 display: "inline-block",
-                filter: "drop-shadow(0 0 8px #19875455)",
+                filter: "drop-shadow(0 0 8px #1E90FF)",
               }}
             >
               <FaShoppingCart />
             </div>
 
             <h1 className="fw-bold mb-2" style={{ letterSpacing: 2 }}>
-              Bem-vindo ao <span className="text-success">LightHand</span>
+              Bem-vindo ao <span className="text-primary">LightHand</span>
             </h1>
             <p className="lead mb-4" style={{ fontWeight: 500 }}>
               Encontre mercados próximos de você em segundos.
@@ -271,13 +265,13 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             </p>
             <div className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-2">
               <button
-                className="btn neon-btn btn-success btn-lg px-4"
+                className="btn neon-btn btn-outline-primary btn-lg px-4"
                 onClick={onRegister}
               >
                 Registrar
               </button>
               <button
-                className="btn neon-btn btn-outline-success btn-lg px-4"
+                className="btn neon-btn btn-outline-primary btn-lg px-4"
                 onClick={onLogin}
               >
                 Login
@@ -287,12 +281,9 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
 
           <hr className="glass-hr" />
 
-          <small
-            className="text-muted"
-            style={{ zIndex: 10, position: "relative" }}
-          >
+          <small style={{ zIndex: 10, position: "relative" }}>
             Simples. Rápido.{" "}
-            <span style={{ color: "#3bf787", fontWeight: 600 }}>
+            <span style={{ color: "#1E90FF", fontWeight: 600 }}>
               Feito para você!
             </span>
             <br />
@@ -353,7 +344,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         <h2 className="text-center mb-4 fw-semibold">Como funciona?</h2>
         <div className="row g-4">
           <div className="col-12 col-md-4">
-            <div className="step-card">
+            <div className="feature-card text-center p-4 h-100">
               <div className="step-icon mb-3">
                 <i className="fa-solid fa-map-location-dot"></i>
               </div>
@@ -364,7 +355,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             </div>
           </div>
           <div className="col-12 col-md-4">
-            <div className="step-card">
+            <div className="feature-card text-center p-4 h-100">
               <div className="step-icon mb-3">
                 <i className="fa-solid fa-magnifying-glass"></i>
               </div>
@@ -376,7 +367,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             </div>
           </div>
           <div className="col-12 col-md-4">
-            <div className="step-card">
+            <div className="feature-card text-center p-4 h-100">
               <div className="step-icon mb-3">
                 <i className="fa-solid fa-cart-shopping"></i>
               </div>

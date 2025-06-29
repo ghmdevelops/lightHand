@@ -1,4 +1,3 @@
-// src/components/BuscarMercadosOSM.js
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // ← importa useNavigate
 import OfertasMercado from "./OfertasMercado";
@@ -25,6 +24,8 @@ export default function BuscarMercadosOSM({ user }) {
   const [favoritos, setFavoritos] = useState(new Set());
   const [mostrarOfertasUsuarios, setMostrarOfertasUsuarios] = useState(false);
   const navigate = useNavigate();
+  const [cep, setCep] = useState("");
+  const [erroCep, setErroCep] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -166,6 +167,37 @@ export default function BuscarMercadosOSM({ user }) {
     setMercadoSelecionado(market);
   };
 
+  const buscarCoordsPorCEP = async (cep) => {
+    try {
+      setErroCep("");
+
+      const respCep = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      if (!respCep.ok) throw new Error("CEP inválido");
+      const dataCep = await respCep.json();
+      if (dataCep.erro) throw new Error("CEP não encontrado");
+
+      const endereco = `${dataCep.logradouro}, ${dataCep.localidade}, ${dataCep.uf}, Brasil`;
+
+      const respCoords = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          endereco
+        )}&format=json&limit=1&addressdetails=1&accept-language=pt`
+      );
+      if (!respCoords.ok) throw new Error("Erro ao buscar coordenadas");
+      const dataCoords = await respCoords.json();
+      if (dataCoords.length === 0)
+        throw new Error("Coordenadas não encontradas");
+
+      return {
+        lat: parseFloat(dataCoords[0].lat),
+        lon: parseFloat(dataCoords[0].lon),
+      };
+    } catch (error) {
+      setErroCep(error.message || "Erro ao buscar CEP");
+      return null;
+    }
+  };
+
   if (mercadoSelecionado) {
     return (
       <OfertasMercado
@@ -190,23 +222,111 @@ export default function BuscarMercadosOSM({ user }) {
             borderRadius: 30,
             fontWeight: 600,
             letterSpacing: 1,
-            background: "transparent",
-            border: "2px solid #198754",
-            color: "#198754",
+            backgroundColor: "#2F539B",
+            border: "2px solid #2F539B",
+            color: "#fff",
             transition: "all 0.3s",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#198754";
+            e.currentTarget.style.background = "#36454F";
             e.currentTarget.style.color = "#fff";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#198754";
           }}
         >
           <i className="fa-solid fa-seedling me-2"></i> Marketplace Local
           orgânicos
         </button>
+      </div>
+
+      <div className="mb-4 text-center">
+        <input
+          type="text"
+          value={cep}
+          onChange={(e) => setCep(e.target.value)}
+          placeholder="Digite o CEP (somente números)"
+          maxLength={9}
+          style={{
+            padding: "0.5rem 1rem",
+            fontSize: "1rem",
+            borderRadius: 30,
+            border: "1px solid #198754",
+            width: "200px",
+            textAlign: "center",
+            marginRight: "0.5rem",
+          }}
+        />
+        <button
+          className="btn btn-primary"
+          onClick={async () => {
+            const cepLimpo = cep.replace(/\D/g, "");
+            if (cepLimpo.length !== 8) {
+              setErroCep("Digite um CEP válido com 8 números.");
+              return;
+            }
+            setErro("");
+            setBuscando(true);
+            setMercados([]);
+            setLocalInfo({ rua: "", estado: "", pais: "" });
+
+            const coords = await buscarCoordsPorCEP(cepLimpo);
+            if (!coords) {
+              setBuscando(false);
+              return;
+            }
+            setPos(coords);
+
+            const { lat, lon } = coords;
+
+            const enderecoData = await getEnderecoFromCoords(lat, lon);
+            setLocalInfo(enderecoData);
+
+            const delta = 0.03; // ~3km
+            const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["shop"~"supermarket|convenience|grocery"](${
+              lat - delta
+            },${lon - delta},${lat + delta},${lon + delta});out;`;
+
+            fetch(url)
+              .then((res) => res.json())
+              .then(async (data) => {
+                const primeiros = data.elements.slice(0, 5);
+                const listaMercados = await Promise.all(
+                  primeiros.map(async (m) => {
+                    const endereco = await getEnderecoFromCoords(m.lat, m.lon);
+                    return {
+                      id: m.id,
+                      nome: m.tags.name || "Mercado",
+                      tipo: m.tags.shop,
+                      brand: m.tags.brand || "",
+                      lat: m.lat,
+                      lon: m.lon,
+                      ...endereco,
+                    };
+                  })
+                );
+                setMercados(listaMercados);
+                setBuscando(false);
+              })
+              .catch(() => {
+                setErro("Não foi possível buscar mercados.");
+                setBuscando(false);
+              });
+          }}
+          style={{
+            borderRadius: 30,
+            padding: "0.5rem 1.5rem",
+            fontWeight: 600,
+            fontSize: "1rem",
+          }}
+        >
+          Buscar por CEP
+        </button>
+        {erroCep && (
+          <div
+            className="text-danger mt-2"
+            style={{ fontWeight: "600", fontSize: "0.9rem" }}
+          >
+            {erroCep}
+          </div>
+        )}
       </div>
 
       <div className="text-center mb-5">
@@ -218,9 +338,9 @@ export default function BuscarMercadosOSM({ user }) {
             borderRadius: 40,
             fontWeight: 700,
             fontSize: "1.15rem",
-            background: "linear-gradient(135deg, #1abc9c 0%, #198754 100%)",
+            background: "linear-gradient(135deg, #4863A0 0%, #4863A0 100%)",
             border: "none",
-            boxShadow: "0 8px 30px rgba(26, 188, 156, 0.3)",
+            boxShadow: "0 8px 30px rgba(26, 153, 188, 0.3)",
           }}
         >
           <FontAwesomeIcon icon={faStore} style={{ fontSize: "1.2rem" }} />
@@ -234,9 +354,9 @@ export default function BuscarMercadosOSM({ user }) {
             borderRadius: 30,
             fontWeight: 600,
             letterSpacing: 1.2,
-            background: "linear-gradient(135deg, #198754dd 0%, #1abc9cbb 100%)",
+            background: "linear-gradient(135deg, #4863A0 0%, #4863A0 100%)",
             border: "none",
-            boxShadow: "0 6px 20px rgba(25, 135, 84, 0.3)",
+            boxShadow: "0 8px 30px rgba(26, 153, 188, 0.3)",
           }}
         >
           <FontAwesomeIcon icon={faStore} style={{ marginRight: 8 }} />

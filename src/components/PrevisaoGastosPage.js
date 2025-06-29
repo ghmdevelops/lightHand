@@ -56,7 +56,7 @@ export default function PrevisaoGastosPage() {
       className="container my-5 px-3 px-md-4"
       style={{
         zIndex: 2,
-        paddingTop: "40px",
+        paddingTop: "60px",
       }}
     >
       <h2 className="mb-4">Previsão de Gastos Mensal</h2>

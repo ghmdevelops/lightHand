@@ -19,38 +19,47 @@ export default function Login({ onAuth, showRegister, dark }) {
     }
   };
 
+  const backgroundImage = dark
+    ? "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1470&q=80"
+    : "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1470&q=80";
+
   return (
     <div
       className={`d-flex justify-content-center align-items-center vh-100 ${
-        dark ? "bg-dark text-light" : "bg-light text-dark"
+        dark ? "text-light" : "text-dark"
       }`}
       style={{
-        background: dark
-          ? "linear-gradient(135deg,rgb(56, 56, 56) 60%, #1a1a1a 100%)"
-          : "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
         position: "relative",
         overflow: "hidden",
         zIndex: 2,
         paddingTop: "90px",
+
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+
+        backgroundBlendMode: "overlay",
+        backgroundColor: dark ? "rgba(0,0,0,0.65)" : "rgba(255,255,255,0.3)",
       }}
     >
       <style>{`
         .glass-login-card {
-  background: ${dark ? "#ffffff" : "rgba(255, 255, 255, 0.19)"};
-  border: 1.5px solid ${
-    dark ? "rgba(255,255,255,0.08)" : "rgba(25, 135, 84, 0.19)"
-  };
-  color: ${dark ? "#eee" : "#222"};
-}
+    background: ${dark ? "#ffffff" : "rgb(255, 251, 251)"};
+    border: 1.5px solid ${
+      dark ? "rgba(255,255,255,0.08)" : "rgba(25, 135, 84, 0.19)"
+    };
+    color: ${dark ? "#eee" : "#222"};
+  }
         .glass-login-card:hover {
-          box-shadow: 0 12px 54px 0 #3bf78785, 0 2.5px 22px 0 #47ffc790;
+          box-shadow: 0 12px 54px 0 #728FCE, 0 2.5px 22px 0 #728FCE;
           transform: scale(1.02);
         }
 
         /* Inputs com contorno verde no foco */
         .form-control:focus {
-          border-color: #198754 !important;
-          box-shadow: 0 0 8px rgba(25, 135, 84, 0.4) !important;
+          border-color: #728FCE !important;
+          box-shadow: 0 0 8px rgba(11, 130, 162, 0.59) !important;
         }
         .form-control {
           background: rgba(255, 255, 255, 0.15);
@@ -65,9 +74,8 @@ export default function Login({ onAuth, showRegister, dark }) {
           background: rgba(255,255,255,0.1);
         }
 
-        /* Botão “Entrar” no estilo neon verde */
         .btn-neon {
-          background: #198754;
+          background: #4863A0;
           color: #fff;
           border-radius: 50px !important;
           font-weight: 600;
@@ -77,11 +85,10 @@ export default function Login({ onAuth, showRegister, dark }) {
         }
         .btn-neon:hover, .btn-neon:focus {
           background: #fff !important;
-          color: #198754 !important;
-          box-shadow: 0 0 12px #3bf787dd, 0 0 40px #47ffc790;
+          color: #2F539B !important;
+          box-shadow: 0 0 12px #728FCE, 0 0 40px #728FCE;
         }
 
-        /* Botão “ver senha” */
         .eye-toggle {
           position: absolute;
           top: 50%;
@@ -94,12 +101,12 @@ export default function Login({ onAuth, showRegister, dark }) {
           cursor: pointer;
         }
         .eye-toggle:hover {
-          color: #198754;
+          color: #728FCE;
         }
 
         /* Ícone de cadeado no topo do card */
         .lock-icon-wrapper {
-          background: rgba(25, 135, 84, 0.15);
+          background: rgba(30, 140, 224, 0.15);
           border-radius: 50%;
           width: 72px;
           height: 72px;
@@ -123,19 +130,18 @@ export default function Login({ onAuth, showRegister, dark }) {
           to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Texto “Ainda não tem conta?” */
         .text-register {
           color: #555;
           font-size: 0.95rem;
         }
         .text-register a {
-          color: #198754;
+          color: #4863A0;
           font-weight: 600;
           text-decoration: none;
           transition: color 0.2s;
         }
         .text-register a:hover {
-          color: #3bf787;
+          color: #728FCE;
         }
       `}</style>
 
@@ -147,7 +153,7 @@ export default function Login({ onAuth, showRegister, dark }) {
           <div className="lock-icon-wrapper">
             <i
               className="fa-solid fa-lock"
-              style={{ fontSize: "2rem", color: "#198754" }}
+              style={{ fontSize: "2rem", color: "#728FCE" }}
             ></i>
           </div>
           <h3
@@ -162,7 +168,6 @@ export default function Login({ onAuth, showRegister, dark }) {
         </div>
 
         <form onSubmit={handleLogin}>
-          {/* E-mail */}
           <div className="form-floating mb-3 position-relative">
             <input
               type="email"
@@ -178,7 +183,6 @@ export default function Login({ onAuth, showRegister, dark }) {
             </label>
           </div>
 
-          {/* Senha + “ver senha” */}
           <div className="form-floating mb-4 position-relative">
             <input
               type={showSenha ? "text" : "password"}
@@ -204,12 +208,10 @@ export default function Login({ onAuth, showRegister, dark }) {
             </button>
           </div>
 
-          {/* Botão “Entrar” */}
           <button type="submit" className="btn btn-neon w-100 py-2 mb-3">
             Entrar
           </button>
 
-          {/* Mensagem de erro */}
           {erro && (
             <div className="alert alert-danger text-center error-msg py-1 mb-3">
               {erro}

@@ -66,17 +66,26 @@ export default function Register({ onAuth, showLogin, dark = false }) {
     return "bg-success";
   };
 
+  const backgroundImage = dark
+    ? "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1470&q=80"
+    : "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1470&q=80";
+
   return (
     <div
       className="container-fluid min-vh-100 d-flex align-items-center justify-content-center"
       style={{
-        background: dark
-          ? "linear-gradient(135deg,rgb(56, 56, 56) 60%, #1a1a1a 100%)"
-          : "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
         position: "relative",
         overflow: "hidden",
         zIndex: 2,
-        paddingTop: "120px",
+        paddingTop: "90px",
+
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+
+        backgroundBlendMode: "overlay",
+        backgroundColor: dark ? "rgba(0,0,0,0.65)" : "rgba(255,255,255,0.3)",
       }}
     >
       <div className="row w-100 justify-content-center">
@@ -95,7 +104,7 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                   p-4 p-md-3
                 "
                 style={{
-                  background: "#198754",
+                  background: "#29465B",
                   minHeight: "200px",
                   transition: "background 0.3s",
                 }}
@@ -211,7 +220,7 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                   </div>
                   <button
                     type="submit"
-                    className="btn btn-success w-100 py-2 mb-3"
+                    className="btn btn-primary w-100 py-2 mb-3"
                     style={{ fontWeight: 500 }}
                   >
                     Registrar
@@ -225,7 +234,7 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                     <span className="text-muted">Já tem conta? </span>
                     <button
                       type="button"
-                      className="btn btn-link p-0 text-success fw-semibold"
+                      className="btn btn-link p-0 text-primary fw-semibold"
                       onClick={showLogin}
                     >
                       Login

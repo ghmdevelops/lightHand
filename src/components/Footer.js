@@ -26,13 +26,13 @@ export default function Footer({ dark }) {
               fontWeight: 600,
               fontSize: 18,
               letterSpacing: 1,
-              color: "#198754",
+              color: "#1E90FF",
             }}
           >
             <i
               className="bi bi-cart4"
-              style={{ fontSize: 21, verticalAlign: "sub" }}
-            />{" "}
+              style={{ fontSize: 40, verticalAlign: "sub" }}
+            />
             LIGHTHAND
           </span>
           <span className="mx-2" style={{ opacity: 0.22 }}>
@@ -41,11 +41,10 @@ export default function Footer({ dark }) {
           <span style={{ fontSize: 15, fontWeight: 400 }}>
             Conectando pessoas e mercados com leveza e tecnologia.
           </span>
-          {/* Botão Saiba Mais */}
           <div className="mt-2">
             <Link
               to="/sobre"
-              className="btn btn-outline-success btn-sm"
+              className="btn btn-outline-primary btn-sm"
               title="Saiba Mais"
             >
               Saiba Mais
@@ -57,7 +56,7 @@ export default function Footer({ dark }) {
           <a
             href="mailto:contato@lighthand.app"
             className={`text-decoration-none ${
-              dark ? "text-success" : "text-success"
+              dark ? "text-light" : "text-success"
             }`}
             title="Contato"
             style={{ fontSize: 17 }}
@@ -92,7 +91,7 @@ export default function Footer({ dark }) {
 
         <div
           className="text-md-end text-center"
-          style={{ fontSize: 14, opacity: 0.82 }}
+          style={{ fontSize: 14, opacity: 0.90 }}
         >
           &copy; {new Date().getFullYear()} LIGHTHAND.
           <br className="d-md-none" />

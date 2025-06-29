@@ -2,7 +2,13 @@ import React from "react";
 
 export default function SobrePage() {
   return (
-    <div className="container my-5 px-3 px-md-4">
+    <div
+      className="container my-5 px-3 px-md-4"
+      style={{
+        zIndex: 2,
+        paddingTop: "70px",
+      }}
+    >
       <div
         className="text-center text-white rounded-4 py-5 mb-5"
         style={{
@@ -41,7 +47,7 @@ export default function SobrePage() {
             boxShadow: "0 4px 16px rgba(25,135,84,0.1)",
           }}
         >
-          <p style={{ lineHeight: 1.6, fontSize: "1rem" }}>
+          <p style={{ lineHeight: 1.6, fontSize: "1rem", color: "#000" }}>
             LightHand é um aplicativo de varejo que traz todas as grandes redes
             de mercado para a palma da sua mão. Aqui você confere promoções em
             tempo real, compara preços em diferentes lojas e monta seu carrinho
@@ -66,12 +72,12 @@ export default function SobrePage() {
         <div className="row gx-4 align-items-center" style={{ gap: "1rem" }}>
           <div className="col-12 col-md-6">
             <p style={{ lineHeight: 1.6, fontSize: "1rem" }}>
-              A ideia surgiu de amigos apaixonados por tecnologia, que
-              queriam facilitar a rotina de quem faz compras no mercado. Cada um
-              trouxe suas habilidades design, desenvolvimento, marketing e
-              logística para criar uma plataforma simples e intuitiva. Desde o
-              primeiro protótipo, percebemos que nosso foco seria a experiência
-              do usuário: nada de telas complicadas ou centenas de cliques para
+              A ideia surgiu de amigos apaixonados por tecnologia, que queriam
+              facilitar a rotina de quem faz compras no mercado. Cada um trouxe
+              suas habilidades design, desenvolvimento, marketing e logística
+              para criar uma plataforma simples e intuitiva. Desde o primeiro
+              protótipo, percebemos que nosso foco seria a experiência do
+              usuário: nada de telas complicadas ou centenas de cliques para
               encontrar uma promoção. Assim nasceu o LightHand, com o objetivo
               de tornar a compra no mercado mais leve, rápida e divertida.
             </p>
