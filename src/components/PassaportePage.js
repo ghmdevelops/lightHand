@@ -1,4 +1,3 @@
-// src/components/PassaportePage.js
 import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { ref, get, update } from "firebase/database";
@@ -16,25 +15,20 @@ export default function PassaportePage({ user, onVoltar }) {
       return;
     }
 
-    // 1) Busca "visitados" do usuário
     const visitRef = ref(db, `usuarios/${user.uid}/visitados`);
     get(visitRef)
       .then((snap) => {
         const data = snap.val() || {};
-        // Converte em array e ordena por timestamp decrescente
         const arr = Object.entries(data)
           .map(([id, info]) => ({ id, ...info }))
           .sort((a, b) => b.timestamp - a.timestamp);
         setVisitados(arr);
-
-        // 2) Calcula progresso / conquistas
         const novasConqs = [];
 
-        // Conquista "Explorer": >= 5 visitas totais
         if (arr.length >= 5) {
           novasConqs.push("Explorer");
         }
-        // Conquista "TuristaUrbano": >= 3 estados distintos
+
         const estadosDiferentes = new Set(arr.map((m) => m.estado));
         if (estadosDiferentes.size >= 3) {
           novasConqs.push("TuristaUrbano");
@@ -42,13 +36,11 @@ export default function PassaportePage({ user, onVoltar }) {
 
         setConquistas(novasConqs);
 
-        // 3) Salva no Realtime DB apenas as novas conquistas como true
         if (novasConqs.length > 0) {
           const updates = {};
           novasConqs.forEach((badge) => {
             updates[`usuarios/${user.uid}/conquistas/${badge}`] = true;
           });
-          // Marca apenas as conquistas atuais (não faz remoção de badges antigas aqui)
           update(ref(db), updates).catch((err) => {
             console.error("Erro ao salvar conquistas:", err);
           });
@@ -88,7 +80,6 @@ export default function PassaportePage({ user, onVoltar }) {
               ))}
             </ul>
           )}
-          {/* Progresso para próxima conquista */}
           {conquistas.indexOf("Explorer") === -1 && (
             <div style={{ fontSize: "0.95rem" }}>
               Você já visitou <strong>{totalVisitas}</strong> de 5 mercados para
@@ -115,17 +106,14 @@ export default function PassaportePage({ user, onVoltar }) {
         </div>
       ) : (
         <>
-          {/* 2) Grid de cartões para cada mercado visitado */}
           <div className="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 mb-4">
             {visitados.map((m) => (
               <div key={m.id} className="col">
                 <div className="card text-center h-100 border-0 shadow-sm passaporte-card">
-                  {/* 2.1) Carimbo fixo no canto */}
                   <div className="passaporte-stamp">
                     <i className="fa-solid fa-stamp"></i>
                   </div>
                   <div className="card-body d-flex flex-column justify-content-center">
-                    {/* 2.2) Círculo verde com iniciais */}
                     <div
                       className="mx-auto mb-3 d-flex justify-content-center align-items-center"
                       style={{
@@ -162,7 +150,6 @@ export default function PassaportePage({ user, onVoltar }) {
             ))}
           </div>
 
-          {/* 3) Lista de conquistas detalhada */}
           {conquistas.length > 0 && (
             <div className="mb-4">
               <h5>Conquistas Alcançadas</h5>
@@ -183,7 +170,6 @@ export default function PassaportePage({ user, onVoltar }) {
         </>
       )}
 
-      {/* 4) Botão “Voltar” para retornar à tela anterior */}
       <div className="text-center mt-5">
         <button
           className="btn btn-outline-secondary"

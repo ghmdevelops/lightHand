@@ -1,5 +1,6 @@
 import React from "react";
 import Footer from "./Footer";
+import logo from "./img/check_list.png";
 
 const BACKGROUND_IMG =
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1500&q=80";
@@ -20,7 +21,6 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         overflowX: "hidden",
       }}
     >
-      {/* Overlay para escurecer e dar contraste no fundo */}
       <div
         style={{
           position: "absolute",
@@ -212,10 +212,12 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         }
       `}</style>
 
-      {/* ================= HERO CENTRAL ================= */}
       <div
         className="container flex-grow-1 d-flex align-items-center justify-content-center position-relative"
-        style={{ zIndex: 2 }}
+        style={{
+          zIndex: 2,
+          paddingTop: "40px",
+        }}
       >
         <div
           className="glass-card p-5 px-4 px-md-5 mx-auto text-center position-relative"
@@ -228,7 +230,6 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             zIndex: 3,
           }}
         >
-          {/* Imagens decorativas extras (carrinho e vegetal) */}
           <div className="bg-card-imgs">
             <img
               src="https://cdn-icons-png.flaticon.com/512/3176/3176290.png"
@@ -242,20 +243,12 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             />
           </div>
 
-          {/* Ícone do carrinho animado */}
           <div className="mb-3 position-relative" style={{ zIndex: 10 }}>
-            <i
-              className="bi bi-cart4 cart-icon-animate"
-              style={{
-                fontSize: "7.7rem",
-                color: "#198754",
-                filter: "drop-shadow(0 0 25px #3bf78777)",
-                marginBottom: 16,
-                cursor: "pointer",
-              }}
-              aria-label="Mercado"
-              title="Encontre mercados!"
-            ></i>
+            <img
+              src={logo}
+              alt="Logo"
+              style={{ width: "160px", height: "160px", objectFit: "contain" }}
+            />
             <h1 className="fw-bold mb-2" style={{ letterSpacing: 2 }}>
               Bem-vindo ao <span className="text-success">LightHand</span>
             </h1>
@@ -297,15 +290,12 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             <span className="fw-semibold">LightHand</span> &copy;{" "}
             {new Date().getFullYear()}
           </small>
-
-          {/* Indicador para “role para baixo” */}
           <div className="scroll-indicator">
             <i className="bi bi-chevron-double-down"></i>
           </div>
         </div>
       </div>
 
-      {/* =================== SEÇÃO “POR QUE LIGHTHAND?” =================== */}
       <section className="container py-5" style={{ zIndex: 2 }}>
         <h2 className="text-center mb-4 fw-semibold">Por que LightHand?</h2>
         <div className="row g-4">
@@ -350,7 +340,6 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
 
       <hr className="glass-hr mx-4" />
 
-      {/* =================== SEÇÃO “COMO FUNCIONA” =================== */}
       <section className="container py-5" style={{ zIndex: 2 }}>
         <h2 className="text-center mb-4 fw-semibold">Como funciona?</h2>
         <div className="row g-4">
@@ -394,13 +383,11 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
 
       <hr className="glass-hr mx-4" />
 
-      {/* =================== SEÇÃO “DEPOIMENTOS” =================== */}
       <section className="container py-5 mb-5" style={{ zIndex: 2 }}>
         <h2 className="text-center mb-4 fw-semibold">
           O que dizem nossos usuários
         </h2>
 
-        {/* Slider muito simples (troca manual) */}
         <div className="testimonial-slide active" id="t1">
           <div className="testimonial-card mx-auto">
             <img

@@ -1,4 +1,3 @@
-// src/components/CestaMensalPage.js
 import React from "react";
 
 export default function CestaMensalPage({ onVoltar }) {

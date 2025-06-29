@@ -1,4 +1,3 @@
-// src/components/FavoritosPage.js
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { ref, onValue, remove } from "firebase/database";
@@ -9,17 +8,12 @@ export default function FavoritosPage({ user, onVoltar }) {
 
   useEffect(() => {
     if (!user) return;
-
-    // Referência aos favoritos do usuário atual
     const favRef = ref(db, `usuarios/${user.uid}/favoritos`);
 
-    // Listener em tempo real para favoritos
     const off = onValue(
       favRef,
       (snapshot) => {
         const data = snapshot.val() || {};
-        // Transformamos o objeto { [id]: { nome, tipo, rua, estado, pais }, ... }
-        // em um array [{ id, nome, tipo, rua, estado, pais }, ...]
         const lista = Object.entries(data).map(([id, obj]) => ({
           id,
           ...obj,
@@ -33,17 +27,13 @@ export default function FavoritosPage({ user, onVoltar }) {
         setLoading(false);
       }
     );
-
-    // Quando unmount, cancelar o listener
     return () => off();
   }, [user]);
 
-  // Remove um favorito do Firebase
   const handleRemove = async (marketId) => {
     if (!user) return;
     try {
       await remove(ref(db, `usuarios/${user.uid}/favoritos/${marketId}`));
-      // A própria chamada onValue fará o setFavoritos automaticamente
     } catch (err) {
       console.error("Erro ao remover favorito:", err);
     }

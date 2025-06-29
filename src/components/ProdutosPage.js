@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 import { ref, get, push, set } from "firebase/database";
 
-
 const CATEGORIAS = {
   Bebidas: "beverages",
   Padaria: "breads",
@@ -25,7 +24,6 @@ export default function ProdutosMercadoPage({ onVoltar }) {
   const [saveError, setSaveError] = useState("");
   const [sucesso, setSucesso] = useState("");
 
-  // Busca produtos ao mudar categoria
   useEffect(() => {
     async function buscar() {
       setErro("");
@@ -57,12 +55,10 @@ export default function ProdutosMercadoPage({ onVoltar }) {
     buscar();
   }, [categoria]);
 
-  // Adicionar e remover itens
   const adicionar = (p) => setCarrinho((c) => [...c, p]);
   const removerItem = (i) =>
     setCarrinho((c) => c.filter((_, idx) => idx !== i));
 
-  // Salvar carrinho (máx 3)
   const handleSaveCart = async () => {
     setSaveError("");
     setSucesso("");
@@ -88,7 +84,6 @@ export default function ProdutosMercadoPage({ onVoltar }) {
     setTimeout(() => setSucesso(""), 3000);
   };
 
-  // Cálculo do total
   const total = carrinho.reduce((sum, it) => sum + Number(it.price), 0);
 
   return (
@@ -98,7 +93,6 @@ export default function ProdutosMercadoPage({ onVoltar }) {
       </button>
       <h3 className="mb-4">Produtos de Mercado</h3>
 
-      {/* Categoria */}
       <div className="mb-4">
         <label className="form-label fw-bold me-2">Categoria:</label>
         <select
@@ -112,7 +106,6 @@ export default function ProdutosMercadoPage({ onVoltar }) {
         </select>
       </div>
 
-      {/* Lista de Produtos */}
       {loading ? (
         <div className="text-center my-4">
           <div
@@ -160,7 +153,6 @@ export default function ProdutosMercadoPage({ onVoltar }) {
         </div>
       )}
 
-      {/* Carrinho e Total */}
       <hr />
       <h5>
         Carrinho ({carrinho.length} {carrinho.length !== 1 ? "itens" : "item"})
@@ -187,7 +179,6 @@ export default function ProdutosMercadoPage({ onVoltar }) {
         </ul>
       )}
 
-      {/* Botão Salvar e Mensagens */}
       <button
         className="btn btn-primary"
         onClick={handleSaveCart}

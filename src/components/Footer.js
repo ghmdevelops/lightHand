@@ -20,7 +20,6 @@ export default function Footer({ dark }) {
       }}
     >
       <div className="container d-flex flex-column flex-md-row align-items-center justify-content-between">
-        {/* Esquerda */}
         <div className="mb-2 mb-md-0 text-md-start text-center">
           <span
             style={{
@@ -44,13 +43,16 @@ export default function Footer({ dark }) {
           </span>
           {/* Botão Saiba Mais */}
           <div className="mt-2">
-           <Link to="/sobre" className="btn btn-outline-success btn-sm" title="Saiba Mais">
-    Saiba Mais
-  </Link>
+            <Link
+              to="/sobre"
+              className="btn btn-outline-success btn-sm"
+              title="Saiba Mais"
+            >
+              Saiba Mais
+            </Link>
           </div>
         </div>
 
-        {/* Centro: ícones sociais */}
         <div className="d-flex align-items-center gap-3 mb-2 mb-md-0">
           <a
             href="mailto:contato@lighthand.app"

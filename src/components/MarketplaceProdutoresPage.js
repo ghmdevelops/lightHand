@@ -1,4 +1,3 @@
-// src/components/MarketplaceProdutoresPage.js
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
 import { ref, get, push, set, remove } from "firebase/database";
@@ -12,8 +11,21 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
     descricao: "",
     preco: "",
     imagemUrl: "",
+    celular: "",
+    cep: "",
+    localizacao: "",
   });
-  const [filtroTexto, setFiltroTexto] = useState(""); // filtro de pesquisa
+
+  const handlePrecoChange = (e) => {
+    const valor = e.target.value;
+    const valorFormatado = formatarPrecoInput(valor);
+    setMeuAnuncio((prev) => ({
+      ...prev,
+      preco: valorFormatado,
+    }));
+  };
+
+  const [filtroTexto, setFiltroTexto] = useState("");
   const [ordemPreco, setOrdemPreco] = useState("nenhum"); // "nenhum" | "asc" | "desc"
   const navigate = useNavigate();
 
@@ -37,14 +49,19 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
     e.preventDefault();
     if (!meuAnuncio.nomeProduto || !meuAnuncio.preco) return;
 
+    const precoNumero = precoFormatadoParaFloat(meuAnuncio.preco);
+
     const newRef = push(ref(db, "produtores"));
     await set(newRef, {
       usuarioId: user.uid,
       nomeUsuario: user.displayName || user.email,
       nomeProduto: meuAnuncio.nomeProduto,
       descricao: meuAnuncio.descricao,
-      preco: parseFloat(meuAnuncio.preco),
+      preco: precoNumero,
       imagemUrl: meuAnuncio.imagemUrl,
+      celular: meuAnuncio.celular,
+      cep: meuAnuncio.cep,
+      localizacao: meuAnuncio.localizacao,
       timestamp: Date.now(),
     });
 
@@ -55,8 +72,11 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
         nomeUsuario: user.displayName || user.email,
         nomeProduto: meuAnuncio.nomeProduto,
         descricao: meuAnuncio.descricao,
-        preco: parseFloat(meuAnuncio.preco),
+        preco: precoNumero,
         imagemUrl: meuAnuncio.imagemUrl,
+        celular: meuAnuncio.celular,
+        cep: meuAnuncio.cep,
+        localizacao: meuAnuncio.localizacao,
         timestamp: Date.now(),
       },
       ...prev,
@@ -76,13 +96,11 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
     setProdutores((prev) => prev.filter((x) => x.id !== id));
   };
 
-  // Retorna true se o anúncio for de menos de 7 dias
   const isNovo = (timestamp) => {
     const seteDias = 7 * 24 * 60 * 60 * 1000;
     return Date.now() - timestamp < seteDias;
   };
 
-  // Filtra e ordena conforme estado
   const filtrados = produtores
     .filter((a) =>
       a.nomeProduto.toLowerCase().includes(filtroTexto.toLowerCase())
@@ -90,8 +108,98 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
     .sort((a, b) => {
       if (ordemPreco === "asc") return a.preco - b.preco;
       if (ordemPreco === "desc") return b.preco - a.preco;
-      return b.timestamp - a.timestamp; // padrão: mais recente primeiro
+      return b.timestamp - a.timestamp;
     });
+
+  function formatarCelular(cel) {
+    if (!cel) return "—";
+    const c = cel.replace(/\D/g, "");
+    if (c.length === 11) {
+      return `(${c.slice(0, 2)}) ${c.slice(2, 7)}-${c.slice(7)}`;
+    } else if (c.length === 10) {
+      return `(${c.slice(0, 2)}) ${c.slice(2, 6)}-${c.slice(6)}`;
+    }
+    return cel;
+  }
+
+  function formatarCelularInput(valor) {
+    let numeros = valor.replace(/\D/g, "");
+
+    if (numeros.length > 11) numeros = numeros.slice(0, 11);
+
+    if (numeros.length <= 2) {
+      return `(${numeros}`;
+    } else if (numeros.length <= 6) {
+      return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+    } else if (numeros.length <= 10) {
+      return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}-${numeros.slice(
+        6
+      )}`;
+    } else {
+      return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(
+        7
+      )}`;
+    }
+  }
+
+  function formatarPrecoInput(valor) {
+    if (!valor) return "";
+    let numeros = valor.replace(/\D/g, "");
+
+    if (numeros.length > 15) numeros = numeros.slice(0, 15);
+    while (numeros.length < 3) numeros = "0" + numeros;
+
+    const parteInteira = numeros.slice(0, -2);
+    const parteDecimal = numeros.slice(-2);
+    const parteInteiraFormatada = parteInteira.replace(
+      /\B(?=(\d{3})+(?!\d))/g,
+      "."
+    );
+
+    return `R$ ${parteInteiraFormatada},${parteDecimal}`;
+  }
+
+  function precoFormatadoParaFloat(valor) {
+    if (!valor) return 0;
+    const numeros = valor.replace(/[^\d,]/g, "");
+    const numPonto = numeros.replace(",", ".");
+
+    return parseFloat(numPonto) || 0;
+  }
+
+  const buscarEnderecoPorCEP = async (cep) => {
+    try {
+      const cepLimpo = cep.replace(/\D/g, "");
+      if (cepLimpo.length !== 8) return;
+
+      const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await res.json();
+
+      if (!data.erro) {
+        const enderecoFormatado = `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
+        setMeuAnuncio((prev) => ({
+          ...prev,
+          localizacao: enderecoFormatado,
+        }));
+      } else {
+        setMeuAnuncio((prev) => ({
+          ...prev,
+          localizacao: "CEP não encontrado",
+        }));
+      }
+    } catch {
+      setMeuAnuncio((prev) => ({
+        ...prev,
+        localizacao: "Erro ao buscar endereço",
+      }));
+    }
+  };
+
+  function formatarCepInput(valor) {
+    const numeros = valor.replace(/\D/g, "").slice(0, 8);
+    if (numeros.length <= 5) return numeros;
+    return `${numeros.slice(0, 5)}-${numeros.slice(5)}`;
+  }
 
   return (
     <div className="container my-5 px-3 px-md-4">
@@ -104,7 +212,6 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
         Cestas orgânicas, alimentos artesanais, e muito mais.
       </p>
 
-      {/* Seção de cadastro para produtores */}
       <div className="card mb-5 shadow-sm" style={{ borderRadius: "8px" }}>
         <div className="card-body">
           <h5 className="card-title mb-3">Quero Anunciar um Produto</h5>
@@ -135,14 +242,11 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
             <div className="mb-3 row gx-2">
               <div className="col">
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
                   className="form-control"
                   placeholder="Preço (R$)"
                   value={meuAnuncio.preco}
-                  onChange={(e) =>
-                    setMeuAnuncio({ ...meuAnuncio, preco: e.target.value })
-                  }
+                  onChange={handlePrecoChange}
                   required
                 />
               </div>
@@ -158,6 +262,55 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
                 />
               </div>
             </div>
+
+            <div className="mb-3">
+              <input
+                type="tel"
+                className="form-control"
+                placeholder="Celular com DDD"
+                value={meuAnuncio.celular}
+                onChange={(e) =>
+                  setMeuAnuncio({
+                    ...meuAnuncio,
+                    celular: formatarCelularInput(e.target.value),
+                  })
+                }
+                maxLength={15}
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="CEP"
+                value={meuAnuncio.cep}
+                onChange={(e) =>
+                  setMeuAnuncio({
+                    ...meuAnuncio,
+                    cep: formatarCepInput(e.target.value),
+                  })
+                }
+                onBlur={() => buscarEnderecoPorCEP(meuAnuncio.cep)}
+                maxLength={9}
+                required
+              />
+            </div>
+
+            <div className="mb-3">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Localização"
+                value={meuAnuncio.localizacao}
+                onChange={(e) =>
+                  setMeuAnuncio({ ...meuAnuncio, localizacao: e.target.value })
+                }
+                readOnly
+              />
+            </div>
+
             <button className="btn btn-success" type="submit">
               Publicar Anúncio
             </button>
@@ -165,7 +318,6 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
         </div>
       </div>
 
-      {/* Filtro e ordenação */}
       <div className="row align-items-center mb-4">
         <div className="col-md-6 mb-2 mb-md-0">
           <input
@@ -202,7 +354,6 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
 
       <hr />
 
-      {/* Lista de anúncios de produtores */}
       {loading ? (
         <div>Carregando anúncios…</div>
       ) : filtrados.length === 0 ? (
@@ -242,11 +393,17 @@ export default function MarketplaceProdutoresPage({ user, onVoltar }) {
                     {a.descricao || "—"}
                   </p>
                   <p className="fw-bold mt-auto mb-2">
-                    R$ {a.preco.toFixed(2)}
+                    {a.preco.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
                   </p>
                   <p className="text-secondary" style={{ fontSize: "0.8rem" }}>
                     Por: {a.nomeUsuario}
                     <br />
+                    <small>Contato: {formatarCelular(a.celular)}</small> <br />
+                    <small>Cep: {a.cep || "—"}</small> <br />
+                    <small>Local: {a.localizacao || "—"}</small> <br />
                     <small>{new Date(a.timestamp).toLocaleDateString()}</small>
                   </p>
                   {a.usuarioId === user.uid && (

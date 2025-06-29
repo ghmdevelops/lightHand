@@ -3,7 +3,7 @@ import { auth, db } from "../firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { ref, set } from "firebase/database";
 
-export default function Register({ onAuth, showLogin }) {
+export default function Register({ onAuth, showLogin, dark = false }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
@@ -13,7 +13,6 @@ export default function Register({ onAuth, showLogin }) {
   const [erro, setErro] = useState("");
   const [senhaForca, setSenhaForca] = useState({ label: "", score: 0 });
 
-  // Calcula força da senha
   const calcularForca = (pwd) => {
     let pontos = 0;
     if (pwd.length >= 8) pontos += 1;
@@ -61,7 +60,6 @@ export default function Register({ onAuth, showLogin }) {
     }
   };
 
-  // Determina a cor da barra de senha
   const getBarClass = () => {
     if (senhaForca.score <= 33) return "bg-danger";
     if (senhaForca.score <= 66) return "bg-warning";
@@ -71,13 +69,18 @@ export default function Register({ onAuth, showLogin }) {
   return (
     <div
       className="container-fluid min-vh-100 d-flex align-items-center justify-content-center"
-      style={{ background: "#f0f2f5" }}
+      style={{
+        background: dark
+          ? "linear-gradient(135deg,rgb(56, 56, 56) 60%, #1a1a1a 100%)"
+          : "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
+        position: "relative",
+        overflow: "hidden",
+      }}
     >
       <div className="row w-100 justify-content-center">
         <div className="col-11 col-sm-10 col-md-8 col-lg-6 col-xl-5">
           <div className="card shadow-lg rounded-4 overflow-hidden">
             <div className="row gx-0">
-              {/* Painel Verde com logo: escondido em mobile (xs/sm) */}
               <div
                 className="
                   d-none d-md-flex
@@ -106,7 +109,6 @@ export default function Register({ onAuth, showLogin }) {
                 <small className="opacity-75">Junte-se à LightHand</small>
               </div>
 
-              {/* Formulário */}
               <div
                 className="col-12 col-md-7 p-4 p-md-3 d-flex flex-column justify-content-center"
                 style={{ background: "#fff" }}

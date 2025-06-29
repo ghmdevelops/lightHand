@@ -129,7 +129,6 @@ export default function TrocasPage({ user, onVoltar }) {
         }
       `}</style>
 
-      {/* Botão de voltar */}
       <div className="w-100 mb-3">
         <button
           className="btn btn-outline-secondary"
@@ -141,11 +140,10 @@ export default function TrocasPage({ user, onVoltar }) {
       </div>
 
       <h2 className="mb-4">Clubinho de Trocas</h2>
-      <p className="text-muted mb-4 text-center">
+      <p className="mb-4 text-center">
         Ofereça produtos em excesso e troque com outros usuários.
       </p>
 
-      {/* Formulário em container “glass” */}
       <div className="glass-container p-4 mb-5 w-100" style={{ maxWidth: 600 }}>
         <form onSubmit={handlePublicar}>
           <div className="mb-3 position-relative">
@@ -171,7 +169,6 @@ export default function TrocasPage({ user, onVoltar }) {
 
       <hr style={{ width: "100%", maxWidth: 600, borderColor: "#e3e3e3" }} />
 
-      {/* Lista de anúncios */}
       {loading ? (
         <div className="mt-4">Carregando anúncios…</div>
       ) : anuncios.length === 0 ? (

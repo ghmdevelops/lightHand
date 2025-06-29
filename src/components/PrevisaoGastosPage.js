@@ -1,8 +1,14 @@
-// src/components/PrevisaoGastosPage.js
 import React, { useState, useEffect } from "react";
 import { db, auth } from "../firebase";
 import { ref, get } from "firebase/database";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export default function PrevisaoGastosPage() {
   const [historico, setHistorico] = useState([]);
@@ -15,11 +21,9 @@ export default function PrevisaoGastosPage() {
         setLoading(false);
         return;
       }
-      // Supondo que você salve cada carrinho em: `usuarios/{uid}/carts/{cartId}` com `criadoEm` e `items`
       const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
       const snap = await get(cartsRef);
       const dados = snap.val() || {};
-      // Convertendo em um array de { data: timestamp, total: número }
       const arr = Object.entries(dados).map(([id, cart]) => {
         const total = (cart.items || []).reduce(
           (soma, it) => soma + Number(it.price),
@@ -27,10 +31,8 @@ export default function PrevisaoGastosPage() {
         );
         return { criadoEm: cart.criadoEm, total };
       });
-      // Ordena por data crescente
       arr.sort((a, b) => a.criadoEm - b.criadoEm);
 
-      // Formata para a biblioteca Recharts: [{ name: "2023-05-01", total: 123.45 }, ...]
       const pontos = arr.map((c) => ({
         name: new Date(c.criadoEm).toLocaleDateString("pt-BR"),
         total: Number(c.total.toFixed(2)),
@@ -50,26 +52,43 @@ export default function PrevisaoGastosPage() {
   }
 
   return (
-    <div className="container my-5 px-3 px-md-4">
+    <div
+      className="container my-5 px-3 px-md-4"
+      style={{
+        zIndex: 2,
+        paddingTop: "40px",
+      }}
+    >
       <h2 className="mb-4">Previsão de Gastos Mensal</h2>
       {historico.length === 0 ? (
         <div className="alert alert-info">
-          Nenhum histórico de carrinho encontrado. Salve pelo menos um carrinho para ver gráfico.
+          Nenhum histórico de carrinho encontrado. Salve pelo menos um carrinho
+          para ver gráfico.
         </div>
       ) : (
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
-            <LineChart data={historico} margin={{ top: 20, right: 30, bottom: 20, left: 0 }}>
+            <LineChart
+              data={historico}
+              margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
+            >
               <XAxis dataKey="name" stroke="#555" />
               <YAxis stroke="#555" />
               <Tooltip formatter={(value) => `R$ ${value.toFixed(2)}`} />
-              <Line type="monotone" dataKey="total" stroke="#198754" strokeWidth={2} dot={{ r: 3 }} />
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke="#198754"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
-      <p className="mt-3 text-muted">
-        O gráfico acima mostra o total gasto em cada carrinho salvo. Use essa informação para planejar seu orçamento mensal.
+      <p className="mt-3">
+        O gráfico acima mostra o total gasto em cada carrinho salvo. Use essa
+        informação para planejar seu orçamento mensal.
       </p>
     </div>
   );

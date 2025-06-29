@@ -1,3 +1,6 @@
+import { BiUserPlus } from "react-icons/bi";
+import { FaUserAlt } from "react-icons/fa";
+import { FaUserCircle } from "react-icons/fa";
 // src/components/NavBar.js
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
@@ -7,6 +10,7 @@ import Container from "react-bootstrap/Container";
 import Dropdown from "react-bootstrap/Dropdown";
 import Button from "react-bootstrap/Button";
 import Badge from "react-bootstrap/Badge";
+import logo from "./img/check_list.png";
 
 export default function NavBar({
   user,
@@ -54,7 +58,11 @@ export default function NavBar({
               alignItems: "center",
             }}
           >
-            <i className="fa-solid fa-hand-holding-heart" />
+            <img
+              src={logo}
+              alt="Logo"
+              style={{ width: "60px", height: "60px", objectFit: "contain" }}
+            />
           </span>
           <span
             className="fw-bold d-none d-lg-inline"
@@ -64,15 +72,11 @@ export default function NavBar({
               letterSpacing: ".01em",
               opacity: 0.92,
             }}
-          >
-            LightHand
-          </span>
+          ></span>
         </Navbar.Brand>
 
-        {/* MOBILE (< lg): apenas ícones */}
         <div className="d-flex d-lg-none ms-auto align-items-center gap-2">
           {user && (
-            /* Carrinho só aparece quando logado */
             <Button
               size="sm"
               variant="outline-success"
@@ -90,7 +94,7 @@ export default function NavBar({
               className="d-flex justify-content-center align-items-center"
             >
               <i className="fa-solid fa-cart-shopping" />
-              {cartsCount > 0 && (
+              {Number(cartsCount) > 0 && (
                 <Badge
                   bg="danger"
                   pill
@@ -107,70 +111,90 @@ export default function NavBar({
             </Button>
           )}
 
-          {/* Tema (ícone somente) */}
           <Button
             size="sm"
-            variant="link"
+            variant={dark ? "outline-light" : "outline-success"}
             onClick={() => setDark((d) => !d)}
             style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
               padding: 0,
-              border: "none",
-              background: "transparent",
-              width: "36px",
-              height: "36px",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
+              background: dark ? "#232b26aa" : "#ffffffcc",
+              boxShadow: dark
+                ? "0 0 6px rgba(255,255,255,0.1)"
+                : "0 0 6px rgba(0,0,0,0.1)",
+              transition: "all 0.3s ease",
             }}
             title={dark ? "Modo Claro" : "Modo Escuro"}
           >
-            <i className={`fa-solid ${dark ? "fa-sun" : "fa-moon"}`} />
+            <i
+              className={`fa-solid ${dark ? "fa-sun" : "fa-moon"}`}
+              style={{
+                fontSize: "1rem",
+                color: dark ? "#ffc107" : "#198754",
+                filter: `drop-shadow(0 0 4px ${
+                  dark ? "#ffc10799" : "#19875455"
+                })`,
+                transition: "color 0.3s, filter 0.3s",
+              }}
+            />
           </Button>
 
           {!user && (
             <>
-              {/* “Login” (ícone só) */}
               <Button
                 size="sm"
-                variant="link"
-                onClick={onLogin}
+                variant={dark ? "outline-light" : "outline-success"}
                 style={{
-                  padding: 0,
-                  border: "none",
-                  background: "transparent",
-                  width: "36px",
-                  height: "36px",
+                  borderRadius: "50%",
+                  width: "40px",
+                  height: "40px",
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
+                  padding: 0,
+                  boxShadow: dark
+                    ? "0 0 4px rgba(255,255,255,0.1)"
+                    : "0 0 4px rgba(0,0,0,0.1)",
+                  transition: "all 0.3s ease",
+                  background: dark ? "#232b26aa" : "#ffffffcc",
                 }}
+                onClick={onLogin}
                 title="Login"
               >
-                <i className="fa-solid fa-sign-in-alt" />
+                <FaUserAlt size={16} />
               </Button>
+
               <Button
                 size="sm"
-                variant="link"
-                onClick={onRegister}
+                variant={dark ? "outline-light" : "outline-success"}
                 style={{
-                  padding: 0,
-                  border: "none",
-                  background: "transparent",
-                  width: "36px",
-                  height: "36px",
+                  borderRadius: "50%",
+                  width: "40px",
+                  height: "40px",
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
+                  padding: 0,
+                  boxShadow: dark
+                    ? "0 0 4px rgba(255,255,255,0.1)"
+                    : "0 0 4px rgba(0,0,0,0.1)",
+                  transition: "all 0.3s ease",
+                  background: dark ? "#232b26aa" : "#ffffffcc",
                 }}
+                onClick={onRegister}
                 title="Registrar"
               >
-                <i className="fa-solid fa-user-plus" />
+                <BiUserPlus size={26} />
               </Button>
             </>
           )}
 
           {user && (
-            /* Avatar dropdown (ícone só) */
             <Dropdown align="end" onToggle={() => setExpanded(false)}>
               <Dropdown.Toggle
                 as={Button}
@@ -257,54 +281,40 @@ export default function NavBar({
                 size="sm"
                 variant={dark ? "light" : "outline-success"}
                 onClick={() => setDark((d) => !d)}
-                style={{ borderRadius: "100px", fontWeight: 500, minWidth: 80 }}
+                style={{
+                  borderRadius: "999px",
+                  fontWeight: 500,
+                  padding: "6px 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  background: dark ? "#ffffffcc" : "#f9fffb",
+                  boxShadow: dark
+                    ? "0 0 6px rgba(255,255,255,0.1)"
+                    : "0 0 6px rgba(0,0,0,0.08)",
+                  transition: "all 0.3s ease",
+                }}
                 title={dark ? "Modo Claro" : "Modo Escuro"}
-                className="d-flex align-items-center"
               >
-                <i className={`fa-solid ${dark ? "fa-sun" : "fa-moon"}`} />
-                <span className="ms-1"> {dark ? "Claro" : "Escuro"}</span>
+                <i
+                  className={`fa-solid ${dark ? "fa-sun" : "fa-moon"}`}
+                  style={{
+                    fontSize: "1rem",
+                    color: dark ? "#ffc107" : "#198754",
+                    filter: `drop-shadow(0 0 4px ${
+                      dark ? "#ffc10788" : "#19875444"
+                    })`,
+                    transition: "color 0.3s, filter 0.3s",
+                  }}
+                />
+                <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>
+                  {dark ? "Claro" : "Escuro"}
+                </span>
               </Button>
             </Nav.Item>
 
             {user ? (
               <>
-                {/* Carrinho (desktop ≥ lg): ícone + badge */}
-                <Nav.Item className="position-relative d-none d-lg-flex">
-                  <Button
-                    size="sm"
-                    variant="outline-success"
-                    onClick={() => {
-                      setExpanded(false);
-                      onShowCarts();
-                    }}
-                    style={{
-                      borderRadius: "999px",
-                      background: dark ? "#232b2675" : "#e9f9f5",
-                      transition: "all 0.3s",
-                    }}
-                    title="Meus Carrinhos"
-                    className="d-flex align-items-center"
-                  >
-                    <i className="fa-solid fa-cart-shopping" />
-                    {cartsCount > 0 && (
-                      <Badge
-                        bg="danger"
-                        pill
-                        className="ms-1"
-                        style={{
-                          fontSize: ".7rem",
-                          position: "absolute",
-                          top: "2px",
-                          right: "-2px",
-                        }}
-                      >
-                        {cartsCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </Nav.Item>
-
-                {/* Avatar Dropdown (desktop ≥ lg) */}
                 <Nav.Item className="d-none d-lg-flex">
                   <Dropdown align="end" onToggle={() => setExpanded(false)}>
                     <Dropdown.Toggle
@@ -362,7 +372,7 @@ export default function NavBar({
                         to="/perfil"
                         onClick={() => setExpanded(false)}
                       >
-                        <i className="bi bi-person-circle me-2" /> Perfil
+                        <i className="bi bi-person-circle me-2" /> Perfil/Carrinho
                       </Dropdown.Item>
                       <Dropdown.Item
                         as={Link}
@@ -419,35 +429,55 @@ export default function NavBar({
               </>
             ) : (
               <>
-                {/* “Login” (desktop ≥ lg) */}
                 <Nav.Item className="d-none d-lg-flex">
                   <Button
                     size="sm"
-                    variant="outline-primary"
-                    style={{
-                      borderRadius: "999px",
-                      fontWeight: 500,
-                      letterSpacing: ".01em",
-                    }}
+                    variant={dark ? "outline-light" : "outline-success"}
                     onClick={onLogin}
+                    title="Login"
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: 0,
+                      fontWeight: 500,
+                      background: dark ? "#232b26aa" : "#ffffffcc",
+                      boxShadow: dark
+                        ? "0 0 6px rgba(255,255,255,0.1)"
+                        : "0 0 6px rgba(0,0,0,0.1)",
+                      transition: "all 0.3s ease",
+                    }}
                   >
-                    <i className="fa-solid fa-sign-in-alt me-1" /> Login
+                    <FaUserAlt size={18} />
                   </Button>
                 </Nav.Item>
 
-                {/* “Registrar” (desktop ≥ lg) */}
                 <Nav.Item className="d-none d-lg-flex">
                   <Button
                     size="sm"
-                    variant="success"
-                    style={{
-                      borderRadius: "999px",
-                      fontWeight: 500,
-                      letterSpacing: ".01em",
-                    }}
+                    variant={dark ? "outline-light" : "outline-success"}
                     onClick={onRegister}
+                    title="Registrar"
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: 0,
+                      fontWeight: 500,
+                      background: dark ? "#232b26aa" : "#ffffffcc",
+                      boxShadow: dark
+                        ? "0 0 6px rgba(255,255,255,0.1)"
+                        : "0 0 6px rgba(0,0,0,0.1)",
+                      transition: "all 0.3s ease",
+                    }}
                   >
-                    <i className="fa-solid fa-user-plus me-1" /> Registrar
+                    <BiUserPlus size={20} />
                   </Button>
                 </Nav.Item>
               </>

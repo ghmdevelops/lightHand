@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
-export default function Login({ onAuth, showRegister}) {
+export default function Login({ onAuth, showRegister, dark }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [showSenha, setShowSenha] = useState(false);
@@ -21,23 +21,25 @@ export default function Login({ onAuth, showRegister}) {
 
   return (
     <div
-      className="d-flex justify-content-center align-items-center vh-100"
+      className={`d-flex justify-content-center align-items-center vh-100 ${
+        dark ? "bg-dark text-light" : "bg-light text-dark"
+      }`}
       style={{
-        background: "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
+        background: dark
+          ? "linear-gradient(135deg,rgb(56, 56, 56) 60%, #1a1a1a 100%)"
+          : "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
         position: "relative",
         overflow: "hidden",
       }}
     >
       <style>{`
-        /* Usamos o mesmo glass-card do LandingPage, mas trocamos cores para o verde #198754 */
         .glass-login-card {
-          background: rgba(255, 255, 255, 0.19);
-          border-radius: 1.5rem;
-          border: 1.5px solid rgba(25, 135, 84, 0.19); /* borda verde translúcida */
-          backdrop-filter: blur(18px);
-          box-shadow: 0 10px 36px 0 #3bf78742, 0 2px 16px 0 #2be5ab66;
-          transition: box-shadow 0.3s, transform 0.3s;
-        }
+  background: ${dark ? "#ffffff" : "rgba(255, 255, 255, 0.19)"};
+  border: 1.5px solid ${
+    dark ? "rgba(255,255,255,0.08)" : "rgba(25, 135, 84, 0.19)"
+  };
+  color: ${dark ? "#eee" : "#222"};
+}
         .glass-login-card:hover {
           box-shadow: 0 12px 54px 0 #3bf78785, 0 2.5px 22px 0 #47ffc790;
           transform: scale(1.02);

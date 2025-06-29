@@ -1,10 +1,8 @@
-// src/components/SobrePage.js
 import React from "react";
 
 export default function SobrePage() {
   return (
     <div className="container my-5 px-3 px-md-4">
-      {/* Header com fundo gradiente e ícone */}
       <div
         className="text-center text-white rounded-4 py-5 mb-5"
         style={{
@@ -24,8 +22,6 @@ export default function SobrePage() {
         </p>
         <small className="fst-italic">São Paulo, SP • 30 maio 2025</small>
       </div>
-
-      {/* Seção: Visão Geral do Produto */}
       <section className="mb-5">
         <h4
           className="fw-semibold mb-4 position-relative"
@@ -56,7 +52,6 @@ export default function SobrePage() {
         </div>
       </section>
 
-      {/* Seção: História */}
       <section className="mb-5">
         <h4
           className="fw-semibold mb-4 position-relative"
@@ -70,25 +65,11 @@ export default function SobrePage() {
         </h4>
         <div className="row gx-4 align-items-center" style={{ gap: "1rem" }}>
           <div className="col-12 col-md-6">
-            <img
-              src="https://images.unsplash.com/photo-1553641047-0cb25fec5f28?auto=format&fit=crop&w=600&q=60"
-              alt="Equipe LightHand"
-              className="img-fluid rounded-4 shadow-sm"
-              style={{ transition: "transform 0.3s" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.transform = "scale(1.03)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.transform = "scale(1)")
-              }
-            />
-          </div>
-          <div className="col-12 col-md-6">
             <p style={{ lineHeight: 1.6, fontSize: "1rem" }}>
-              A ideia surgiu de quatro amigos apaixonados por tecnologia, que
+              A ideia surgiu de amigos apaixonados por tecnologia, que
               queriam facilitar a rotina de quem faz compras no mercado. Cada um
-              trouxe suas habilidades—design, desenvolvimento, marketing e
-              logística—para criar uma plataforma simples e intuitiva. Desde o
+              trouxe suas habilidades design, desenvolvimento, marketing e
+              logística para criar uma plataforma simples e intuitiva. Desde o
               primeiro protótipo, percebemos que nosso foco seria a experiência
               do usuário: nada de telas complicadas ou centenas de cliques para
               encontrar uma promoção. Assim nasceu o LightHand, com o objetivo
@@ -98,7 +79,6 @@ export default function SobrePage() {
         </div>
       </section>
 
-      {/* Seção: Missão, Visão e Valores em cards coloridos */}
       <section className="mb-5">
         <h4
           className="fw-semibold mb-4 position-relative"
@@ -177,7 +157,6 @@ export default function SobrePage() {
         </div>
       </section>
 
-      {/* Seção: Time com cards interativos */}
       <section className="mb-5">
         <h4
           className="fw-semibold mb-4 position-relative"
@@ -190,12 +169,7 @@ export default function SobrePage() {
           Time
         </h4>
         <div className="row row-cols-1 row-cols-md-2 gy-4">
-          {[
-            "Bruna Azevedo",
-            "Fabiana Mozaner",
-            "Gehaime Barros",
-            "Robinson Silva",
-          ].map((nome) => (
+          {["Gehaime Barros", "Robinson Silva"].map((nome) => (
             <div key={nome} className="col">
               <div
                 className="card h-100 border-0 shadow-sm d-flex flex-row align-items-center px-4 py-3"
@@ -240,7 +214,6 @@ export default function SobrePage() {
         </div>
       </section>
 
-      {/* Botão de voltar ao início */}
       <div className="text-center mt-5">
         <button
           className="btn btn-outline-secondary btn-lg"

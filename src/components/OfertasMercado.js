@@ -16,14 +16,13 @@ export default function OfertasMercado({
   mercado,
   user,
   onVoltar,
-  setUltimaVisita, // opcional: callback para avisar App.js qual ID acabou de visitar
+  setUltimaVisita,
 }) {
   const [ofertas, setOfertas] = useState([]);
   const [novo, setNovo] = useState({ valor: "", objeto: "" });
   const [editando, setEditando] = useState(null);
   const [editInput, setEditInput] = useState({ valor: "", objeto: "" });
 
-  // 1) Lê todas as ofertas em tempo real de mercAdos/{mercado.id}/ofertas
   useEffect(() => {
     const ofertasRef = ref(db, `mercados/${mercado.id}/ofertas`);
     const unsubscribe = onValue(ofertasRef, (snap) => {
@@ -34,14 +33,12 @@ export default function OfertasMercado({
     return () => unsubscribe();
   }, [mercado.id]);
 
-  // 2) Ao montar (ou mudar mercado.id / user.uid), registra a visita em "visitados"
   useEffect(() => {
     if (!user || !mercado?.id) return;
 
     const visitaPath = `usuarios/${user.uid}/visitados/${mercado.id}`;
     const visitaRef = ref(db, visitaPath);
 
-    // Verifica se já existe essa visita (para não sobrescrever timestamp a cada re-render)
     get(visitaRef).then((snap) => {
       if (!snap.exists()) {
         const visitaObj = {
@@ -53,7 +50,6 @@ export default function OfertasMercado({
         };
         firebaseSet(visitaRef, visitaObj)
           .then(() => {
-            // se você quiser avisar App.js que essa é a última visita:
             if (typeof setUltimaVisita === "function") {
               setUltimaVisita(mercado.id.toString());
             }

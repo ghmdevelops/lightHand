@@ -1,4 +1,3 @@
-// src/components/CuponsPage.js
 import React, { useState, useEffect } from "react";
 import { db, auth } from "../firebase";
 import { ref, get, push, set } from "firebase/database";
@@ -33,7 +32,6 @@ export default function CuponsPage() {
     const user = auth.currentUser;
     if (!user) return;
 
-    // Adiciona no banco
     const cuponsRef = ref(db, `usuarios/${user.uid}/coupons`);
     const newRef = push(cuponsRef);
     await set(newRef, {
@@ -126,7 +124,6 @@ export default function CuponsPage() {
       <p className="text-muted">
         Aqui você pode cadastrar seus cupons de desconto e gerenciar o status deles (ativo/usado).
       </p>
-      {/* Se desejar, acrescente opções de formas de pagamento no futuro */}
     </div>
   );
 }

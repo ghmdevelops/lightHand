@@ -16,17 +16,18 @@ export default function UserProfile({ user }) {
     cep: "",
     celular: "",
   });
+  const [formOriginal, setFormOriginal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [salvo, setSalvo] = useState(false);
 
   const [carts, setCarts] = useState([]);
   const [cartsLoading, setCartsLoading] = useState(true);
 
-  const [avatarURL, setAvatarURL] = useState(null); // URL da foto ou do avatar escolhido
+  const [avatarURL, setAvatarURL] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [showUserData, setShowUserData] = useState(false);
 
-  // Seis URLs de avatar (exemplo usando pravatar)
   const AVATAR_OPTIONS = [
     "https://i.pravatar.cc/150?img=1",
     "https://i.pravatar.cc/150?img=2",
@@ -39,17 +40,18 @@ export default function UserProfile({ user }) {
   useEffect(() => {
     if (!user) return;
 
-    // Buscar dados do perfil (inclui avatar)
     get(ref(db, `usuarios/${user.uid}`)).then((snap) => {
       if (snap.exists()) {
         const d = snap.val();
-        setForm({
+        const data = {
           nome: d.nome || "",
           apelido: d.apelido || "",
           sobrenome: d.sobrenome || "",
           cep: d.cep || "",
           celular: d.celular || "",
-        });
+        };
+        setForm(data);
+        setFormOriginal(data);
         if (d.avatar) {
           setAvatarURL(d.avatar);
         }
@@ -57,7 +59,6 @@ export default function UserProfile({ user }) {
       setLoading(false);
     });
 
-    // Buscar carrinhos
     get(ref(db, `usuarios/${user.uid}/carts`)).then((snap) => {
       const data = snap.val() || {};
       const arr = Object.entries(data)
@@ -67,6 +68,8 @@ export default function UserProfile({ user }) {
       setCartsLoading(false);
     });
   }, [user]);
+
+  const isModified = JSON.stringify(form) !== JSON.stringify(formOriginal);
 
   const handleChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -83,7 +86,6 @@ export default function UserProfile({ user }) {
     setCarts((c) => c.filter((x) => x.id !== id));
   };
 
-  // Upload de foto de perfil
   const handleAvatarPhotoChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -96,7 +98,6 @@ export default function UserProfile({ user }) {
       await uploadBytes(fileRef, file);
       const url = await getDownloadURL(fileRef);
 
-      // Atualiza no Realtime Database: grava a URL da foto
       await update(ref(db, `usuarios/${user.uid}`), { avatar: url });
       setAvatarURL(url);
     } catch (err) {
@@ -106,7 +107,6 @@ export default function UserProfile({ user }) {
     }
   };
 
-  // Quando usuário escolhe um dos avatares predefinidos
   const handleChooseAvatar = async (url) => {
     await update(ref(db, `usuarios/${user.uid}`), { avatar: url });
     setAvatarURL(url);
@@ -115,11 +115,16 @@ export default function UserProfile({ user }) {
   if (loading) return <div>Carregando perfil...</div>;
 
   return (
-    <div className="container mt-4" style={{ maxWidth: 700 }}>
+    <div
+      className="container mt-4"
+      style={{
+        zIndex: 2,
+        paddingTop: "80px",
+      }}
+    >
       <h4 className="mb-4">Meu Perfil</h4>
 
       <div className="d-flex flex-column align-items-center mb-4">
-        {/* Área de exibição do avatar */}
         <div
           className="rounded-circle border overflow-hidden position-relative mb-2"
           style={{ width: 120, height: 120 }}
@@ -140,7 +145,6 @@ export default function UserProfile({ user }) {
             </div>
           )}
 
-          {/* Botão de upload de foto */}
           <label
             htmlFor="avatarPhoto"
             className="position-absolute"
@@ -171,7 +175,6 @@ export default function UserProfile({ user }) {
           <small className="text-danger mb-2">{uploadError}</small>
         )}
 
-        {/* Se houver URL de foto, ofereça opção de removê-la */}
         {avatarURL && (
           <button
             className="btn btn-outline-danger btn-sm mb-3"
@@ -185,7 +188,6 @@ export default function UserProfile({ user }) {
         )}
       </div>
 
-      {/* Se NÃO houver foto escolhida, exiba opções de avatar */}
       {!avatarURL && (
         <>
           <h6 className="mb-2">Escolha um avatar:</h6>
@@ -215,68 +217,99 @@ export default function UserProfile({ user }) {
         </>
       )}
 
-      <form onSubmit={handleSaveProfile}>
-        <div className="row">
-          <div className="col-md-6 mb-3">
-            <label className="form-label">Nome</label>
-            <input
-              className="form-control"
-              name="nome"
-              value={form.nome}
-              onChange={handleChange}
-            />
-          </div>
-          <div className="col-md-6 mb-3">
-            <label className="form-label">Apelido</label>
-            <input
-              className="form-control"
-              name="apelido"
-              value={form.apelido}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label">Sobrenome</label>
-          <input
-            className="form-control"
-            name="sobrenome"
-            value={form.sobrenome}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label className="form-label">E-mail</label>
-          <input className="form-control" value={user.email} disabled />
-        </div>
-
-        <div className="row">
-          <div className="col-md-6 mb-3">
-            <label className="form-label">CEP</label>
-            <input
-              className="form-control"
-              name="cep"
-              value={form.cep}
-              onChange={handleChange}
-            />
-          </div>
-          <div className="col-md-6 mb-3">
-            <label className="form-label">Celular</label>
-            <input
-              className="form-control"
-              name="celular"
-              value={form.celular}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
-
-        <button className="btn btn-primary w-100 mt-2" type="submit">
-          Salvar Dados
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h4 className="mb-0">Dados Pessoais</h4>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2 mb-3"
+          onClick={() => setShowUserData((prev) => !prev)}
+          aria-label={showUserData ? "Ocultar dados" : "Mostrar dados"}
+        >
+          <i
+            className="fa-solid fa-chevron-down"
+            style={{
+              transition: "transform 0.5s ease",
+              transform: showUserData ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          ></i>
         </button>
-      </form>
+      </div>
+
+      {showUserData && (
+        <div
+          style={{
+            overflow: "hidden",
+            transition: "all 0.8s ease",
+            maxHeight: showUserData ? "1500px" : "0",
+            opacity: showUserData ? 1 : 0,
+          }}
+        >
+          <form onSubmit={handleSaveProfile}>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Nome</label>
+                <input
+                  className="form-control"
+                  name="nome"
+                  value={form.nome}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Apelido</label>
+                <input
+                  className="form-control"
+                  name="apelido"
+                  value={form.apelido}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">Sobrenome</label>
+              <input
+                className="form-control"
+                name="sobrenome"
+                value={form.sobrenome}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">E-mail</label>
+              <input className="form-control" value={user.email} disabled />
+            </div>
+
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label className="form-label">CEP</label>
+                <input
+                  className="form-control"
+                  name="cep"
+                  value={form.cep}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label className="form-label">Celular</label>
+                <input
+                  className="form-control"
+                  name="celular"
+                  value={form.celular}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            {isModified && (
+              <button className="btn btn-primary w-100 mt-2" type="submit">
+                Salvar Dados
+              </button>
+            )}
+          </form>
+        </div>
+      )}
 
       {salvo && (
         <div className="alert alert-success mt-3">

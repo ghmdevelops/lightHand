@@ -24,10 +24,8 @@ export default function BuscarMercadosOSM({ user }) {
   const [mostrarCarrinho, setMostrarCarrinho] = useState(false);
   const [favoritos, setFavoritos] = useState(new Set());
   const [mostrarOfertasUsuarios, setMostrarOfertasUsuarios] = useState(false);
+  const navigate = useNavigate();
 
-  const navigate = useNavigate(); // ← inicializa navigate
-
-  // Carrega favoritos do usuário
   useEffect(() => {
     if (!user) {
       setFavoritos(new Set());
@@ -44,7 +42,6 @@ export default function BuscarMercadosOSM({ user }) {
       });
   }, [user]);
 
-  // Função helper para endereço reverso
   const getEnderecoFromCoords = async (lat, lon) => {
     try {
       const resp = await fetch(
@@ -62,7 +59,6 @@ export default function BuscarMercadosOSM({ user }) {
     }
   };
 
-  // Busca mercados próximos via Overpass
   const handleBuscar = async () => {
     setErro("");
     setBuscando(true);
@@ -75,7 +71,6 @@ export default function BuscarMercadosOSM({ user }) {
         const lon = p.coords.longitude;
         setPos({ lat, lon });
 
-        // Busca endereço reverso
         fetch(
           `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt`
         )
@@ -264,12 +259,6 @@ export default function BuscarMercadosOSM({ user }) {
             Sua localização atual:
           </h6>
           <div className="row gx-2">
-            <div className="col-6 col-md-3">
-              <strong>Latitude:</strong> {pos.lat.toFixed(6)}
-            </div>
-            <div className="col-6 col-md-3">
-              <strong>Longitude:</strong> {pos.lon.toFixed(6)}
-            </div>
             <div className="col-12 col-md-6">
               <strong>Endereço:</strong>{" "}
               {[localInfo.rua, localInfo.estado, localInfo.pais]
