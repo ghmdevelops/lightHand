@@ -30,6 +30,8 @@ export default function Login({ onAuth, showRegister, dark }) {
           : "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
         position: "relative",
         overflow: "hidden",
+        zIndex: 2,
+        paddingTop: "90px",
       }}
     >
       <style>{`

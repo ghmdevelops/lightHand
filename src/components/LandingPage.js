@@ -1,6 +1,6 @@
 import React from "react";
 import Footer from "./Footer";
-import logo from "./img/check_list.png";
+import { FaShoppingCart } from "react-icons/fa";
 
 const BACKGROUND_IMG =
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1500&q=80";
@@ -243,12 +243,21 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
             />
           </div>
 
-          <div className="mb-3 position-relative" style={{ zIndex: 10 }}>
-            <img
-              src={logo}
-              alt="Logo"
-              style={{ width: "160px", height: "160px", objectFit: "contain" }}
-            />
+          <div
+            className="mb-3 position-relative"
+            style={{ zIndex: 10, textAlign: "center" }}
+          >
+            <div
+              style={{
+                fontSize: "160px",
+                color: "#198754",
+                display: "inline-block",
+                filter: "drop-shadow(0 0 8px #19875455)",
+              }}
+            >
+              <FaShoppingCart />
+            </div>
+
             <h1 className="fw-bold mb-2" style={{ letterSpacing: 2 }}>
               Bem-vindo ao <span className="text-success">LightHand</span>
             </h1>

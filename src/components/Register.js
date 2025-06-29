@@ -75,6 +75,8 @@ export default function Register({ onAuth, showLogin, dark = false }) {
           : "linear-gradient(135deg, #ffffff 60%, #eafff3 100%)",
         position: "relative",
         overflow: "hidden",
+        zIndex: 2,
+        paddingTop: "120px",
       }}
     >
       <div className="row w-100 justify-content-center">

@@ -36,7 +36,7 @@ export default function NavBar({
       style={{
         backdropFilter: "blur(8px)",
         background: dark ? "rgba(30, 30, 30, 0.87)" : "rgba(255,255,255,0.85)",
-        borderBottom: dark ? "1px solid #21252922" : "1px solid #19875422",
+        borderBottom: dark ? "1px solid #3D3C3A" : "1px solid #19875422",
         boxShadow: "0 2px 12px #0002",
         transition: "background 0.3s",
         zIndex: 1030,
@@ -50,12 +50,15 @@ export default function NavBar({
         >
           <span
             style={{
-              fontSize: "2rem",
-              color: "#198754",
-              filter: "drop-shadow(0 0 8px #19875455)",
+              color: "#3D3C3A",
+              filter: "drop-shadow(0 0 8px #3D3C3A)",
               transition: "color 0.2s",
               display: "flex",
               alignItems: "center",
+              backgroundColor: "#3A3B3C",
+              borderRadius: "12rem",
+              padding: "5px",
+              boxShadow: "0 0 10px #3D3C3A",
             }}
           >
             <img
@@ -64,15 +67,6 @@ export default function NavBar({
               style={{ width: "60px", height: "60px", objectFit: "contain" }}
             />
           </span>
-          <span
-            className="fw-bold d-none d-lg-inline"
-            style={{
-              fontWeight: 600,
-              fontSize: "1.25rem",
-              letterSpacing: ".01em",
-              opacity: 0.92,
-            }}
-          ></span>
         </Navbar.Brand>
 
         <div className="d-flex d-lg-none ms-auto align-items-center gap-2">
@@ -372,7 +366,8 @@ export default function NavBar({
                         to="/perfil"
                         onClick={() => setExpanded(false)}
                       >
-                        <i className="bi bi-person-circle me-2" /> Perfil/Carrinho
+                        <i className="bi bi-person-circle me-2" />{" "}
+                        Perfil/Carrinho
                       </Dropdown.Item>
                       <Dropdown.Item
                         as={Link}
