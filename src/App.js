@@ -122,7 +122,6 @@ export default function App() {
                     />
                   ) : null
                 ) : tela === "home" ? (
-                  // Aqui, passamos setUltimaVisita para que Home (ou BuscarMercadosOSM) repasse a OfertasMercado
                   <Home
                     user={user}
                     onLogout={() => auth.signOut()}
