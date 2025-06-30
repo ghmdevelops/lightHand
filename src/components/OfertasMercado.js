@@ -154,7 +154,7 @@ export default function OfertasMercado({
       <h4>
         Ofertas em <span className="text-primary">{mercado.nome}</span>
         <br />
-        <small className="text-secondary">
+        <small className="text-ligth">
           {mercado.rua && <>{mercado.rua}, </>}
           {mercado.estado && <>{mercado.estado}, </>}
           {mercado.pais}
@@ -179,7 +179,7 @@ export default function OfertasMercado({
           />
         </div>
         <div className="col-auto">
-          <button className="btn btn-success" type="submit">
+          <button className="btn btn-primary" type="submit">
             Adicionar
           </button>
         </div>

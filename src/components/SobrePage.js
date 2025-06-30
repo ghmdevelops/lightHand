@@ -12,8 +12,8 @@ export default function SobrePage() {
       <div
         className="text-center text-white rounded-4 py-5 mb-5"
         style={{
-          background: "linear-gradient(135deg, #1abc9c, #198754)",
-          boxShadow: "0 8px 20px rgba(0,0,0,0.15)",
+          background: "linear-gradient(135deg, #2B60DE, #2B60DE)",
+          boxShadow: "0 8px 20px rgba(0, 0, 0, 0.15)",
         }}
       >
         <i
@@ -35,16 +35,16 @@ export default function SobrePage() {
         >
           <i
             className="bi bi-eye-fill me-2"
-            style={{ color: "#198754", fontSize: "1.4rem" }}
+            style={{ color: "#1E90FF", fontSize: "1.4rem" }}
           ></i>
           Visão geral do produto
         </h4>
         <div
           className="p-4 rounded-4"
           style={{
-            background: "#f0fdf4",
-            border: "1px solid #19875433",
-            boxShadow: "0 4px 16px rgba(25,135,84,0.1)",
+            background: "#DBE9FA",
+            border: "1px solid #2B60DE",
+            boxShadow: "0 4px 16px rgba(25, 76, 135, 0.1)",
           }}
         >
           <p style={{ lineHeight: 1.6, fontSize: "1rem", color: "#000" }}>
@@ -65,7 +65,7 @@ export default function SobrePage() {
         >
           <i
             className="bi bi-book-half me-2"
-            style={{ color: "#198754", fontSize: "1.4rem" }}
+            style={{ color: "#1E90FF", fontSize: "1.4rem" }}
           ></i>
           História
         </h4>
@@ -92,7 +92,7 @@ export default function SobrePage() {
         >
           <i
             className="bi bi-flag-fill me-2"
-            style={{ color: "#198754", fontSize: "1.4rem" }}
+            style={{ color: "#1E90FF", fontSize: "1.4rem" }}
           ></i>
           Missão, Visão e Valores
         </h4>
@@ -102,11 +102,11 @@ export default function SobrePage() {
               className="card h-100 border-0 shadow-sm"
               style={{
                 borderRadius: "16px",
-                background: "#e8f6ef",
+                background: "#DBE9FA",
               }}
             >
               <div className="card-body">
-                <h5 className="card-title text-success">Missão</h5>
+                <h5 className="card-title text-primary">Missão</h5>
                 <p
                   className="card-text"
                   style={{ fontSize: "0.95rem", lineHeight: 1.5 }}
@@ -122,11 +122,11 @@ export default function SobrePage() {
               className="card h-100 border-0 shadow-sm"
               style={{
                 borderRadius: "16px",
-                background: "#f0fdf4",
+                background: "#DBE9FA",
               }}
             >
               <div className="card-body">
-                <h5 className="card-title text-success">Visão</h5>
+                <h5 className="card-title text-primary">Visão</h5>
                 <p
                   className="card-text"
                   style={{ fontSize: "0.95rem", lineHeight: 1.5 }}
@@ -142,11 +142,11 @@ export default function SobrePage() {
               className="card h-100 border-0 shadow-sm"
               style={{
                 borderRadius: "16px",
-                background: "#eafaf1",
+                background: "#DBE9FA",
               }}
             >
               <div className="card-body">
-                <h5 className="card-title text-success">Valores</h5>
+                <h5 className="card-title text-primary">Valores</h5>
                 <ul
                   className="card-text"
                   style={{ fontSize: "0.95rem", lineHeight: 1.5 }}
@@ -170,10 +170,11 @@ export default function SobrePage() {
         >
           <i
             className="bi bi-people-fill me-2"
-            style={{ color: "#198754", fontSize: "1.4rem" }}
+            style={{ color: "#1E90FF", fontSize: "1.4rem" }}
           ></i>
-          Time
+          Missao
         </h4>
+        
         <div className="row row-cols-1 row-cols-md-2 gy-4">
           {["Gehaime Barros", "Robinson Silva"].map((nome) => (
             <div key={nome} className="col">
@@ -181,19 +182,19 @@ export default function SobrePage() {
                 className="card h-100 border-0 shadow-sm d-flex flex-row align-items-center px-4 py-3"
                 style={{
                   borderRadius: "16px",
-                  background: "#f5fdf9",
+                  background: "#DBE9FA",
                   transition: "background 0.3s",
                   cursor: "pointer",
                 }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#e0f6ec")
+                  (e.currentTarget.style.background = "#A0CFEC")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = "#f5fdf9")
+                  (e.currentTarget.style.background = "#DBE9FA")
                 }
               >
                 <div
-                  className="rounded-circle bg-success text-white d-flex justify-content-center align-items-center me-3"
+                  className="rounded-circle bg-primary text-white d-flex justify-content-center align-items-center me-3"
                   style={{
                     width: 50,
                     height: 50,
@@ -230,7 +231,7 @@ export default function SobrePage() {
             transition: "background 0.3s, color 0.3s",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#198754";
+            e.currentTarget.style.background = "#0059FF";
             e.currentTarget.style.color = "#fff";
           }}
           onMouseLeave={(e) => {

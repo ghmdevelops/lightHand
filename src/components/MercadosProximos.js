@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // ← importa useNavigate
+import { useNavigate } from "react-router-dom";
 import OfertasMercado from "./OfertasMercado";
 import MercadosAtivosGlobal from "./MercadosAtivosGlobal";
 import ProdutosPage from "./ProdutosPage";
@@ -8,7 +8,12 @@ import {
   faHeart as faHeartSolid,
 } from "@fortawesome/free-solid-svg-icons";
 import { faHeart as faHeartRegular } from "@fortawesome/free-regular-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { FiMapPin } from "react-icons/fi";
+
+import {
+  FontAwesomeIcon,
+  faLocationArrow,
+} from "@fortawesome/react-fontawesome";
 
 import { db } from "../firebase";
 import { ref, get, set, remove } from "firebase/database";
@@ -216,24 +221,51 @@ export default function BuscarMercadosOSM({ user }) {
     <div className="container my-5 px-2 px-md-4">
       <div className="d-flex justify-content-end mb-3">
         <button
-          className="btn btn-outline-primary btn-lg me-2"
+          className="btn btn-lg me-2"
           onClick={() => navigate("/produtores")}
           style={{
-            borderRadius: 30,
+            borderRadius: "40px",
             fontWeight: 600,
-            letterSpacing: 1,
-            backgroundColor: "#2F539B",
-            border: "2px solid #2F539B",
+            letterSpacing: "1px",
+            background: "linear-gradient(135deg, #2F539B 0%, #1d3557 100%)",
             color: "#fff",
-            transition: "all 0.3s",
+            padding: "0.75rem 2rem",
+            border: "none",
+            boxShadow: "0 8px 24px rgba(47, 83, 155, 0.4)",
+            display: "flex",
+            alignItems: "center",
+            transition: "all 0.3s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#36454F";
-            e.currentTarget.style.color = "#fff";
+            e.currentTarget.style.background =
+              "linear-gradient(135deg, #36454F, #2F539B)";
+            e.currentTarget.style.boxShadow =
+              "0 10px 28px rgba(47, 83, 155, 0.5)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background =
+              "linear-gradient(135deg, #2F539B 0%, #1d3557 100%)";
+            e.currentTarget.style.boxShadow =
+              "0 8px 24px rgba(47, 83, 155, 0.4)";
           }}
         >
-          <i className="fa-solid fa-seedling me-2"></i> Marketplace Local
-          orgânicos
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              backgroundColor: "#fff",
+              color: "#2F539B",
+              marginRight: "12px",
+              fontSize: "1.1rem",
+            }}
+          >
+            <i className="fa-solid fa-seedling"></i>
+          </span>
+          Marketplace Local Orgânicos
         </button>
       </div>
 
@@ -247,7 +279,7 @@ export default function BuscarMercadosOSM({ user }) {
           style={{
             padding: "0.5rem 1rem",
             fontSize: "1rem",
-            borderRadius: 30,
+            borderRadius: 10,
             border: "1px solid #198754",
             width: "200px",
             textAlign: "center",
@@ -312,12 +344,12 @@ export default function BuscarMercadosOSM({ user }) {
           }}
           style={{
             borderRadius: 30,
-            padding: "0.5rem 1.5rem",
+            padding: "0.5rem 1rem",
             fontWeight: 600,
             fontSize: "1rem",
           }}
         >
-          Buscar por CEP
+          <FiMapPin size={20} />
         </button>
         {erroCep && (
           <div
@@ -331,7 +363,7 @@ export default function BuscarMercadosOSM({ user }) {
 
       <div className="text-center mb-5">
         <button
-          className="btn btn-success btn-x px-5 py-3 my-3"
+          className="btn btn-primary btn-x px-5 py-3 my-3"
           onClick={handleBuscar}
           disabled={buscando}
           style={{
@@ -348,7 +380,7 @@ export default function BuscarMercadosOSM({ user }) {
         </button>
 
         <button
-          className="btn btn-success btn-xl px-5 py-3 my-3"
+          className="btn btn-primary btn-xl px-5 py-3 my-3"
           onClick={() => setMostrarCarrinho(true)}
           style={{
             borderRadius: 30,
@@ -366,21 +398,30 @@ export default function BuscarMercadosOSM({ user }) {
 
       {pos && (
         <div
-          className="alert mb-5 p-4"
+          className="shadow-sm mb-5 p-4"
           style={{
-            background:
-              "linear-gradient(135deg, rgba(25,135,84,0.1) 0%, rgba(26,188,156,0.1) 100%)",
-            borderRadius: 12,
-            border: "1px solid #19875433",
-            fontSize: "0.95rem",
+            background: "rgba(255, 255, 255, 0.05)",
+            border: "1px solid rgba(25, 135, 84, 0.3)",
+            borderRadius: "16px",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            color: "#ADDFFF",
+            boxShadow: "0 8px 24px rgba(25, 135, 84, 0.15)",
           }}
         >
-          <h6 className="mb-3" style={{ fontWeight: 600 }}>
-            Sua localização atual:
+          <h6
+            className="mb-3 d-flex align-items-center"
+            style={{ fontWeight: 700, color: "#fff" }}
+          >
+            <i
+              className="fa-solid fa-location-dot me-2"
+              style={{ color: "#0059FF", fontSize: "1.2rem" }}
+            ></i>
+            Sua localização atual
           </h6>
           <div className="row gx-2">
-            <div className="col-12 col-md-6">
-              <strong>Endereço:</strong>{" "}
+            <div className="col-12 col-md-6" style={{ fontSize: "0.95rem" }}>
+              <strong style={{ color: "#ffff" }}>Endereço: </strong>
               {[localInfo.rua, localInfo.estado, localInfo.pais]
                 .filter((s) => s)
                 .join(", ")}
@@ -397,7 +438,7 @@ export default function BuscarMercadosOSM({ user }) {
         <span style={{ marginRight: "8px" }}>
           Mercados com ofertas de usuários
         </span>
-        <span style={{ fontSize: "1.2rem", color: "#198754" }}>
+        <span style={{ fontSize: "1.2rem", color: "#306EFF" }}>
           {mostrarOfertasUsuarios ? "▼" : "▲"}
         </span>
       </h5>
@@ -422,7 +463,7 @@ export default function BuscarMercadosOSM({ user }) {
       {buscando && (
         <div className="text-center my-5">
           <div
-            className="spinner-border text-success"
+            className="spinner-border text-primary"
             role="status"
             style={{ width: 80, height: 80 }}
           >
@@ -468,7 +509,7 @@ export default function BuscarMercadosOSM({ user }) {
                           width: 48,
                           height: 48,
                           borderRadius: "50%",
-                          background: "#198754",
+                          background: "#0059FF",
                           color: "#fff",
                           fontWeight: 700,
                           fontSize: "1.2rem",
@@ -495,7 +536,7 @@ export default function BuscarMercadosOSM({ user }) {
                     <div className="flex-grow-1">
                       <h5
                         className="card-title mb-1"
-                        style={{ fontSize: "1.15rem", fontWeight: 600 }}
+                        style={{ fontSize: "1.15rem", fontWeight: 600}}
                       >
                         {m.nome}
                       </h5>
@@ -509,7 +550,6 @@ export default function BuscarMercadosOSM({ user }) {
                       )}
                     </div>
 
-                    {/* Ícone de “favorito” */}
                     <button
                       className="btn p-0 ms-2"
                       onClick={(e) => {
@@ -552,10 +592,9 @@ export default function BuscarMercadosOSM({ user }) {
                     {[m.rua, m.estado, m.pais].filter((s) => s).join(", ")}
                   </p>
 
-                  {/* Botão “Ver Ofertas” */}
                   <div className="mt-auto">
                     <button
-                      className="btn btn-outline-success w-100"
+                      className="btn btn-outline-primary w-100"
                       style={{
                         borderRadius: "30px",
                         fontWeight: 600,
@@ -563,12 +602,12 @@ export default function BuscarMercadosOSM({ user }) {
                       }}
                       onClick={() => registrarVisitaEVerOfertas(m)}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#198754";
+                        e.currentTarget.style.background = "#306EFF";
                         e.currentTarget.style.color = "#fff";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "#198754";
+                        e.currentTarget.style.color = "#306EFF";
                       }}
                     >
                       Ver Ofertas
