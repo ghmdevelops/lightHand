@@ -21,6 +21,7 @@ import TrocasPage from "./components/TrocasPage";
 
 import CestaMensalPage from "./components/CestaMensalPage";
 import MarketplaceProdutoresPage from "./components/MarketplaceProdutoresPage";
+import RecuperarSenha from "./components/RecuperarSenha";
 
 export default function App() {
   const [tela, setTela] = useState("landing");
@@ -163,6 +164,8 @@ export default function App() {
                 )
               }
             />
+
+            <Route path="/recuperar" element={<RecuperarSenha dark={dark} />} />
 
             <Route
               path="/cupons"

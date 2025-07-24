@@ -1,25 +1,35 @@
-import React, { useState } from "react";
-import { auth } from "../firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "../firebase";
 
-export default function Login({ onAuth, showRegister, dark }) {
+export default function RecuperarSenha({ dark }) {
   const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [showSenha, setShowSenha] = useState(false);
+  const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleReset = async (e) => {
     e.preventDefault();
     setErro("");
+    setMensagem("");
     try {
-      await signInWithEmailAndPassword(auth, email, senha);
-      onAuth();
-    } catch {
-      setErro("E-mail ou senha inválidos.");
+      await sendPasswordResetEmail(auth, email);
+      setMensagem("E-mail de recuperação enviado!");
+    } catch (err) {
+      setErro("Erro ao enviar. Verifique o e-mail.");
     }
   };
+
+  useEffect(() => {
+    if (mensagem) {
+      const timer = setTimeout(() => {
+        navigate("/login");
+      }, 2000); // 2 segundos
+
+      return () => clearTimeout(timer);
+    }
+  }, [mensagem, navigate]);
 
   return (
     <div
@@ -128,7 +138,6 @@ export default function Login({ onAuth, showRegister, dark }) {
           color: #728FCE;
         }
       `}</style>
-
       <div
         className="glass-login-card p-4 p-md-5 mx-3"
         style={{ maxWidth: 400, width: "100%" }}
@@ -136,83 +145,54 @@ export default function Login({ onAuth, showRegister, dark }) {
         <div className="text-center mb-4">
           <div className="lock-icon-wrapper">
             <i
-              className="fa-solid fa-lock"
+              className="fa-solid fa-unlock-keyhole"
               style={{ fontSize: "1.8rem", color: "#728FCE" }}
             ></i>
           </div>
-          <h3 className="mt-3 fw-bold" style={{ letterSpacing: "0.5px" }}>
-            Acesse sua conta
-          </h3>
+          <h3 className="mt-3 fw-bold">Recuperar Senha</h3>
           <p className="text-muted" style={{ fontSize: "0.9rem" }}>
-            Bem-vindo de volta!
+            Informe seu e-mail para redefinir a senha.
           </p>
         </div>
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleReset}>
           <div className="form-floating mb-3 position-relative">
             <input
               type="email"
               className="form-control"
-              id="floatingEmail"
+              id="resetEmail"
               placeholder="nome@exemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <label htmlFor="floatingEmail">E-mail</label>
-          </div>
-
-          <div className="form-floating mb-4 position-relative">
-            <input
-              type={showSenha ? "text" : "password"}
-              className="form-control pe-5"
-              id="floatingPassword"
-              placeholder="Senha"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              required
-            />
-            <label htmlFor="floatingPassword">Senha</label>
-            <button
-              type="button"
-              onClick={() => setShowSenha((prev) => !prev)}
-              className="eye-toggle"
-              tabIndex={-1}
-            >
-              <i
-                className={`fa-solid ${showSenha ? "fa-eye-slash" : "fa-eye"}`}
-              />
-            </button>
+            <label htmlFor="resetEmail">E-mail</label>
           </div>
 
           <button type="submit" className="btn btn-neon w-100 py-2 mb-3">
-            Entrar
+            Enviar link
           </button>
+
+          <button
+            type="button"
+            className="btn btn-outline-primary w-100 py-2 mb-3"
+            onClick={() => navigate("/login")}
+          >
+            Voltar para Login
+          </button>
+
+          {mensagem && (
+            <div className="alert alert-success text-center error-msg py-2">
+              {mensagem}
+              <div className="small mt-1">Redirecionando para login...</div>
+            </div>
+          )}
 
           {erro && (
             <div className="alert alert-danger text-center error-msg py-2">
               {erro}
             </div>
           )}
-
-          <div className="text-center text-register mt-3">
-            Não tem conta?{" "}
-            <a href="#" onClick={showRegister}>
-              Cadastre-se
-            </a>
-          </div>
-          <div className="text-center text-register mt-3">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/recuperar");
-              }}
-              style={{ fontSize: "0.9rem", color: "#728FCE" }}
-            >
-              Esqueceu a senha?
-            </a>
-          </div>
         </form>
       </div>
     </div>

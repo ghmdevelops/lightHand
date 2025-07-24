@@ -21,7 +21,7 @@ export default function SobrePage() {
           style={{ fontSize: "3rem", opacity: 0.9 }}
         ></i>
         <h1 className="fw-bold" style={{ letterSpacing: "1px" }}>
-          LightHand
+          Savvy
         </h1>
         <p className="fs-5 fw-light">
           Conectando pessoas e mercados com leveza e tecnologia
@@ -48,7 +48,7 @@ export default function SobrePage() {
           }}
         >
           <p style={{ lineHeight: 1.6, fontSize: "1rem", color: "#000" }}>
-            LightHand é um aplicativo de varejo que traz todas as grandes redes
+            Savvy é um aplicativo de varejo que traz todas as grandes redes
             de mercado para a palma da sua mão. Aqui você confere promoções em
             tempo real, compara preços em diferentes lojas e monta seu carrinho
             online antes mesmo de sair de casa. A partir da sua localização, o
@@ -78,7 +78,7 @@ export default function SobrePage() {
               para criar uma plataforma simples e intuitiva. Desde o primeiro
               protótipo, percebemos que nosso foco seria a experiência do
               usuário: nada de telas complicadas ou centenas de cliques para
-              encontrar uma promoção. Assim nasceu o LightHand, com o objetivo
+              encontrar uma promoção. Assim nasceu o Savvy, com o objetivo
               de tornar a compra no mercado mais leve, rápida e divertida.
             </p>
           </div>

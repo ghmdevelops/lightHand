@@ -411,7 +411,7 @@ export default function BuscarMercadosOSM({ user }) {
         >
           <h6
             className="mb-3 d-flex align-items-center"
-            style={{ fontWeight: 700, color: "#fff" }}
+            style={{ fontWeight: 700, color: "#000" }}
           >
             <i
               className="fa-solid fa-location-dot me-2"
@@ -420,8 +420,11 @@ export default function BuscarMercadosOSM({ user }) {
             Sua localização atual
           </h6>
           <div className="row gx-2">
-            <div className="col-12 col-md-6" style={{ fontSize: "0.95rem" }}>
-              <strong style={{ color: "#ffff" }}>Endereço: </strong>
+            <div
+              className="col-12 col-md-6"
+              style={{ fontSize: "0.95rem", color: "#0059FF", fontWeight: 700 }}
+            >
+              <strong style={{ color: "#000" }}>Endereço: </strong>
               {[localInfo.rua, localInfo.estado, localInfo.pais]
                 .filter((s) => s)
                 .join(", ")}
@@ -536,7 +539,7 @@ export default function BuscarMercadosOSM({ user }) {
                     <div className="flex-grow-1">
                       <h5
                         className="card-title mb-1"
-                        style={{ fontSize: "1.15rem", fontWeight: 600}}
+                        style={{ fontSize: "1.15rem", fontWeight: 600 }}
                       >
                         {m.nome}
                       </h5>

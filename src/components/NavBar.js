@@ -48,29 +48,59 @@ export default function NavBar({
           to="/"
           className="d-flex align-items-center gap-2"
         >
-          <span
-            style={{
-              color: "#3D3C3A",
-              filter: "drop-shadow(0 0 8px #3D3C3A)",
-              transition: "color 0.2s",
-              display: "flex",
-              alignItems: "center",
-              backgroundColor: "#3A3B3C",
-              borderRadius: "12rem",
-              padding: "5px",
-              boxShadow: "0 0 10px #3D3C3A",
-            }}
-          >
-            <img
-              src={logo}
-              alt="Logo"
-              style={{ width: "60px", height: "60px", objectFit: "contain" }}
-            />
-          </span>
+          <>
+            <style>{`
+    .savvy-title {
+      color: #3D3C3A;
+      font-weight: 700;
+      font-size: 2.2rem;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      letter-spacing: 0.05em;
+      text-transform: capitalize;
+      user-select: none;
+    }
+
+    .savvy-subtitle {
+      color: #728FCE;
+      font-weight: 500;
+      font-size: 0.85rem;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin-top: -8px;
+      user-select: none;
+    }
+
+    /* Responsivo para mobile */
+    @media (max-width: 576px) {
+      .savvy-title {
+        font-size: 1.5rem;
+      }
+      .savvy-subtitle {
+        font-size: 0.7rem;
+        margin-top: -6px;
+      }
+    }
+  `}</style>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                backgroundColor: "transparent",
+                cursor: "default",
+                userSelect: "none",
+              }}
+            >
+              <span className="savvy-title">Savvy</span>
+              <span className="savvy-subtitle">
+                Escolhas inteligentes no mercado
+              </span>
+            </div>
+          </>
         </Navbar.Brand>
 
         <div className="d-flex d-lg-none ms-auto align-items-center gap-2">
-          <Button
+          {/*<Button
             size="sm"
             variant={dark ? "outline-light" : "outline-primary"}
             onClick={() => setDark((d) => !d)}
@@ -99,7 +129,7 @@ export default function NavBar({
                 transition: "color 0.3s, filter 0.3s",
               }}
             />
-          </Button>
+          </Button>8*/}
 
           {!user && (
             <>
@@ -234,7 +264,7 @@ export default function NavBar({
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto align-items-center gap-lg-2 gap-3">
             <Nav.Item className="d-none d-lg-flex">
-              <Button
+              {/*<Button
                 size="sm"
                 variant={dark ? "light" : "outline-primary"}
                 onClick={() => setDark((d) => !d)}
@@ -267,7 +297,7 @@ export default function NavBar({
                 <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>
                   {dark ? "Claro" : "Escuro"}
                 </span>
-              </Button>
+              </Button>*/}
             </Nav.Item>
 
             {user ? (

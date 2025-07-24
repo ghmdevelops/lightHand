@@ -1,22 +1,17 @@
+import { TbShoppingCartDiscount } from "react-icons/tb"; 
 import React from "react";
-import Footer from "./Footer";
 import { FaShoppingCart } from "react-icons/fa";
 
-const BACKGROUND_IMG =
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1500&q=80";
-
-function getGlassBg(dark) {
-  return dark ? "rgba(27, 33, 43, 0.84)" : "rgba(255,255,255,0.89)";
+function getGlassBg() {
+  return "rgba(255,255,255,0.89)";
 }
 
-export default function LandingPage({ onLogin, onRegister, dark }) {
+export default function LandingPage({ onLogin, onRegister }) {
   return (
     <div
-      className={`d-flex flex-column min-vh-100 ${
-        dark ? "bg-dark text-light" : "bg-light text-dark"
-      }`}
+      className="d-flex flex-column min-vh-100 bg-light text-dark"
       style={{
-        background: `url('${BACKGROUND_IMG}') center/cover no-repeat fixed`,
+        backgroundColor: "#fff",
         position: "relative",
         overflowX: "hidden",
       }}
@@ -26,16 +21,13 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           position: "absolute",
           zIndex: 1,
           inset: 0,
-          background: dark
-            ? "linear-gradient(135deg, #16192588 0%, #23232e88 100%)"
-            : "linear-gradient(135deg, #00000033 0%, #23e47422 100%)",
           pointerEvents: "none",
         }}
       />
 
       <style>{`
         .glass-card {
-          background: ${getGlassBg(dark)};
+          background: ${getGlassBg()};
           box-shadow: 0 10px 36px 0 #728FCE, 0 2px 16px 0 rgba(43, 229, 217, 0.4);
           border-radius: 2.2rem;
           border: 1.5px solid rgba(255,255,255,0.19);
@@ -43,6 +35,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           transition: box-shadow 0.3s, transform 0.3s;
           position: relative;
         }
+          
         .glass-card:hover {
           box-shadow: 0 12px 54px 0 #728FCE, 0 2.5px 22px 0 rgba(71, 255, 255, 0.56);
           transform: scale(1.028);
@@ -102,11 +95,11 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           transition: opacity 0.5s, transform 0.5s;
         }
         .bg-card-imgs .carrinho {
-          right: -20px; bottom: 10px;
+          right: 30px; bottom: 30px;
           transform: rotate(-12deg) scale(1.25);
         }
         .bg-card-imgs .vegetal {
-          left: -30px; top: 15px;
+          left: 10px; top: 15px;
           transform: rotate(15deg) scale(1.1);
         }
 
@@ -117,7 +110,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           transform: translateX(-50%);
           animation: bounceDown 1.8s infinite;
           font-size: 2rem;
-          color: #ffffffaa;
+          color: #000000aa;
         }
         @keyframes bounceDown {
           0%, 20% { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -128,7 +121,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         .feature-card {
           border: none;
           border-radius: 1rem;
-          background: ${getGlassBg(dark)};
+          background: ${getGlassBg()};
           backdrop-filter: blur(12px);
           box-shadow: 0 8px 24px rgba(0,0,0,0.12);
           transition: transform 0.3s, box-shadow 0.3s;
@@ -152,7 +145,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         .step-icon {
           font-size: 2.5rem;
           color: #1E90FF;
-          background: ${getGlassBg(dark)};
+          background: ${getGlassBg()};
           border-radius: 50%;
           display: inline-flex;
           align-items: center;
@@ -174,7 +167,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         .testimonial-card {
           border: none;
           border-radius: 1rem;
-          background: ${getGlassBg(dark)};
+          background: ${getGlassBg()};
           backdrop-filter: blur(12px);
           box-shadow: 0 6px 18px rgba(0,0,0,0.1);
           padding: 1.5rem;
@@ -216,7 +209,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
         <div
           className="glass-card p-5 px-4 px-md-5 mx-auto text-center position-relative"
           style={{
-            maxWidth: 460,
+            maxWidth: 80000,
             width: "100%",
             marginTop: 72,
             marginBottom: 70,
@@ -227,56 +220,121 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
           <div className="bg-card-imgs">
             <img
               src="https://cdn-icons-png.flaticon.com/512/3176/3176290.png"
-              alt=""
+              alt="a"
               className="carrinho"
             />
             <img
               src="https://cdn-icons-png.flaticon.com/512/590/590685.png"
-              alt=""
+              alt="b"
               className="vegetal"
             />
           </div>
 
           <div
-            className="mb-3 position-relative"
-            style={{ zIndex: 10, textAlign: "center" }}
+            className="mb-4 position-relative text-center"
+            style={{
+              zIndex: 10,
+              maxWidth: 480,
+              margin: "auto",
+              padding: "0 1rem",
+            }}
           >
             <div
               style={{
-                fontSize: "160px",
-                color: "#1E90FF",
+                fontSize: "170px",
                 display: "inline-block",
-                filter: "drop-shadow(0 0 8px #1E90FF)",
+                transition: "filter 0.3s ease",
+                cursor: "default",
               }}
+              aria-label="Ícone carrinho"
             >
-              <FaShoppingCart />
+              <TbShoppingCartDiscount />
             </div>
 
-            <h1 className="fw-bold mb-2" style={{ letterSpacing: 2 }}>
-              Bem-vindo ao <span className="text-primary">LightHand</span>
+            <h1
+              className="fw-bold mb-3"
+              style={{
+                letterSpacing: 3,
+                fontWeight: 700,
+                fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+                color: "#1E90FF",
+                textShadow: "0 2px 6px rgba(30,144,255,0.6)",
+                userSelect: "none",
+              }}
+            >
+              Bem-vindo ao <span className="text-primary">Savvy</span>
             </h1>
-            <p className="lead mb-4" style={{ fontWeight: 500 }}>
+
+            <p
+              className="lead mb-5"
+              style={{
+                fontWeight: 500,
+                color: "#444",
+                fontSize: "1.18rem",
+                maxWidth: 380,
+                margin: "0 auto",
+                lineHeight: 1.5,
+                userSelect: "none",
+              }}
+            >
               Encontre mercados próximos de você em segundos.
               <br />
-              <span className="text-secondary" style={{ fontWeight: 400 }}>
+              <span
+                className="text-secondary"
+                style={{ fontWeight: 400, fontSize: "1rem" }}
+              >
                 Cadastre-se ou faça login para aproveitar ofertas e colaborar
                 com a comunidade!
               </span>
             </p>
-            <div className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-2">
+
+            <div className="d-flex flex-column flex-md-row justify-content-center gap-4">
               <button
-                className="btn neon-btn btn-outline-primary btn-lg px-4"
+                className="btn neon-btn btn-primary btn-lg px-5 fw-semibold"
                 onClick={onRegister}
+                style={{
+                  borderRadius: "12px",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 0 12px #1E90FF",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.boxShadow = "0 0 22px #00CED1")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.boxShadow = "0 0 12px #1E90FF")
+                }
               >
                 Registrar
               </button>
               <button
-                className="btn neon-btn btn-outline-primary btn-lg px-4"
+                className="btn neon-btn btn-outline-primary btn-lg px-5 fw-semibold"
                 onClick={onLogin}
+                style={{
+                  borderRadius: "12px",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 0 8px #1E90FF inset",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.boxShadow = "0 0 18px #00CED1 inset")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.boxShadow = "0 0 8px #1E90FF inset")
+                }
               >
                 Login
               </button>
             </div>
+
+            <style>{`
+    @keyframes pulseGlow {
+      0%, 100% {
+        filter: drop-shadow(0 0 12px #1E90FF) drop-shadow(0 0 8px #00CED1);
+      }
+      50% {
+        filter: drop-shadow(0 0 20px #00CED1) drop-shadow(0 0 14px #1E90FF);
+      }
+    }
+  `}</style>
           </div>
 
           <hr className="glass-hr" />
@@ -287,7 +345,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
               Feito para você!
             </span>
             <br />
-            <span className="fw-semibold">LightHand</span> &copy;{" "}
+            <span className="fw-semibold">Savvy</span> &copy;{" "}
             {new Date().getFullYear()}
           </small>
           <div className="scroll-indicator">
@@ -297,7 +355,9 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
       </div>
 
       <section className="container py-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">Por que LightHand?</h2>
+        <h2 className="text-center mb-4 fw-semibold">
+          Por que Savvy?
+        </h2>
         <div className="row g-4">
           <div className="col-12 col-md-4">
             <div className="feature-card text-center p-4 h-100">
@@ -341,7 +401,9 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
       <hr className="glass-hr mx-4" />
 
       <section className="container py-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">Como funciona?</h2>
+        <h2 className="text-center mb-4 fw-semibold">
+          Como funciona?
+        </h2>
         <div className="row g-4">
           <div className="col-12 col-md-4">
             <div className="feature-card text-center p-4 h-100">
@@ -396,7 +458,7 @@ export default function LandingPage({ onLogin, onRegister, dark }) {
               className="testimonial-avatar mb-2"
             />
             <p className="text-secondary mb-2">
-              “O LightHand salvou meu fim de semana! Consegui comparar preços e
+              “O Savvy salvou meu fim de semana! Consegui comparar preços e
               encontrei ofertas incríveis bem pertinho de mim.”
             </p>
             <strong>Maria Fernandes</strong>

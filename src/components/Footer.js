@@ -1,103 +1,159 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-export default function Footer({ dark }) {
+export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
     <footer
-      className={`mt-auto shadow-sm border-0 ${
-        dark ? "bg-dark text-secondary" : "bg-light text-muted"
-      }`}
+      className="text-light py-5"
       style={{
         fontFamily: "Inter, Segoe UI, Arial, sans-serif",
-        letterSpacing: 0.4,
-        fontWeight: 500,
-        paddingTop: "1.1rem",
-        paddingBottom: "0.9rem",
-        borderTop: dark ? "1.5px solid #212529" : "1.5px solid #e3e3e3",
-        background: dark
-          ? "linear-gradient(90deg,#181f28 40%,#232c37 100%)"
-          : "linear-gradient(90deg,#ffffff 60%,#eafff3 100%)",
+        background: "rgba(15, 20, 30, 0.6)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 0 20px rgba(0,255,255,0.04)",
+        position: "relative",
+        zIndex: 1,
       }}
     >
-      <div className="container d-flex flex-column flex-md-row align-items-center justify-content-between">
-        <div className="mb-2 mb-md-0 text-md-start text-center">
-          <span
-            style={{
-              fontWeight: 600,
-              fontSize: 18,
-              letterSpacing: 1,
-              color: "#1E90FF",
-            }}
-          >
-            <i
-              className="bi bi-cart4"
-              style={{ fontSize: 40, verticalAlign: "sub" }}
-            />
-            LIGHTHAND
-          </span>
-          <span className="mx-2" style={{ opacity: 0.22 }}>
-            |
-          </span>
-          <span style={{ fontSize: 15, fontWeight: 400 }}>
-            Conectando pessoas e mercados com leveza e tecnologia.
-          </span>
-          <div className="mt-2">
-            <Link
-              to="/sobre"
-              className="btn btn-outline-primary btn-sm"
-              title="Saiba Mais"
+      <div className="container">
+        <div className="row g-4 text-center text-md-start">
+          {/* Logo e Slogan */}
+          <div className="col-md-4">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start mb-2">
+              <i
+                className="bi bi-cart4"
+                style={{ fontSize: 30, color: "#00FFFF" }}
+              />
+              <span
+                className="ms-2 fw-bold"
+                style={{
+                  fontSize: 22,
+                  letterSpacing: 1.1,
+                  background: "linear-gradient(90deg, #00ffff, #1E90FF)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Savvy
+              </span>
+            </div>
+            <p style={{ opacity: 0.85, fontSize: 14 }}>
+              Escolhas inteligentes no mercado.
+              <br />
+              Unindo pessoas, dados e tecnologia.
+            </p>
+          </div>
+
+          {/* Links rápidos */}
+          <div className="col-md-4">
+            <h6
+              className="text-uppercase mb-3"
+              style={{ fontSize: 13, opacity: 0.9 }}
             >
-              Saiba Mais
-            </Link>
+              Links úteis
+            </h6>
+            <ul className="list-unstyled" style={{ lineHeight: "1.8" }}>
+              <li>
+                <Link to="/sobre" className="footer-link">
+                  Sobre o Projeto
+                </Link>
+              </li>
+              <li>
+                <Link to="/contato" className="footer-link">
+                  Contato
+                </Link>
+              </li>
+              <li>
+                <Link to="/termos" className="footer-link">
+                  Termos de Uso
+                </Link>
+              </li>
+              <li>
+                <Link to="/privacidade" className="footer-link">
+                  Política de Privacidade
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Redes sociais */}
+          <div className="col-md-4">
+            <h6
+              className="text-uppercase mb-3"
+              style={{ fontSize: 13, opacity: 0.9 }}
+            >
+              Redes & Contato
+            </h6>
+            <div className="d-flex justify-content-center justify-content-md-start gap-4">
+              <a
+                href="mailto:contato@savvy.app"
+                title="Email"
+                className="neon-icon"
+              >
+                <i className="bi bi-envelope-open" />
+              </a>
+              <a
+                href="https://instagram.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Instagram"
+                className="neon-icon"
+              >
+                <i className="bi bi-instagram" />
+              </a>
+              <a
+                href="https://github.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="GitHub"
+                className="neon-icon"
+              >
+                <i className="bi bi-github" />
+              </a>
+            </div>
           </div>
         </div>
 
-        <div className="d-flex align-items-center gap-3 mb-2 mb-md-0">
-          <a
-            href="mailto:contato@lighthand.app"
-            className={`text-decoration-none ${
-              dark ? "text-light" : "text-success"
-            }`}
-            title="Contato"
-            style={{ fontSize: 17 }}
-          >
-            <i className="bi bi-envelope-open"></i>
-          </a>
-          <a
-            href="https://instagram.com/"
-            className={`text-decoration-none ${
-              dark ? "text-light" : "text-secondary"
-            }`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Instagram"
-            style={{ fontSize: 19 }}
-          >
-            <i className="bi bi-instagram"></i>
-          </a>
-          <a
-            href="https://github.com/"
-            className={`text-decoration-none ${
-              dark ? "text-light" : "text-secondary"
-            }`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="GitHub"
-            style={{ fontSize: 19 }}
-          >
-            <i className="bi bi-github"></i>
-          </a>
-        </div>
-
         <div
-          className="text-md-end text-center"
-          style={{ fontSize: 14, opacity: 0.90 }}
+          className="text-center mt-5"
+          style={{
+            fontSize: 13,
+            opacity: 0.65,
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            paddingTop: 16,
+          }}
         >
-          &copy; {new Date().getFullYear()} LIGHTHAND.
-          <br className="d-md-none" />
-          Todos os direitos reservados.
+          &copy; {year} Savvy • Todos os direitos reservados.
         </div>
       </div>
+
+      {/* Estilos extras modernos */}
+      <style>{`
+        .footer-link {
+          text-decoration: none;
+          color: rgba(255, 255, 255, 0.85);
+          font-size: 14px;
+        }
+        .footer-link:hover {
+          color: #00FFFF;
+          text-decoration: underline;
+        }
+
+        .neon-icon {
+          font-size: 20px;
+          color: #b0e0ff;
+          transition: all 0.3s ease;
+        }
+
+        .neon-icon:hover {
+          color: #00FFFF;
+          text-shadow: 0 0 6px #00FFFF;
+          transform: scale(1.2);
+        }
+      `}</style>
     </footer>
   );
 }
