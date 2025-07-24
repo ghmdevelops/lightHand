@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState, useEffect } from "react";
 import { auth, db } from "./firebase";
 import { ref, get } from "firebase/database";
@@ -18,7 +17,6 @@ import PrevisaoGastosPage from "./components/PrevisaoGastosPage";
 import CuponsPage from "./components/CuponsPage";
 import PassaportePage from "./components/PassaportePage";
 import TrocasPage from "./components/TrocasPage";
-
 import CestaMensalPage from "./components/CestaMensalPage";
 import MarketplaceProdutoresPage from "./components/MarketplaceProdutoresPage";
 import RecuperarSenha from "./components/RecuperarSenha";
@@ -28,21 +26,11 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [avatarURL, setAvatarURL] = useState(null);
   const [avatarIcon, setAvatarIcon] = useState(null);
-
-  // Armazena o ID do último mercado visitado
   const [ultimaVisita, setUltimaVisita] = useState(null);
 
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem("darkMode");
-    return saved === null ? true : saved === "true";
-  });
-
   useEffect(() => {
-    document.body.className = dark
-      ? "bg-dark text-light"
-      : "bg-light text-dark";
-    localStorage.setItem("darkMode", dark);
-  }, [dark]);
+    document.body.className = "bg-light text-dark";
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (usuario) => {
@@ -82,21 +70,16 @@ export default function App() {
     onRegister: () => setTela("register"),
     onPerfil: () => setTela("perfil"),
     onLogout: () => auth.signOut(),
-    dark,
-    setDark,
+    dark: false,
+    setDark: () => {},
     cartsCount: 0,
     onShowCarts: () => {},
   };
 
   return (
     <BrowserRouter>
-      <div
-        className={`d-flex flex-column min-vh-100 ${
-          dark ? "bg-dark text-light" : "bg-light text-dark"
-        }`}
-      >
+      <div className="d-flex flex-column min-vh-100 bg-light text-dark">
         <NavBar {...navProps} />
-
         <div className="flex-grow-1">
           <Routes>
             <Route
@@ -107,26 +90,26 @@ export default function App() {
                     <LandingPage
                       onLogin={() => setTela("login")}
                       onRegister={() => setTela("register")}
-                      dark={dark}
+                      dark={false}
                     />
                   ) : tela === "login" ? (
                     <Login
                       onAuth={() => setTela("home")}
                       showRegister={() => setTela("register")}
-                      dark={dark}
+                      dark={false}
                     />
                   ) : tela === "register" ? (
                     <Register
                       onAuth={() => setTela("home")}
                       showLogin={() => setTela("login")}
-                      dark={dark}
+                      dark={false}
                     />
                   ) : null
                 ) : tela === "home" ? (
                   <Home
                     user={user}
                     onLogout={() => auth.signOut()}
-                    dark={dark}
+                    dark={false}
                     setUltimaVisita={setUltimaVisita}
                   />
                 ) : tela === "perfil" ? (
@@ -165,7 +148,10 @@ export default function App() {
               }
             />
 
-            <Route path="/recuperar" element={<RecuperarSenha dark={dark} />} />
+            <Route
+              path="/recuperar"
+              element={<RecuperarSenha dark={false} />}
+            />
 
             <Route
               path="/cupons"
@@ -238,7 +224,7 @@ export default function App() {
                   <Login
                     onAuth={() => setTela("home")}
                     showRegister={() => setTela("register")}
-                    dark={dark}
+                    dark={false}
                   />
                 )
               }
@@ -253,7 +239,7 @@ export default function App() {
                   <Register
                     onAuth={() => setTela("home")}
                     showLogin={() => setTela("login")}
-                    dark={dark}
+                    dark={false}
                   />
                 )
               }
@@ -281,8 +267,7 @@ export default function App() {
             />
           </Routes>
         </div>
-
-        <Footer dark={dark} />
+        <Footer dark={false} />
       </div>
     </BrowserRouter>
   );

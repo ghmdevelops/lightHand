@@ -66,14 +66,9 @@ export default function TrocasPage({ user, onVoltar }) {
         .glass-container {
           background: rgba(255, 255, 255, 0.15);
           border-radius: 1.5rem;
-          border: 1.5px solid rgba(25, 135, 84, 0.19);
+          border: 1.5px solid rgba(25, 98, 135, 0.19);
           backdrop-filter: blur(18px);
-          box-shadow: 0 10px 36px rgba(59, 247, 135, 0.26), 0 2px 16px rgba(43, 229, 171, 0.4);
           transition: box-shadow 0.3s, transform 0.3s;
-        }
-        .glass-container:hover {
-          box-shadow: 0 12px 54px rgba(59, 247, 135, 0.45), 0 2.5px 22px rgba(71, 255, 201, 0.75);
-          transform: scale(1.01);
         }
 
         /* Textarea estilizado */
@@ -84,25 +79,20 @@ export default function TrocasPage({ user, onVoltar }) {
           color: #222;
         }
         .form-textarea:focus {
-          border-color: #198754 !important;
-          box-shadow: 0 0 8px rgba(25, 135, 84, 0.4) !important;
+          border-color: #196087ff !important;
+          box-shadow: 0 0 8px rgba(25, 96, 135, 0.4) !important;
         }
 
         /* Botão neon verde */
         .btn-neon {
-          background: #198754;
+          background: #195587ff;
           color: #fff;
           border-radius: 50px !important;
           font-weight: 600;
           font-size: 1rem;
           letter-spacing: 1px;
           transition: box-shadow 0.2s, background 0.2s, color 0.2s;
-        }
-        .btn-neon:hover, .btn-neon:focus {
-          background: #fff !important;
-          color: #198754 !important;
-          box-shadow: 0 0 12px #3bf787dd, 0 0 40px #47ffc790;
-        }
+                }
 
         /* Cartão de cada anúncio */
         .anuncio-card {
@@ -125,21 +115,25 @@ export default function TrocasPage({ user, onVoltar }) {
 
         .nome-usuario {
           font-weight: 600;
-          color: #198754;
+          color: #195987ff;
         }
       `}</style>
 
-      <div className="w-100 mb-3">
+      <div className="w-100 mb-3" style={{ paddingTop: "60px" }}>
         <button
           className="btn btn-outline-secondary"
           onClick={onVoltar}
-          style={{ borderRadius: "20px", fontWeight: 500, letterSpacing: 0.5 }}
+          style={{
+            borderRadius: "20px",
+            fontWeight: 500,
+            letterSpacing: 0.5,
+          }}
         >
           &larr; Voltar
         </button>
       </div>
 
-      <h2 className="mb-4">Clubinho de Trocas</h2>
+      <h2 className="mb-4">Club de Trocas</h2>
       <p className="mb-4 text-center">
         Ofereça produtos em excesso e troque com outros usuários.
       </p>
