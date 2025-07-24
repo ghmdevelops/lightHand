@@ -1,6 +1,7 @@
-import { TbShoppingCartDiscount } from "react-icons/tb"; 
+import { TbShoppingCartDiscount } from "react-icons/tb";
 import React from "react";
 import { FaShoppingCart } from "react-icons/fa";
+import InstallAppButton from "./InstallAppButton";
 
 function getGlassBg() {
   return "rgba(255,255,255,0.89)";
@@ -324,6 +325,7 @@ export default function LandingPage({ onLogin, onRegister }) {
                 Login
               </button>
             </div>
+<InstallAppButton />
 
             <style>{`
     @keyframes pulseGlow {
@@ -355,9 +357,7 @@ export default function LandingPage({ onLogin, onRegister }) {
       </div>
 
       <section className="container py-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">
-          Por que Savvy?
-        </h2>
+        <h2 className="text-center mb-4 fw-semibold">Por que Savvy?</h2>
         <div className="row g-4">
           <div className="col-12 col-md-4">
             <div className="feature-card text-center p-4 h-100">
@@ -401,9 +401,7 @@ export default function LandingPage({ onLogin, onRegister }) {
       <hr className="glass-hr mx-4" />
 
       <section className="container py-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">
-          Como funciona?
-        </h2>
+        <h2 className="text-center mb-4 fw-semibold">Como funciona?</h2>
         <div className="row g-4">
           <div className="col-12 col-md-4">
             <div className="feature-card text-center p-4 h-100">
