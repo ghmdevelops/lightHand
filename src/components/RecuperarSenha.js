@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
 
-export default function RecuperarSenha({ dark }) {
+export default function RecuperarSenha() {
   const [email, setEmail] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
@@ -25,23 +25,19 @@ export default function RecuperarSenha({ dark }) {
     if (mensagem) {
       const timer = setTimeout(() => {
         navigate("/login");
-      }, 2000); // 2 segundos
-
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [mensagem, navigate]);
 
   return (
     <div
-      className={`d-flex justify-content-center align-items-center vh-100 ${
-        dark ? "text-light" : "text-dark"
-      }`}
+      className="d-flex justify-content-center align-items-center vh-100 text-dark"
       style={{
-        backgroundColor: dark ? "#0f172a" : "#f8fafc",
+        backgroundColor: "#f8fafc",
         paddingTop: "60px",
-        backgroundImage: dark
-          ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
-          : "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
+        backgroundImage:
+          "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
       }}
     >
       <style>{`
@@ -67,7 +63,7 @@ export default function RecuperarSenha({ dark }) {
 
         .form-control {
           background: rgba(255, 255, 255, 0.1);
-          color: ${dark ? "#eee" : "#222"};
+          color: #222;
           border: none;
           border-radius: 0.75rem;
         }
@@ -90,21 +86,6 @@ export default function RecuperarSenha({ dark }) {
           background: #fff;
           color: #2F539B;
           box-shadow: 0 0 15px #728FCE;
-        }
-
-        .eye-toggle {
-          position: absolute;
-          top: 50%;
-          right: 1rem;
-          transform: translateY(-50%);
-          background: none;
-          border: none;
-          font-size: 1rem;
-          color: ${dark ? "#ccc" : "#555"};
-        }
-
-        .eye-toggle:hover {
-          color: #728FCE;
         }
 
         .lock-icon-wrapper {
@@ -138,6 +119,7 @@ export default function RecuperarSenha({ dark }) {
           color: #728FCE;
         }
       `}</style>
+
       <div
         className="glass-login-card p-4 p-md-5 mx-3"
         style={{ maxWidth: 400, width: "100%" }}

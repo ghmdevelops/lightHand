@@ -12,17 +12,13 @@ code {
     monospace;
 }
 
-/* src/components/PassaportePage.css */
-
-/* Container do card ganha position: relative para podermos posicionar o selo */
 .passaporte-card {
   position: relative;
   overflow: hidden;
   border-radius: 12px;
-  padding-top: 12px; /* para dar um espaço extra no topo do selo, se precisar */
+  padding-top: 12px;
 }
 
-/* Estilo do selo (stamp) no canto do card */
 .passaporte-stamp {
   position: absolute;
   top: 8px;

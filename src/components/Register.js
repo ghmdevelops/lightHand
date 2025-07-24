@@ -3,7 +3,7 @@ import { auth, db } from "../firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { ref, set } from "firebase/database";
 
-export default function Register({ onAuth, showLogin, dark = false }) {
+export default function Register({ onAuth, showLogin }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmSenha, setConfirmSenha] = useState("");
@@ -72,30 +72,22 @@ export default function Register({ onAuth, showLogin, dark = false }) {
 
   return (
     <div
-      className={`d-flex justify-content-center align-items-center min-vh-100 px-3 ${
-        dark ? "text-light" : "text-dark"
-      }`}
+      className="d-flex justify-content-center align-items-center min-vh-100 px-3 text-dark"
       style={{
-        backgroundColor: dark ? "#0f172a" : "#f8fafc",
-        backgroundImage: dark
-          ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
-          : "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
+        backgroundColor: "#f8fafc",
+        backgroundImage:
+          "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
         zIndex: 2,
         paddingTop: "110px",
       }}
     >
       <div className="w-100" style={{ maxWidth: "500px" }}>
-        <div
-          className={`card shadow-lg rounded-4 ${
-            dark ? "bg-dark text-light" : "bg-white"
-          }`}
-        >
+        <div className="card shadow-lg rounded-4 bg-white text-dark">
           <div className="p-4">
             <h3 className="fw-bold text-center mb-4">
               Criar Conta na LightHand
             </h3>
             <form onSubmit={handleRegister}>
-              {/* Nome */}
               <div className="form-floating mb-3">
                 <input
                   type="text"
@@ -109,7 +101,6 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                 <label htmlFor="floatingNome">Nome completo</label>
               </div>
 
-              {/* Apelido */}
               <div className="form-floating mb-3">
                 <input
                   type="text"
@@ -123,7 +114,6 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                 <label htmlFor="floatingApelido">Apelido</label>
               </div>
 
-              {/* Celular */}
               <div className="form-floating mb-3">
                 <input
                   type="tel"
@@ -137,7 +127,6 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                 <label htmlFor="floatingCelular">Celular (10-11 dígitos)</label>
               </div>
 
-              {/* Email */}
               <div className="form-floating mb-3">
                 <input
                   type="email"
@@ -151,7 +140,6 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                 <label htmlFor="floatingEmail">E-mail</label>
               </div>
 
-              {/* Senha */}
               <div className="form-floating mb-3">
                 <input
                   type="password"
@@ -183,7 +171,6 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                 )}
               </div>
 
-              {/* Confirmar Senha */}
               <div className="form-floating mb-4">
                 <input
                   type="password"
@@ -197,19 +184,16 @@ export default function Register({ onAuth, showLogin, dark = false }) {
                 <label htmlFor="floatingConfirmSenha">Confirmar Senha</label>
               </div>
 
-              {/* Botão */}
               <button type="submit" className="btn btn-primary w-100 py-2 mb-3">
                 Registrar
               </button>
 
-              {/* Erros */}
               {erro && (
                 <div className="alert alert-danger text-center py-2">
                   {erro}
                 </div>
               )}
 
-              {/* Link para login */}
               <div className="text-center">
                 <span>Já tem conta? </span>
                 <button

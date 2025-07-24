@@ -3,7 +3,7 @@ import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
-export default function Login({ onAuth, showRegister, dark }) {
+export default function Login({ onAuth, showRegister }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [showSenha, setShowSenha] = useState(false);
@@ -23,15 +23,12 @@ export default function Login({ onAuth, showRegister, dark }) {
 
   return (
     <div
-      className={`d-flex justify-content-center align-items-center vh-100 ${
-        dark ? "text-light" : "text-dark"
-      }`}
+      className="d-flex justify-content-center align-items-center vh-100 text-dark"
       style={{
-        backgroundColor: dark ? "#0f172a" : "#f8fafc",
+        backgroundColor: "#f8fafc",
         paddingTop: "60px",
-        backgroundImage: dark
-          ? "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)"
-          : "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
+        backgroundImage:
+          "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
       }}
     >
       <style>{`
@@ -57,7 +54,7 @@ export default function Login({ onAuth, showRegister, dark }) {
 
         .form-control {
           background: rgba(255, 255, 255, 0.1);
-          color: ${dark ? "#eee" : "#222"};
+          color: #222;
           border: none;
           border-radius: 0.75rem;
         }
@@ -90,7 +87,7 @@ export default function Login({ onAuth, showRegister, dark }) {
           background: none;
           border: none;
           font-size: 1rem;
-          color: ${dark ? "#ccc" : "#555"};
+          color: #555;
         }
 
         .eye-toggle:hover {
