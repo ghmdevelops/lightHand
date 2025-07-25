@@ -27,7 +27,7 @@ export default function CestaMensalPage({ onVoltar }) {
             hortifrúti, mercearia básica).
           </li>
           <li>
-            2. A cada mês, o LightHand monta uma cesta com 8–10 itens em
+            2. A cada mês, o Savvy monta uma cesta com 8–10 itens em
             destaque, otimizando promoções e reduzindo estoque de proximidade de
             validade.
           </li>

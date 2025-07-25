@@ -363,6 +363,7 @@ export default function NavBar({
                       boxShadow: "0 0 6px rgba(0,0,0,0.1)",
                     }}
                   >
+                    
                     <BiUserPlus size={20} />
                   </Button>
                 </Nav.Item>
