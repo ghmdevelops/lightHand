@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, db, storage } from "../firebase";
 import { ref, get, update, remove } from "firebase/database";
+import { useNavigate } from "react-router-dom";
 import {
   getStorage,
   ref as sRef,
@@ -27,6 +28,7 @@ export default function UserProfile({ user }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [showUserData, setShowUserData] = useState(false);
+  const navigate = useNavigate();
 
   const AVATAR_OPTIONS = [
     "https://i.pravatar.cc/150?img=1",
@@ -35,6 +37,30 @@ export default function UserProfile({ user }) {
     "https://i.pravatar.cc/150?img=4",
     "https://i.pravatar.cc/150?img=5",
     "https://i.pravatar.cc/150?img=6",
+    "https://i.pravatar.cc/150?img=7",
+    "https://i.pravatar.cc/150?img=8",
+    "https://i.pravatar.cc/150?img=9",
+    "https://i.pravatar.cc/150?img=10",
+    "https://i.pravatar.cc/150?img=11",
+    "https://i.pravatar.cc/150?img=12",
+    "https://i.pravatar.cc/150?img=13",
+    "https://i.pravatar.cc/150?img=14",
+    "https://i.pravatar.cc/150?img=15",
+    "https://i.pravatar.cc/150?img=16",
+    "https://i.pravatar.cc/150?img=17",
+    "https://i.pravatar.cc/150?img=18",
+    "https://i.pravatar.cc/150?img=19",
+    "https://i.pravatar.cc/150?img=20",
+    "https://i.pravatar.cc/150?img=21",
+    "https://i.pravatar.cc/150?img=22",
+    "https://i.pravatar.cc/150?img=23",
+    "https://i.pravatar.cc/150?img=24",
+    "https://i.pravatar.cc/150?img=25",
+    "https://i.pravatar.cc/150?img=26",
+    "https://i.pravatar.cc/150?img=27",
+    "https://i.pravatar.cc/150?img=28",
+    "https://i.pravatar.cc/150?img=29",
+    "https://i.pravatar.cc/150?img=30",
   ];
 
   useEffect(() => {
@@ -366,6 +392,28 @@ export default function UserProfile({ user }) {
             );
           })}
         </ul>
+      )}
+      {carts.length > 1 && (
+        <div className="text-end mt-4">
+          <button
+            className="btn btn-success px-4 py-2 mb-3"
+            onClick={() => {
+              const carrinhoIds = carts.map((c) => c.id);
+              navigate(`/comparar-carrinhos?ids=${carrinhoIds.join(",")}`);
+            }}
+            style={{
+              borderRadius: "30px",
+              fontWeight: "600",
+              fontSize: "1rem",
+              background: "linear-gradient(135deg, #28a745, #218838)",
+              boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <i className="fa-solid fa-scale-balanced me-2"></i>
+            Comparar Carrinhos
+          </button>
+        </div>
       )}
     </div>
   );

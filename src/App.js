@@ -21,6 +21,9 @@ import CestaMensalPage from "./components/CestaMensalPage";
 import MarketplaceProdutoresPage from "./components/MarketplaceProdutoresPage";
 import RecuperarSenha from "./components/RecuperarSenha";
 
+import CompararCarrinhosPage from "./components/CompararCarrinhosPage";
+import Pedidos from "./components/Pedidos";
+
 export default function App() {
   const [tela, setTela] = useState("landing");
   const [user, setUser] = useState(null);
@@ -249,6 +252,28 @@ export default function App() {
               path="/perfil"
               element={
                 user ? <UserProfile user={user} /> : <Navigate to="/" replace />
+              }
+            />
+
+            <Route
+              path="/comparar-carrinhos"
+              element={
+                user ? (
+                  <CompararCarrinhosPage user={user} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+
+             <Route
+              path="/pedidos"
+              element={
+                user ? (
+                  <Pedidos user={user} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
               }
             />
 

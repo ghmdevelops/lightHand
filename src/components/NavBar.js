@@ -189,6 +189,9 @@ export default function NavBar({
                 <Dropdown.Item as={Link} to="/cesta-mensal">
                   Cesta Mensal
                 </Dropdown.Item>
+                <Dropdown.Item as={Link} to="/pedidos">
+                  Pedidos
+                </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/passaporte">
                   Passaporte
                 </Dropdown.Item>
@@ -276,6 +279,13 @@ export default function NavBar({
                       onClick={() => setExpanded(false)}
                     >
                       Cesta Mensal
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                      as={Link}
+                      to="/pedidos"
+                      onClick={() => setExpanded(false)}
+                    >
+                      Pedidos
                     </Dropdown.Item>
                     <Dropdown.Item
                       as={Link}

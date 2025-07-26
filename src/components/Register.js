@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import { auth, db } from "../firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { ref, set } from "firebase/database";
+import {
+  FaUser,
+  FaUserCircle,
+  FaPhone,
+  FaEnvelope,
+  FaLock,
+  FaRegEye,
+} from "react-icons/fa";
 
 export default function Register({ onAuth, showLogin }) {
   const [email, setEmail] = useState("");
@@ -72,85 +80,88 @@ export default function Register({ onAuth, showLogin }) {
 
   return (
     <div
-      className="d-flex justify-content-center align-items-center min-vh-100 px-3 text-dark"
+      className="d-flex justify-content-center align-items-center min-vh-100 px-3"
       style={{
-        backgroundColor: "#f8fafc",
-        backgroundImage:
-          "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
-        zIndex: 2,
+        background: "linear-gradient(135deg, #f4fbff 0%, #f4fafe 100%)",
         paddingTop: "110px",
       }}
     >
-      <div className="w-100" style={{ maxWidth: "500px" }}>
-        <div className="card shadow-lg rounded-4 bg-white text-dark">
-          <div className="p-4">
-            <h3 className="fw-bold text-center mb-4">
+      <div className="w-100" style={{ maxWidth: "520px" }}>
+        <div className="card shadow-lg rounded-4 border-0">
+          <div className="card-body p-4">
+            <h2 className="text-center fw-bold mb-4 text-primary">
               Criar Conta na LightHand
-            </h3>
+            </h2>
+
             <form onSubmit={handleRegister}>
               <div className="form-floating mb-3">
                 <input
                   type="text"
                   className="form-control"
-                  id="floatingNome"
+                  id="nome"
                   placeholder="Nome completo"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   required
                 />
-                <label htmlFor="floatingNome">Nome completo</label>
+                <label htmlFor="nome">Nome completo</label>
+                <FaUser className="form-icon-end" />
               </div>
 
               <div className="form-floating mb-3">
                 <input
                   type="text"
                   className="form-control"
-                  id="floatingApelido"
+                  id="apelido"
                   placeholder="Apelido"
                   value={apelido}
                   onChange={(e) => setApelido(e.target.value)}
                   required
                 />
-                <label htmlFor="floatingApelido">Apelido</label>
+                <label htmlFor="apelido">Apelido</label>
+                <FaUserCircle className="form-icon-end" />
               </div>
 
               <div className="form-floating mb-3">
                 <input
                   type="tel"
                   className="form-control"
-                  id="floatingCelular"
+                  id="celular"
                   placeholder="Celular"
                   value={celular}
                   onChange={(e) => setCelular(e.target.value)}
                   required
                 />
-                <label htmlFor="floatingCelular">Celular (10-11 dígitos)</label>
+                <label htmlFor="celular">Celular (com DDD)</label>
+                <FaPhone className="form-icon-end" />
               </div>
 
               <div className="form-floating mb-3">
                 <input
                   type="email"
                   className="form-control"
-                  id="floatingEmail"
+                  id="email"
                   placeholder="E-mail"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <label htmlFor="floatingEmail">E-mail</label>
+                <label htmlFor="email">E-mail</label>
+                <FaEnvelope className="form-icon-end" />
               </div>
 
               <div className="form-floating mb-3">
                 <input
                   type="password"
                   className="form-control"
-                  id="floatingSenha"
+                  id="senha"
                   placeholder="Senha"
                   value={senha}
                   onChange={handleSenhaChange}
                   required
                 />
-                <label htmlFor="floatingSenha">Senha</label>
+                <label htmlFor="senha">Senha</label>
+                <FaLock className="form-icon-end" />
 
                 {senha && (
                   <div className="mt-2">
@@ -159,12 +170,9 @@ export default function Register({ onAuth, showLogin }) {
                         className={`progress-bar ${getBarClass()}`}
                         role="progressbar"
                         style={{ width: `${senhaForca.score}%` }}
-                        aria-valuenow={senhaForca.score}
-                        aria-valuemin="0"
-                        aria-valuemax="100"
                       ></div>
                     </div>
-                    <small className={`form-text mt-1 ${getBarClass()}`}>
+                    <small className={`form-text ${getBarClass()}`}>
                       {senhaForca.label}
                     </small>
                   </div>
@@ -175,17 +183,21 @@ export default function Register({ onAuth, showLogin }) {
                 <input
                   type="password"
                   className="form-control"
-                  id="floatingConfirmSenha"
+                  id="confirmSenha"
                   placeholder="Confirmar Senha"
                   value={confirmSenha}
                   onChange={(e) => setConfirmSenha(e.target.value)}
                   required
                 />
-                <label htmlFor="floatingConfirmSenha">Confirmar Senha</label>
+                <label htmlFor="confirmSenha">Confirmar Senha</label>
+                <FaLock className="form-icon-end" />
               </div>
 
-              <button type="submit" className="btn btn-primary w-100 py-2 mb-3">
-                Registrar
+              <button
+                type="submit"
+                className="btn btn-primary w-100 fw-bold py-2 mb-3"
+              >
+                Criar Conta
               </button>
 
               {erro && (
@@ -195,19 +207,33 @@ export default function Register({ onAuth, showLogin }) {
               )}
 
               <div className="text-center">
-                <span>Já tem conta? </span>
+                <small className="text-muted">
+                  Já possui conta?
+                </small>
+                <br />
                 <button
                   type="button"
-                  className="btn btn-link p-0 fw-semibold"
+                  className="btn btn-link fw-semibold"
                   onClick={showLogin}
                 >
-                  Login
+                  Entrar
                 </button>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      <style>{`
+      .form-icon-end {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        pointer-events: none;
+      }
+    `}</style>
     </div>
   );
 }

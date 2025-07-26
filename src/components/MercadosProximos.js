@@ -280,7 +280,7 @@ export default function BuscarMercadosOSM({ user }) {
             padding: "0.5rem 1rem",
             fontSize: "1rem",
             borderRadius: 10,
-            border: "1px solid #198754",
+            border: "1px solid #195f87ff",
             width: "200px",
             textAlign: "center",
             marginRight: "0.5rem",
@@ -311,7 +311,7 @@ export default function BuscarMercadosOSM({ user }) {
             const enderecoData = await getEnderecoFromCoords(lat, lon);
             setLocalInfo(enderecoData);
 
-            const delta = 0.03; // ~3km
+            const delta = 0.03;
             const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["shop"~"supermarket|convenience|grocery"](${
               lat - delta
             },${lon - delta},${lat + delta},${lon + delta});out;`;
@@ -363,7 +363,7 @@ export default function BuscarMercadosOSM({ user }) {
 
       <div className="text-center mb-5">
         <button
-          className="btn btn-primary btn-x px-5 py-3 my-3"
+          className="btn btn-primary btn-x px-5 py-3 my-3 me-3"
           onClick={handleBuscar}
           disabled={buscando}
           style={{
@@ -630,7 +630,7 @@ export default function BuscarMercadosOSM({ user }) {
             borderRadius: 12,
             fontSize: "1rem",
             background: "#f0f7f5",
-            color: "#198754",
+            color: "#196a87ff",
           }}
         >
           Nenhum mercado próximo encontrado.
