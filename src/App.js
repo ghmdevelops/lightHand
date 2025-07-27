@@ -15,7 +15,7 @@ import SobrePage from "./components/SobrePage";
 import FavoritosPage from "./components/FavoritosPage";
 import PrevisaoGastosPage from "./components/PrevisaoGastosPage";
 import CuponsPage from "./components/CuponsPage";
-import PassaportePage from "./components/PassaportePage";
+import Conquistas from "./components/Conquistas";
 import TrocasPage from "./components/TrocasPage";
 import CestaMensalPage from "./components/CestaMensalPage";
 import MarketplaceProdutoresPage from "./components/MarketplaceProdutoresPage";
@@ -169,10 +169,10 @@ export default function App() {
             />
 
             <Route
-              path="/passaporte"
+              path="/conquistas"
               element={
                 user ? (
-                  <PassaportePage
+                  <Conquistas
                     user={user}
                     ultimaVisita={ultimaVisita}
                     onVoltar={() => window.history.back()}
@@ -187,7 +187,7 @@ export default function App() {
               path="/trocas"
               element={
                 user ? (
-                  <TrocasPage onVoltar={() => window.history.back()} />
+                  <TrocasPage user={user} onVoltar={() => window.history.back()} />
                 ) : (
                   <Navigate to="/" replace />
                 )

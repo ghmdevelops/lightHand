@@ -1,95 +1,129 @@
 import React, { useState, useEffect } from "react";
-import { db, auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { ref, get } from "firebase/database";
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 
 export default function PrevisaoGastosPage() {
-  const [historico, setHistorico] = useState([]);
+  const [dadosMensais, setDadosMensais] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchHistorico() {
+    async function fetchDados() {
       const user = auth.currentUser;
       if (!user) {
         setLoading(false);
         return;
       }
-      const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
-      const snap = await get(cartsRef);
-      const dados = snap.val() || {};
-      const arr = Object.entries(dados).map(([id, cart]) => {
-        const total = (cart.items || []).reduce(
-          (soma, it) => soma + Number(it.price),
-          0
-        );
-        return { criadoEm: cart.criadoEm, total };
-      });
-      arr.sort((a, b) => a.criadoEm - b.criadoEm);
 
-      const pontos = arr.map((c) => ({
-        name: new Date(c.criadoEm).toLocaleDateString("pt-BR"),
-        total: Number(c.total.toFixed(2)),
+      const pedidosRef = ref(db, `usuarios/${user.uid}/pedidos`);
+      const snap = await get(pedidosRef);
+      const raw = snap.val() || {};
+
+      const pedidos = Object.values(raw).map((p) => ({
+        dataHora: p.dataHora,
+        total: Number(p.total),
       }));
-      setHistorico(pontos);
+
+      const agrupado = {};
+      pedidos.forEach(({ dataHora, total }) => {
+        const dt = new Date(dataHora);
+        if (isNaN(dt)) return;
+        const key = `${dt.getMonth() + 1}/${dt.getFullYear()}`;
+        if (!agrupado[key]) {
+          agrupado[key] = { name: key, total: 0, quantidade: 0 };
+        }
+        agrupado[key].total += total;
+        agrupado[key].quantidade += 1;
+      });
+
+      const arr = Object.values(agrupado).sort((a, b) => {
+        const [d1, m1, y1] = a.name.split("/").map(Number);
+        const [d2, m2, y2] = b.name.split("/").map(Number);
+        const dateA = new Date(y1, m1 - 1, d1);
+        const dateB = new Date(y2, m2 - 1, d2);
+        return dateA - dateB;
+      });
+
+      arr.forEach((d) => {
+        d.total = Number(d.total.toFixed(2));
+      });
+
+      setDadosMensais(arr);
       setLoading(false);
     }
-    fetchHistorico();
+
+    fetchDados();
   }, []);
 
   if (loading) {
     return (
-      <div className="container my-5">
-        <p>Carregando histórico de gastos...</p>
+      <div className="container my-5 text-center">
+        <div className="spinner-border text-primary" role="status"></div>
+        <p className="mt-2">Carregando dados de pedidos…</p>
       </div>
     );
   }
 
   return (
-    <div
-      className="container my-5 px-3 px-md-4"
-      style={{
-        zIndex: 2,
-        paddingTop: "60px",
-      }}
-    >
-      <h2 className="mb-4">Previsão de Gastos Mensal</h2>
-      {historico.length === 0 ? (
+    <div className="container my-5 px-3 px-md-4">
+      <h2 className="mb-4">Histórico de Pedidos & Gastos Mensais</h2>
+
+      {dadosMensais.length === 0 ? (
         <div className="alert alert-info">
-          Nenhum histórico de carrinho encontrado. Salve pelo menos um carrinho
-          para ver gráfico.
+          Nenhum pedido encontrado. Faça pelo menos um pedido para gerar o gráfico.
         </div>
       ) : (
-        <div style={{ width: "100%", height: 300 }}>
-          <ResponsiveContainer>
-            <LineChart
-              data={historico}
-              margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
-            >
-              <XAxis dataKey="name" stroke="#555" />
-              <YAxis stroke="#555" />
-              <Tooltip formatter={(value) => `R$ ${value.toFixed(2)}`} />
-              <Line
-                type="monotone"
-                dataKey="total"
-                stroke="#198754"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <>
+          <div className="mb-5" style={{ width: "100%", height: 350 }}>
+            <ResponsiveContainer>
+              <BarChart data={dadosMensais} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis yAxisId="left" orientation="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip formatter={(value, name) => {
+                  if (name === "total") return `R$ ${value.toFixed(2)}`;
+                  return `${value} pedido(s)`;
+                }} />
+                <Legend verticalAlign="top" />
+                <Bar yAxisId="left" dataKey="quantidade" name="Qtd. Pedidos" fill="#0d6efd" />
+                <Bar yAxisId="right" dataKey="total" name="Total Gasto (R$)" fill="#198754" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <h5 className="mb-3">Resumo Mensal</h5>
+          <div className="table-responsive">
+            <table className="table table-striped table-hover">
+              <thead className="table-light">
+                <tr>
+                  <th>Mês/Ano</th>
+                  <th className="text-center">Qtd. Pedidos</th>
+                  <th className="text-end">Total Gasto (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dadosMensais.map(({ name, quantidade, total }) => (
+                  <tr key={name}>
+                    <td>{name}</td>
+                    <td className="text-center">{quantidade}</td>
+                    <td className="text-end">{total.toFixed(2).replace(".", ",")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
-      <p className="mt-3">
-        O gráfico acima mostra o total gasto em cada carrinho salvo. Use essa
-        informação para planejar seu orçamento mensal.
-      </p>
     </div>
   );
 }

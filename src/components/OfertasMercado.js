@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 import { Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import {
   ref,
   onValue,
@@ -139,8 +140,26 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     setNovo({ valor: "", objeto: "" });
   };
 
-  const adicionar = (produto) => {
-    const qtdStr = prompt(`Quantas unidades de "${produto.name}" você deseja adicionar?`, "1");
+  const adicionar = async (produto) => {
+    const { value: qtdStr } = await Swal.fire({
+      title: `Quantas unidades de "${produto.name}" deseja adicionar?`,
+      input: "number",
+      inputLabel: "Quantidade",
+      inputValue: 1,
+      inputAttributes: {
+        min: 1,
+        step: 1,
+      },
+      showCancelButton: true,
+      confirmButtonText: "Adicionar",
+      cancelButtonText: "Cancelar",
+      inputValidator: (value) => {
+        if (!value || parseInt(value) <= 0) {
+          return "Insira uma quantidade válida maior que 0";
+        }
+      },
+    });
+
     const qtd = parseInt(qtdStr);
     if (!qtd || qtd <= 0) return;
 
@@ -192,19 +211,12 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     });
     setSalvando(false);
     setSucesso(`Carrinho salvo com sucesso, ${user.displayName || user.email}!`);
-
     setTimeout(() => {
-      const desejaCriarOutro = window.confirm("Carrinho salvo com sucesso! Deseja criar outro carrinho?");
-
-      if (desejaCriarOutro) {
-        setCarrinho([]);
-        setMercado(null);
-        setMercadosSelecionados([]);
-        setPrecosFixos({});
-        setSucesso("");
-      } else {
-        navigate("/");
-      }
+      setCarrinho([]);
+      setMercado(null);
+      setMercadosSelecionados([]);
+      setPrecosFixos({});
+      setSucesso("");
     }, 3000);
   };
 

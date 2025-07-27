@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../firebase";
-import { ref, get, push } from "firebase/database";
+import { ref, get, push, update } from "firebase/database";
 import Swal from "sweetalert2";
 
 function useQuery() {
@@ -211,6 +211,7 @@ export default function CompararCarrinhosPage({ user }) {
             {carrinhos.map((c, i) => (
               <option key={c.id} value={c.id}>
                 Carrinho #{i + 1} - {new Date(c.criadoEm).toLocaleString()}
+                {c.pedidoFeito ? " (pedido já feito)" : ""}
               </option>
             ))}
           </select>
@@ -462,6 +463,7 @@ export default function CompararCarrinhosPage({ user }) {
                         mercadoNome: nomeMercado,
                         total,
                         dataHora: new Date().toISOString(),
+                        carrinhoId: carrinhoSelecionadoId,
                         endereco: {
                           cep,
                           rua,
@@ -473,6 +475,9 @@ export default function CompararCarrinhosPage({ user }) {
                       try {
                         const pedidosRef = ref(db, `usuarios/${user.uid}/pedidos`);
                         await push(pedidosRef, pedido);
+
+                        const carrinhoRef = ref(db, `usuarios/${user.uid}/carts/${carrinhoSelecionadoId}`);
+                        await update(carrinhoRef, { pedidoFeito: true });
 
                         await Swal.fire({
                           title: "Enviando pedido...",

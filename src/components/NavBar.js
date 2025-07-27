@@ -189,23 +189,23 @@ export default function NavBar({
                 <Dropdown.Item as={Link} to="/carrinho">
                   Carrinho
                 </Dropdown.Item>
-                <Dropdown.Item as={Link} to="/cesta-mensal">
-                  Cesta Mensal
-                </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/pedidos">
                   Pedidos
                 </Dropdown.Item>
-                <Dropdown.Item as={Link} to="/passaporte">
-                  Passaporte
-                </Dropdown.Item>
-                <Dropdown.Item as={Link} to="/trocas">
-                  Club de Trocas
+                <Dropdown.Item as={Link} to="/conquistas">
+                  Conquistas
                 </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/favoritos">
                   Favoritos
                 </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/previsao">
                   Previsão de Gastos
+                </Dropdown.Item>
+                <Dropdown.Item as={Link} to="/cesta-mensal">
+                  Cesta Mensal
+                </Dropdown.Item>
+                <Dropdown.Item as={Link} to="/trocas">
+                  Club de Trocas
                 </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/cupons">
                   Pagamentos & Cupons
@@ -276,19 +276,12 @@ export default function NavBar({
                     >
                       Perfil
                     </Dropdown.Item>
-                     <Dropdown.Item
+                    <Dropdown.Item
                       as={Link}
                       to="/carrinho"
                       onClick={() => setExpanded(false)}
                     >
                       Carrinho
-                    </Dropdown.Item>
-                    <Dropdown.Item
-                      as={Link}
-                      to="/cesta-mensal"
-                      onClick={() => setExpanded(false)}
-                    >
-                      Cesta Mensal
                     </Dropdown.Item>
                     <Dropdown.Item
                       as={Link}
@@ -299,17 +292,10 @@ export default function NavBar({
                     </Dropdown.Item>
                     <Dropdown.Item
                       as={Link}
-                      to="/passaporte"
+                      to="/conquistas"
                       onClick={() => setExpanded(false)}
                     >
-                      Passaporte
-                    </Dropdown.Item>
-                    <Dropdown.Item
-                      as={Link}
-                      to="/trocas"
-                      onClick={() => setExpanded(false)}
-                    >
-                      Club de Trocas
+                      Conquistas
                     </Dropdown.Item>
                     <Dropdown.Item
                       as={Link}
@@ -324,6 +310,20 @@ export default function NavBar({
                       onClick={() => setExpanded(false)}
                     >
                       Previsão de Gastos
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                      as={Link}
+                      to="/cesta-mensal"
+                      onClick={() => setExpanded(false)}
+                    >
+                      Cesta Mensal
+                    </Dropdown.Item>
+                    <Dropdown.Item
+                      as={Link}
+                      to="/trocas"
+                      onClick={() => setExpanded(false)}
+                    >
+                      Club de Trocas
                     </Dropdown.Item>
                     <Dropdown.Item
                       as={Link}

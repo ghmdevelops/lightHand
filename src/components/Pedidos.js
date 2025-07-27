@@ -105,63 +105,71 @@ export default function Pedidos() {
       </button>
       <h2>Pedidos Realizados</h2>
 
-      <Row>
-        {pedidos.map((pedido) => {
-          const expandido = expandidoIds.includes(pedido.id);
-          return (
-            <Col md={6} lg={4} key={pedido.id} className="mb-3">
-              <Card>
-                <Card.Body>
-                  <Card.Title>{pedido.mercadoNome}</Card.Title>
-                  <Card.Subtitle className="mb-2 text-muted">
-                    Total: R${pedido.total.toFixed(2).replace(".", ",")}
-                  </Card.Subtitle>
-                  <Card.Text>
-                    <strong>Data:</strong>{" "}
-                    {new Date(pedido.dataHora).toLocaleString()}
-                  </Card.Text>
+      {pedidos.length === 0 ? (
+        <div className="alert alert-info mt-4">
+          Você ainda não tem pedidos realizados.
+        </div>
+      ) : (
+        <Row>
+          {pedidos.map((pedido) => {
+            const expandido = expandidoIds.includes(pedido.id);
+            return (
+              <Col md={6} lg={4} key={pedido.id} className="mb-3">
+                <Card>
+                  <Card.Body>
+                    <Card.Title>{pedido.mercadoNome}</Card.Title>
+                    <Card.Subtitle className="mb-2 text-muted">
+                      Total: R${pedido.total.toFixed(2).replace(".", ",")}
+                    </Card.Subtitle>
+                    <Card.Text>
+                      <strong>Data:</strong>{" "}
+                      {new Date(pedido.dataHora).toLocaleString()}
+                    </Card.Text>
 
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => toggleExpandir(pedido.id)}
-                  >
-                    {expandido ? "Ocultar Itens ▲" : "Mostrar Itens ▼"}
-                  </Button>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => toggleExpandir(pedido.id)}
+                    >
+                      {expandido ? "Ocultar Itens ▲" : "Mostrar Itens ▼"}
+                    </Button>
 
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    className="ms-2"
-                    onClick={() => excluirPedido(pedido.id)}
-                  >
-                    Excluir
-                  </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="ms-2"
+                      onClick={() => excluirPedido(pedido.id)}
+                    >
+                      Excluir
+                    </Button>
 
-                  <Button
-                    variant="info"
-                    size="sm"
-                    className="ms-2"
-                    onClick={() => abrirMapa(pedido)}
-                  >
-                    Ver Entrega
-                  </Button>
+                    <Button
+                      variant="info"
+                      size="sm"
+                      className="ms-2"
+                      onClick={() => abrirMapa(pedido)}
+                    >
+                      Ver Entrega
+                    </Button>
 
-                  {expandido && (
-                    <ul className="mt-2">
-                      {(pedido.itens || []).map((item, idx) => (
-                        <li key={idx}>
-                          {(item.qtd || item.quantidade || 1)}x {item.nome}: R${(Number(item.preco) * (item.qtd || item.quantidade || 1)).toFixed(2).replace(".", ",")}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Card.Body>
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
+                    {expandido && (
+                      <ul className="mt-2">
+                        {(pedido.itens || []).map((item, idx) => (
+                          <li key={idx}>
+                            {(item.qtd || item.quantidade || 1)}x {item.nome}: R$
+                            {(Number(item.preco) *
+                              (item.qtd || item.quantidade || 1)).toFixed(2).replace(".", ",")}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      )}
 
       <Modal show={mapaAberto} onHide={() => setMapaAberto(false)} size="lg" centered>
         <Modal.Header closeButton>

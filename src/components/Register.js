@@ -86,143 +86,178 @@ export default function Register({ onAuth, showLogin }) {
         paddingTop: "110px",
       }}
     >
-      <div className="w-100" style={{ maxWidth: "520px" }}>
-        <div className="card shadow-lg rounded-4 border-0">
-          <div className="card-body p-4">
-            <h2 className="text-center fw-bold mb-4 text-primary">
-              Criar Conta na LightHand
-            </h2>
+<div className="w-100" style={{ maxWidth: "520px" }}>
+  <div className="card shadow-lg rounded-4 border-0">
+    <div className="card-body p-4">
+      <h2 className="text-center fw-bold mb-4 text-primary">
+        Criar Conta na LightHand
+      </h2>
 
-            <form onSubmit={handleRegister}>
-              <div className="form-floating mb-3">
-                <input
-                  type="text"
-                  className="form-control"
-                  id="nome"
-                  placeholder="Nome completo"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required
-                />
-                <label htmlFor="nome">Nome completo</label>
-                <FaUser className="form-icon-end" />
-              </div>
+      <form onSubmit={handleRegister}>
 
-              <div className="form-floating mb-3">
-                <input
-                  type="text"
-                  className="form-control"
-                  id="apelido"
-                  placeholder="Apelido"
-                  value={apelido}
-                  onChange={(e) => setApelido(e.target.value)}
-                  required
-                />
-                <label htmlFor="apelido">Apelido</label>
-                <FaUserCircle className="form-icon-end" />
-              </div>
-
-              <div className="form-floating mb-3">
-                <input
-                  type="tel"
-                  className="form-control"
-                  id="celular"
-                  placeholder="Celular"
-                  value={celular}
-                  onChange={(e) => setCelular(e.target.value)}
-                  required
-                />
-                <label htmlFor="celular">Celular (com DDD)</label>
-                <FaPhone className="form-icon-end" />
-              </div>
-
-              <div className="form-floating mb-3">
-                <input
-                  type="email"
-                  className="form-control"
-                  id="email"
-                  placeholder="E-mail"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-                <label htmlFor="email">E-mail</label>
-                <FaEnvelope className="form-icon-end" />
-              </div>
-
-              <div className="form-floating mb-3">
-                <input
-                  type="password"
-                  className="form-control"
-                  id="senha"
-                  placeholder="Senha"
-                  value={senha}
-                  onChange={handleSenhaChange}
-                  required
-                />
-                <label htmlFor="senha">Senha</label>
-                <FaLock className="form-icon-end" />
-
-                {senha && (
-                  <div className="mt-2">
-                    <div className="progress" style={{ height: "6px" }}>
-                      <div
-                        className={`progress-bar ${getBarClass()}`}
-                        role="progressbar"
-                        style={{ width: `${senhaForca.score}%` }}
-                      ></div>
-                    </div>
-                    <small className={`form-text ${getBarClass()}`}>
-                      {senhaForca.label}
-                    </small>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-floating mb-4">
-                <input
-                  type="password"
-                  className="form-control"
-                  id="confirmSenha"
-                  placeholder="Confirmar Senha"
-                  value={confirmSenha}
-                  onChange={(e) => setConfirmSenha(e.target.value)}
-                  required
-                />
-                <label htmlFor="confirmSenha">Confirmar Senha</label>
-                <FaLock className="form-icon-end" />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary w-100 fw-bold py-2 mb-3"
-              >
-                Criar Conta
-              </button>
-
-              {erro && (
-                <div className="alert alert-danger text-center py-2">
-                  {erro}
-                </div>
-              )}
-
-              <div className="text-center">
-                <small className="text-muted">
-                  Já possui conta?
-                </small>
-                <br />
-                <button
-                  type="button"
-                  className="btn btn-link fw-semibold"
-                  onClick={showLogin}
-                >
-                  Entrar
-                </button>
-              </div>
-            </form>
+        {/* Nome completo */}
+        <div className="mb-3">
+          <label htmlFor="nome" className="form-label">Nome completo</label>
+          <div className="input-group input-group-lg">
+            <span className="input-group-text bg-white border-end-0">
+              <FaUser />
+            </span>
+            <input
+              type="text"
+              className="form-control border-start-0"
+              id="nome"
+              placeholder="Nome completo"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              required
+              style={{ height: "48px" }}
+            />
           </div>
         </div>
-      </div>
+
+        {/* Apelido */}
+        <div className="mb-3">
+          <label htmlFor="apelido" className="form-label">Apelido</label>
+          <div className="input-group input-group-lg">
+            <span className="input-group-text bg-white border-end-0">
+              <FaUserCircle />
+            </span>
+            <input
+              type="text"
+              className="form-control border-start-0"
+              id="apelido"
+              placeholder="Apelido"
+              value={apelido}
+              onChange={(e) => setApelido(e.target.value)}
+              required
+              style={{ height: "48px" }}
+            />
+          </div>
+        </div>
+
+        {/* Celular */}
+        <div className="mb-3">
+          <label htmlFor="celular" className="form-label">Celular (com DDD)</label>
+          <div className="input-group input-group-lg">
+            <span className="input-group-text bg-white border-end-0">
+              <FaPhone />
+            </span>
+            <input
+              type="tel"
+              className="form-control border-start-0"
+              id="celular"
+              placeholder="Celular"
+              value={celular}
+              onChange={(e) => setCelular(e.target.value)}
+              required
+              style={{ height: "48px" }}
+            />
+          </div>
+        </div>
+
+        {/* E-mail */}
+        <div className="mb-3">
+          <label htmlFor="email" className="form-label">E-mail</label>
+          <div className="input-group input-group-lg">
+            <span className="input-group-text bg-white border-end-0">
+              <FaEnvelope />
+            </span>
+            <input
+              type="email"
+              className="form-control border-start-0"
+              id="email"
+              placeholder="E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{ height: "48px" }}
+            />
+          </div>
+        </div>
+
+        {/* Senha */}
+        <div className="mb-3">
+          <label htmlFor="senha" className="form-label">Senha</label>
+          <div className="input-group input-group-lg">
+            <span className="input-group-text bg-white border-end-0">
+              <FaLock />
+            </span>
+            <input
+              type="password"
+              className="form-control border-start-0"
+              id="senha"
+              placeholder="Senha"
+              value={senha}
+              onChange={handleSenhaChange}
+              required
+              style={{ height: "48px" }}
+            />
+          </div>
+
+          {senha && (
+            <div className="mt-2">
+              <div className="progress" style={{ height: "6px" }}>
+                <div
+                  className={`progress-bar ${getBarClass()}`}
+                  role="progressbar"
+                  style={{ width: `${senhaForca.score}%` }}
+                ></div>
+              </div>
+              <small className={`form-text ${getBarClass()}`}>
+                {senhaForca.label}
+              </small>
+            </div>
+          )}
+        </div>
+
+        {/* Confirmar Senha */}
+        <div className="mb-4">
+          <label htmlFor="confirmSenha" className="form-label">Confirmar Senha</label>
+          <div className="input-group input-group-lg">
+            <span className="input-group-text bg-white border-end-0">
+              <FaLock />
+            </span>
+            <input
+              type="password"
+              className="form-control border-start-0"
+              id="confirmSenha"
+              placeholder="Confirmar Senha"
+              value={confirmSenha}
+              onChange={(e) => setConfirmSenha(e.target.value)}
+              required
+              style={{ height: "48px" }}
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="btn btn-primary w-100 fw-bold py-2 mb-3"
+        >
+          Criar Conta
+        </button>
+
+        {erro && (
+          <div className="alert alert-danger text-center py-2">
+            {erro}
+          </div>
+        )}
+
+        <div className="text-center">
+          <small className="text-muted">Já possui conta?</small>
+          <br />
+          <button
+            type="button"
+            className="btn btn-link fw-semibold"
+            onClick={showLogin}
+          >
+            Entrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
       <style>{`
       .form-icon-end {
