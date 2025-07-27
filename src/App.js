@@ -23,6 +23,7 @@ import RecuperarSenha from "./components/RecuperarSenha";
 
 import CompararCarrinhosPage from "./components/CompararCarrinhosPage";
 import Pedidos from "./components/Pedidos";
+import Carrinho from "./components/Carrinho";
 
 export default function App() {
   const [tela, setTela] = useState("landing");
@@ -74,9 +75,9 @@ export default function App() {
     onPerfil: () => setTela("perfil"),
     onLogout: () => auth.signOut(),
     dark: false,
-    setDark: () => {},
+    setDark: () => { },
     cartsCount: 0,
-    onShowCarts: () => {},
+    onShowCarts: () => { },
   };
 
   return (
@@ -266,11 +267,22 @@ export default function App() {
               }
             />
 
-             <Route
+            <Route
               path="/pedidos"
               element={
                 user ? (
                   <Pedidos user={user} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+            />
+
+            <Route
+              path="/carrinho"
+              element={
+                user ? (
+                  <Carrinho user={user} />
                 ) : (
                   <Navigate to="/" replace />
                 )

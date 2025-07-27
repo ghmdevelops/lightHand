@@ -154,6 +154,36 @@ export default function CompararCarrinhosPage({ user }) {
     }
   }
 
+  function isCepValido(cep) {
+    const cepLimpo = cep.replace(/\D/g, "");
+    return cepLimpo.length === 8;
+  }
+
+  const todosMercados = [
+    { id: "m1", nome: "Super Econômico", distancia: 1.2 },
+    { id: "m2", nome: "Mercado Bom Preço", distancia: 2.1 },
+    { id: "m3", nome: "Baratão", distancia: 3.3 },
+    { id: "m4", nome: "Hiper Center", distancia: 4.0 },
+    { id: "m5", nome: "Mercado Real", distancia: 4.7 },
+    { id: "m6", nome: "Mercado Popular", distancia: 3.8 },
+    { id: "m7", nome: "Supermercado Fácil", distancia: 2.7 },
+    { id: "m8", nome: "Mercado do Povo", distancia: 5.0 },
+    { id: "m9", nome: "Econômico Express", distancia: 1.9 },
+    { id: "m10", nome: "Max Supermercados", distancia: 3.5 },
+  ];
+
+  function sortearMercados(mercados, qtd = 5) {
+    const copia = [...mercados];
+    const selecionados = [];
+
+    while (selecionados.length < qtd && copia.length > 0) {
+      const idx = Math.floor(Math.random() * copia.length);
+      selecionados.push(copia.splice(idx, 1)[0]);
+    }
+
+    return selecionados;
+  }
+
   return (
     <div className="container mt-5">
       <h4 className="mb-4">Comparação de Carrinhos</h4>
@@ -164,7 +194,7 @@ export default function CompararCarrinhosPage({ user }) {
         &larr; Voltar
       </button>
 
-      {carrinhos.length > 1 && (
+      {carrinhos.length > 0 && (
         <div className="mb-4">
           <label className="form-label">
             Escolha o carrinho para comparar:
@@ -197,11 +227,13 @@ export default function CompararCarrinhosPage({ user }) {
         <div className="card mb-4">
           <div className="card-body">
             <h5 className="card-title">Itens do Carrinho Selecionado</h5>
-            <ul>
-              {carrinhoSelecionado.items.map((item, idx) => (
-                <li key={idx}>
-                  {item.name} — R$
-                  {Number(item.price).toFixed(2).replace(".", ",")}
+            <ul className="list-group">
+              {carrinhoSelecionado.items.map((item, index) => (
+                <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                  {(item.qtd || item.quantidade || 1)}x {item.name}
+                  <span className="badge bg-secondary">
+                    R$ {(item.price * (item.qtd || item.quantidade || 1)).toFixed(2).replace(".", ",")}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -228,13 +260,7 @@ export default function CompararCarrinhosPage({ user }) {
             <button
               className="btn btn-success w-100"
               onClick={() => {
-                const mockMercados = [
-                  { id: "m1", nome: "Super Econômico", distancia: 1.2 },
-                  { id: "m2", nome: "Mercado Bom Preço", distancia: 2.1 },
-                  { id: "m3", nome: "Baratão", distancia: 3.3 },
-                  { id: "m4", nome: "Hiper Center", distancia: 4.0 },
-                  { id: "m5", nome: "Mercado Real", distancia: 4.7 },
-                ];
+                const mockMercados = sortearMercados(todosMercados, 5);
                 setMercadosProximos(mockMercados);
                 setMercadosSelecionados([]);
                 setPrecosFixos({});
@@ -244,7 +270,8 @@ export default function CompararCarrinhosPage({ user }) {
             </button>
           </div>
         </div>
-        {mercadosProximos.length > 0 && (
+
+        {isCepValido(cep) && mercadosProximos.length > 0 && (
           <>
             <p className="text-muted">Selecione os mercados para comparar:</p>
             <div className="d-flex flex-wrap gap-2">
@@ -262,8 +289,7 @@ export default function CompararCarrinhosPage({ user }) {
                       );
                     }}
                   />
-                  {m.nome}{" "}
-                  <small className="text-muted">({m.distancia} km)</small>
+                  {m.nome} <small className="text-muted">({m.distancia} km)</small>
                 </label>
               ))}
             </div>
@@ -391,12 +417,22 @@ export default function CompararCarrinhosPage({ user }) {
                 >
                   <option value="">Selecione...</option>
                   {mercadosSelecionados.slice(0, 5).map((id) => {
-                    const nome =
-                      mercadosProximos.find((m) => m.id === id)?.nome || id;
+                    const nome = mercadosProximos.find((m) => m.id === id)?.nome || id;
                     const total = totalPorMercado[id] ?? 0;
+
+                    const backgroundColor = id === mercadoMaisBarato ? "#d4edda" : "#f8d7da";
+                    const textoExtra =
+                      id === mercadoMaisBarato
+                        ? "(Você vai economizar aqui!)"
+                        : "(Mais caro)";
+
                     return (
-                      <option key={id} value={id}>
-                        {nome} - R${total.toFixed(2).replace(".", ",")}
+                      <option
+                        key={id}
+                        value={id}
+                        style={{ backgroundColor }}
+                      >
+                        {nome} - R${total.toFixed(2).replace(".", ",")} {textoExtra}
                       </option>
                     );
                   })}

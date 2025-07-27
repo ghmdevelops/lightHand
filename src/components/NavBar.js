@@ -184,7 +184,10 @@ export default function NavBar({
                   Olá, {user.displayName || user.email}
                 </Dropdown.Header>
                 <Dropdown.Item as={Link} to="/perfil">
-                  Perfil/Carrinho
+                  Perfil
+                </Dropdown.Item>
+                <Dropdown.Item as={Link} to="/carrinho">
+                  Carrinho
                 </Dropdown.Item>
                 <Dropdown.Item as={Link} to="/cesta-mensal">
                   Cesta Mensal
@@ -271,7 +274,14 @@ export default function NavBar({
                       to="/perfil"
                       onClick={() => setExpanded(false)}
                     >
-                      Perfil/Carrinho
+                      Perfil
+                    </Dropdown.Item>
+                     <Dropdown.Item
+                      as={Link}
+                      to="/carrinho"
+                      onClick={() => setExpanded(false)}
+                    >
+                      Carrinho
                     </Dropdown.Item>
                     <Dropdown.Item
                       as={Link}
@@ -373,7 +383,7 @@ export default function NavBar({
                       boxShadow: "0 0 6px rgba(0,0,0,0.1)",
                     }}
                   >
-                    
+
                     <BiUserPlus size={20} />
                   </Button>
                 </Nav.Item>

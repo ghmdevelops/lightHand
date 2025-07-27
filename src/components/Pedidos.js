@@ -151,7 +151,7 @@ export default function Pedidos() {
                     <ul className="mt-2">
                       {(pedido.itens || []).map((item, idx) => (
                         <li key={idx}>
-                          {item.nome}: R${Number(item.preco).toFixed(2).replace(".", ",")}
+                          {(item.qtd || item.quantidade || 1)}x {item.nome}: R${(Number(item.preco) * (item.qtd || item.quantidade || 1)).toFixed(2).replace(".", ",")}
                         </li>
                       ))}
                     </ul>

@@ -345,7 +345,7 @@ export default function UserProfile({ user }) {
 
       <hr className="my-5" />
 
-      <h4 className="mb-3">Meus Carrinhos Salvos</h4>
+      {/*<h4 className="mb-3">Meus Carrinhos Salvos</h4>
       {cartsLoading ? (
         <div>Carregando carrinhos…</div>
       ) : carts.length === 0 ? (
@@ -366,14 +366,30 @@ export default function UserProfile({ user }) {
                   <small className="text-muted">
                     {new Date(cart.criadoEm).toLocaleString()}
                   </small>
-                  <ul className="mt-1 mb-1">
+
+                  <div className="mt-1" style={{ fontSize: "0.9rem" }}>
+                    <strong>Mercado:</strong>{" "}
+                    {cart.mercadoNome || "Não informado"}
+                    <br />
+                    {cart.mercadoRua && (
+                      <>
+                        <strong>Endereço:</strong>{" "}
+                        {cart.mercadoRua}, {cart.mercadoEstado || ""},{" "}
+                        {cart.mercadoPais || ""}
+                        <br />
+                      </>
+                    )}
+                  </div>
+
+                  <ul className="mt-2 mb-1">
                     {cart.items.map((it, idx) => (
                       <li key={idx} style={{ fontSize: 14 }}>
-                        {it.name} — R${" "}
+                        {(it.qtd || it.quantidade || 1)}x {it.name} — R${" "}
                         {Number(it.price).toFixed(2).replace(".", ",")}
                       </li>
                     ))}
                   </ul>
+
                   <div>
                     <strong>
                       {cart.items.length}{" "}
@@ -382,6 +398,7 @@ export default function UserProfile({ user }) {
                     </strong>
                   </div>
                 </div>
+
                 <button
                   className="btn btn-outline-danger btn-sm"
                   onClick={() => handleDeleteCart(cart.id)}
@@ -393,7 +410,7 @@ export default function UserProfile({ user }) {
           })}
         </ul>
       )}
-      {carts.length > 1 && (
+      {carts.length > 0 && (
         <div className="text-end mt-4">
           <button
             className="btn btn-success px-4 py-2 mb-3"
@@ -414,7 +431,7 @@ export default function UserProfile({ user }) {
             Comparar Carrinhos
           </button>
         </div>
-      )}
+      )}*/}
     </div>
   );
 }
