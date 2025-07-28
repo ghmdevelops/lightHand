@@ -78,7 +78,6 @@ export default function Login({ onAuth, showRegister }) {
         </div>
 
         <form onSubmit={handleLogin} noValidate>
-          {/* Email */}
           <div className="mb-4 position-relative">
             <label htmlFor="inputEmail" className="form-label fw-semibold text-secondary">
               E-mail

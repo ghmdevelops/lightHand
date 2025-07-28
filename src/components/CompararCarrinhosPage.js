@@ -274,24 +274,30 @@ export default function CompararCarrinhosPage({ user }) {
 
         {isCepValido(cep) && mercadosProximos.length > 0 && (
           <>
-            <p className="text-muted">Selecione os mercados para comparar:</p>
-            <div className="d-flex flex-wrap gap-2">
+            <p className="text-muted fw-semibold mb-2">Selecione os mercados para comparar:</p>
+            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
               {mercadosProximos.map((m) => (
-                <label key={m.id} className="form-check-label">
-                  <input
-                    type="checkbox"
-                    className="form-check-input me-2"
-                    checked={mercadosSelecionados.includes(m.id)}
-                    onChange={() => {
-                      setMercadosSelecionados((prev) =>
-                        prev.includes(m.id)
-                          ? prev.filter((x) => x !== m.id)
-                          : [...prev, m.id]
-                      );
-                    }}
-                  />
-                  {m.nome} <small className="text-muted">({m.distancia} km)</small>
-                </label>
+                <div key={m.id} className="col">
+                  <div className="form-check border rounded px-3 py-2 h-100 d-flex align-items-center cursor-pointer" style={{ userSelect: "none" }}>
+                    <input
+                      className="form-check-input me-2"
+                      type="checkbox"
+                      id={`mercado-${m.id}`}
+                      checked={mercadosSelecionados.includes(m.id)}
+                      onChange={() => {
+                        setMercadosSelecionados((prev) =>
+                          prev.includes(m.id)
+                            ? prev.filter((x) => x !== m.id)
+                            : [...prev, m.id]
+                        );
+                      }}
+                    />
+                    <label className="form-check-label mb-0 d-flex justify-content-between w-100" htmlFor={`mercado-${m.id}`}>
+                      <span>{m.nome}</span>
+                      <small className="text-muted ms-2">({m.distancia.toFixed(1)} km)</small>
+                    </label>
+                  </div>
+                </div>
               ))}
             </div>
           </>
@@ -304,14 +310,12 @@ export default function CompararCarrinhosPage({ user }) {
             Comparativo de Preços nos Mercados Selecionados
           </h5>
           <div className="table-responsive">
-            <table className="table table-bordered table-sm">
-              <thead>
+            <table className="table table-bordered table-sm align-middle">
+              <thead className="table-light">
                 <tr>
                   <th>Produto</th>
                   {mercadosSelecionados.map((id) => {
-                    const nome = mercadosProximos.find(
-                      (m) => m.id === id
-                    )?.nome;
+                    const nome = mercadosProximos.find((m) => m.id === id)?.nome;
                     return <th key={id}>{nome}</th>;
                   })}
                 </tr>
@@ -322,27 +326,29 @@ export default function CompararCarrinhosPage({ user }) {
                     <td>{item.name}</td>
                     {mercadosSelecionados.map((id) => {
                       const precoStr = precosFixos[item.name]?.[id];
-                      if (!precoStr) return <td key={id}>-</td>;
+                      if (!precoStr) return <td key={id} className="text-center">-</td>;
+
                       const precoNum = Number(precoStr);
                       const menorPreco = menoresPrecosPorProduto[item.name];
                       const isMenor = precoNum === menorPreco;
                       const isMaior = precoNum > menorPreco;
+
+                      let className = "text-center";
+                      if (isMenor) className += " table-success";
+                      else if (isMaior) className += " table-danger";
+
                       return (
                         <td
                           key={id}
-                          style={{
-                            backgroundColor: isMenor
-                              ? "#d4edda"
+                          className={className}
+                          title={
+                            isMenor
+                              ? "Preço mais baixo"
                               : isMaior
-                                ? "#f8d7da"
-                                : "transparent",
-                            color: isMenor
-                              ? "#155724"
-                              : isMaior
-                                ? "#721c24"
-                                : "inherit",
-                            fontWeight: isMenor ? "bold" : "normal",
-                          }}
+                                ? "Preço mais alto"
+                                : undefined
+                          }
+                          style={{ fontWeight: isMenor ? "bold" : "normal" }}
                         >
                           R$ {precoStr.replace(".", ",")}
                         </td>
@@ -354,28 +360,44 @@ export default function CompararCarrinhosPage({ user }) {
             </table>
           </div>
 
+
           <div className="mt-4">
             <h6>Totais por Mercado:</h6>
-            <ul>
+            <ul className="list-group mb-3">
               {mercadosSelecionados.map((id) => {
-                const nome =
-                  mercadosProximos.find((m) => m.id === id)?.nome || id;
+                const nome = mercadosProximos.find((m) => m.id === id)?.nome || id;
+                const total = totalPorMercado[id]?.toFixed(2).replace(".", ",");
+                const isMaisBarato = id === mercadoMaisBarato;
+                const isMaisCaro = id === mercadoMaisCaro;
+
                 return (
-                  <li key={id}>
-                    {nome}: R${totalPorMercado[id].toFixed(2).replace(".", ",")}
-                    {id === mercadoMaisBarato && (
-                      <strong> (Mais barato)</strong>
-                    )}
-                    {id === mercadoMaisCaro && <strong> (Mais caro)</strong>}
+                  <li
+                    key={id}
+                    className={`list-group-item d-flex justify-content-between align-items-center ${isMaisBarato ? "list-group-item-success" : ""
+                      } ${isMaisCaro ? "list-group-item-danger" : ""}`}
+                  >
+                    <span>{nome}</span>
+                    <span>
+                      R$ {total}{" "}
+                      {isMaisBarato && (
+                        <span className="badge bg-success ms-2">Mais barato</span>
+                      )}
+                      {isMaisCaro && (
+                        <span className="badge bg-danger ms-2">Mais caro</span>
+                      )}
+                    </span>
                   </li>
                 );
               })}
             </ul>
-            <p>
+
+            <p className="fs-5">
               Você pode economizar{" "}
-              <strong>R${economia.toFixed(2).replace(".", ",")}</strong>{" "}
-              comprando no mercado <strong>{nomeMercadoMaisBarato}</strong> ao
-              invés do mercado <strong>{nomeMercadoMaisCaro}</strong>.
+              <strong className="text-success">
+                R${economia.toFixed(2).replace(".", ",")}
+              </strong>{" "}
+              comprando no mercado <strong>{nomeMercadoMaisBarato}</strong> ao invés do mercado{" "}
+              <strong>{nomeMercadoMaisCaro}</strong>.
             </p>
 
             <button

@@ -1,540 +1,405 @@
+import React, { useState } from "react";
 import { TbShoppingCartDiscount } from "react-icons/tb";
-import React from "react";
-import { FaShoppingCart } from "react-icons/fa";
-import InstallAppButton from "./InstallAppButton";
-
-function getGlassBg() {
-  return "rgba(255,255,255,0.89)";
-}
+import {
+  FaBolt,
+  FaUsers,
+  FaWallet,
+  FaMapLocationDot,
+  FaMagnifyingGlass,
+  FaCartShopping,
+} from "react-icons/fa6";
 
 export default function LandingPage({ onLogin, onRegister }) {
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+
+  const testimonials = [
+    {
+      avatar: "https://i.pravatar.cc/100?img=5",
+      text: "“O Savvy salvou meu fim de semana! Consegui comparar preços e encontrei ofertas incríveis bem pertinho de mim.”",
+      author: "Maria Fernandes",
+    },
+    {
+      avatar: "https://i.pravatar.cc/100?img=14",
+      text: "“A comunidade de usuários é ótima: descobri promoções que nem sabia que existiam no meu bairro!”",
+      author: "João Silva",
+    },
+    {
+      avatar: "https://i.pravatar.cc/100?img=22",
+      text: "“Uso para montar meu carrinho antes de ir ao mercado. Economia garantida!”",
+      author: "Paulo Mendes",
+    },
+  ];
+
   return (
-    <div
-      className="d-flex flex-column min-vh-100 bg-light text-dark"
-      style={{
-        backgroundColor: "#fff",
-        position: "relative",
-        overflowX: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          zIndex: 1,
-          inset: 0,
-          pointerEvents: "none",
-        }}
-      />
-
+    <>
       <style>{`
-        .glass-card {
-          background: ${getGlassBg()};
-          box-shadow: 0 10px 36px 0 #728FCE, 0 2px 16px 0 rgba(43, 229, 217, 0.4);
-          border-radius: 2.2rem;
-          border: 1.5px solid rgba(255,255,255,0.19);
-          backdrop-filter: blur(18px);
-          transition: box-shadow 0.3s, transform 0.3s;
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          color: #2c3e50;
+        }
+        
+        .hero-section {
+          background-color: #f0f2f5;
+          background-image: radial-gradient(circle at 1% 1%, hsla(211, 100%, 94%, 1.00) 0%, transparent 50%), 
+                            radial-gradient(circle at 99% 99%, hsla(217, 100%, 91%, 1) 0%, transparent 40%);
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
           position: relative;
+          overflow: hidden;
         }
-          
-        .glass-card:hover {
-          box-shadow: 0 12px 54px 0 #728FCE, 0 2.5px 22px 0 rgba(71, 255, 255, 0.56);
-          transform: scale(1.028);
+        .content-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          max-width: 1100px;
+          width: 100%;
+          gap: 3rem;
         }
-
-        .cart-icon-animate {
-          animation: bounceIn 1.2s cubic-bezier(.43,1.43,.58,1.06);
-          display: inline-block;
-          transition: filter 0.35s, transform 0.35s;
+        .text-content {
+          max-width: 520px;
+          flex-shrink: 0;
+        }
+        .main-headline {
+          font-size: clamp(2.5rem, 5vw, 3.5rem);
+          font-weight: 700;
+          color: #4565c4ff;
+          margin-bottom: 1.5rem;
+          line-height: 1.2;
+        }
+        .main-headline span {
+            color: #1E90FF;
+        }
+        .sub-headline {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #4585c4ff;
+          margin-bottom: 0.75rem;
+        }
+        .description {
+          font-size: 1.1rem;
+          color: #4a5568;
+          margin-bottom: 2.5rem;
+          line-height: 1.6;
+        }
+        .button-group {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .btn-custom {
+          padding: 0.8rem 1.8rem;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 1rem;
+          border: 2px solid transparent;
+          transition: all 0.2s ease-in-out;
           cursor: pointer;
         }
-        .cart-icon-animate:hover {
-          filter: brightness(1.19) drop-shadow(0 0 25px #728FCE);
-          transform: scale(1.15) rotate(-4deg);
+        .btn-primary-custom {
+          background-color: #046acfff;
+          color: white;
         }
-        @keyframes bounceIn {
-          0%   { transform: scale(0.5) translateY(90px); opacity: 0.14;}
-          60%  { transform: scale(1.14) translateY(-24px);}
-          85%  { transform: scale(0.97) translateY(3px);}
-          100% { transform: scale(1) translateY(0); opacity: 1;}
+        .btn-primary-custom:hover {
+          background-color: #3a669fff;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
-
-        .neon-btn {
-          box-shadow: 0 0 8px #728FCE, 0 0 0 rgba(59, 225, 247, 0);
-          transition: box-shadow 0.18s, background 0.18s, color 0.17s;
-          border-radius: 10px !important;
-          font-weight: 600;
-          font-size: 1.17rem;
-          letter-spacing: 1.5px;
+        .btn-secondary-custom {
+          background-color: white;
+          color: #4582c4ff;
+          border-color: #d9ddf0ff;
         }
-        .neon-btn:hover, .neon-btn:focus {
-          box-shadow: 0 0 22px #2F539B, 0 0 60px rgba(95, 247, 229, 0.77);
-          background: #2F539B !important;
-          color: #fff !important;
-          border-color: #2F539B !important;
+        .btn-secondary-custom:hover {
+          background-color: #1f6cd2ff;
+          color: #ffffff;
+          border-color: #4589c4ff;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
-
-        /* Linha “glass” */
-        .glass-hr {
-          border: 0;
-          height: 2px;
-          background: linear-gradient(90deg, #3bf78744 0%, #b2f2e544 100%);
-          margin: 2rem 0 1.5rem 0;
+        .visual-content {
+          flex-grow: 1;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
-
-        .bg-card-imgs {
-          pointer-events: none;
+        .icon-showcase {
+          font-size: clamp(15rem, 30vw, 24rem);
+          color: #6eaae3ff;
+          opacity: 0.6;
+          filter: drop-shadow(0 10px 30px rgba(88, 69, 196, 0.2));
+          animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+          100% { transform: translateY(0px); }
+        }
+        .footer-note {
           position: absolute;
-          z-index: 0;
-          left: 0; top: 0; width: 100%; height: 100%;
-        }
-        .bg-card-imgs img {
-          position: absolute;
-          opacity: 0.22;
-          width: 140px;
-          filter: blur(0.5px);
-          transition: opacity 0.5s, transform 0.5s;
-        }
-        .bg-card-imgs .carrinho {
-          right: 30px; bottom: 30px;
-          transform: rotate(-12deg) scale(1.25);
-        }
-        .bg-card-imgs .vegetal {
-          left: 10px; top: 15px;
-          transform: rotate(15deg) scale(1.1);
-        }
-
-        .scroll-indicator {
-          position: absolute;
-          bottom: 16px;
+          bottom: 1rem;
           left: 50%;
           transform: translateX(-50%);
-          animation: bounceDown 1.8s infinite;
-          font-size: 2rem;
-          color: #000000aa;
+          font-size: 0.9rem;
+          color: #667;
+          text-align: center;
         }
-        @keyframes bounceDown {
-          0%, 20% { transform: translateX(-50%) translateY(0); opacity: 1; }
-          50%      { transform: translateX(-50%) translateY(10px); opacity: 0.6; }
-          100%     { transform: translateX(-50%) translateY(0); opacity: 1; }
+        
+        .page-content-wrapper {
+          background-color: #ffffff;
         }
-
-        .feature-card {
-          border: none;
-          border-radius: 1rem;
-          background: ${getGlassBg()};
-          backdrop-filter: blur(12px);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        .content-section {
+          padding: 5rem 2rem;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        .section-title {
+          text-align: center;
+          font-size: 2.25rem;
+          font-weight: 600;
+          color: #1a202c;
+          margin-bottom: 3.5rem;
+        }
+        .section-separator {
+          border: 0;
+          height: 1px;
+          background-color: #e2e8f0;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        
+        .cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 2rem;
+        }
+        .info-card {
+          background-color: #f8f9fa;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 2rem;
+          text-align: center;
           transition: transform 0.3s, box-shadow 0.3s;
         }
-        .feature-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 12px 36px rgba(0,0,0,0.18);
+        .info-card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 10px 20px rgba(45, 55, 72, 0.08);
         }
-        .feature-icon {
-          font-size: 2.2rem;
-          color: #1E90FF;
-          margin-bottom: 12px;
-        }
-
-        .step-card {
-          border: none;
-          background: transparent;
-          text-align: center;
-          padding: 1rem;
-        }
-        .step-icon {
+        .info-card-icon {
           font-size: 2.5rem;
           color: #1E90FF;
-          background: ${getGlassBg()};
+          margin-bottom: 1rem;
+        }
+        .step-icon-wrapper {
+          background-color: #e6f7ffff;
+          width: 70px;
+          height: 70px;
           border-radius: 50%;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 64px;
-          height: 64px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-          margin-bottom: 12px;
+          margin-bottom: 1rem;
+          color: #4578c4ff;
+          font-size: 1.8rem;
+        }
+        .info-card h5 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #2d3748;
+          margin-bottom: 0.5rem;
+        }
+        .info-card h6 {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: #2d3748;
+          margin-bottom: 0.5rem;
+        }
+        .info-card p {
+          color: #718096;
+          line-height: 1.6;
         }
 
-        /* Depoimentos slider básico */
-        .testimonial-slide {
-          display: none;
-          text-align: center;
-        }
-        .testimonial-slide.active {
-          display: block;
-        }
         .testimonial-card {
-          border: none;
-          border-radius: 1rem;
-          background: ${getGlassBg()};
-          backdrop-filter: blur(12px);
-          box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-          padding: 1.5rem;
-          max-width: 480px;
-          margin: auto;
+            max-width: 650px;
+            margin: 0 auto;
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
         }
         .testimonial-avatar {
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          object-fit: cover;
-          margin-bottom: 12px;
-          border: 2px solid #1E90FF;
+             width: 70px;
+             height: 70px;
+             border-radius: 50%;
+             object-fit: cover;
+             margin-bottom: 1rem;
+             border: 3px solid #6ebae3ff;
         }
-        .testimonial-navigation {
-          margin-top: 1rem;
+        .testimonial-text {
+             font-style: italic;
+             color: #4a5568;
+             margin-bottom: 1rem;
+             font-size: 1.1rem;
         }
-        .testimonial-navigation button {
-          background: #728FCE;
-          border: none;
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          margin: 0 6px;
-          transition: background 0.3s;
+        .testimonial-author {
+             font-weight: 600;
+             color: #2d3748;
         }
-        .testimonial-navigation button.active {
-          background: #1E90FF;
+        .testimonial-nav {
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+        .testimonial-nav-button {
+            background-color: #d9e2f0ff;
+            border: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin: 0 6px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .testimonial-nav-button.active {
+            background-color: #4585c4ff;
+            transform: scale(1.2);
+        }
+
+        @media (max-width: 992px) {
+          .visual-content { display: none; }
+          .text-content {
+            max-width: 600px;
+            text-align: center;
+            margin: 0 auto;
+          }
+          .button-group { justify-content: center; }
+        }
+        @media (max-width: 576px) {
+           .hero-section { padding: 1rem; }
+           .button-group { flex-direction: column; align-items: stretch; }
+           .content-section { padding: 3rem 1rem; }
         }
       `}</style>
 
-      <div
-        className="container flex-grow-1 d-flex align-items-center justify-content-center position-relative"
-        style={{
-          zIndex: 2,
-          paddingTop: "40px",
-        }}
-      >
-        <div
-          className="glass-card p-5 px-4 px-md-5 mx-auto text-center position-relative"
-          style={{
-            maxWidth: 80000,
-            width: "100%",
-            marginTop: 72,
-            marginBottom: 70,
-            minHeight: 500,
-            zIndex: 3,
-          }}
-        >
-          <div className="bg-card-imgs">
-            <img
-              src="https://cdn-icons-png.flaticon.com/512/3176/3176290.png"
-              alt="a"
-              className="carrinho"
-            />
-            <img
-              src="https://cdn-icons-png.flaticon.com/512/590/590685.png"
-              alt="b"
-              className="vegetal"
-            />
-          </div>
+      <div className="page-wrapper">
+        <header className="hero-section py-5">
+          <div className="container">
+            <div className="row align-items-center">
+              <div className="col-lg-6 text-content text-center text-lg-start mb-4 mb-lg-0">
+                <h1 className="main-headline">
+                  Bem-vindo ao <span>Savvy</span>
+                </h1>
+                <p className="sub-headline">
+                  Encontre mercados próximos de você em segundos.
+                </p>
+                <p className="description">
+                  <strong>Não perca tempo!</strong> Cadastre-se ou faça login agora para desbloquear ofertas exclusivas e economizar junto.
+                </p>
 
-          <div
-            className="mb-4 position-relative text-center"
-            style={{
-              zIndex: 10,
-              maxWidth: 480,
-              margin: "auto",
-              padding: "0 1rem",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "170px",
-                display: "inline-block",
-                transition: "filter 0.3s ease",
-                cursor: "default",
-              }}
-              aria-label="Ícone carrinho"
-            >
-              <TbShoppingCartDiscount />
+                <div className="button-group d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                  <button
+                    className="btn-custom btn-primary-custom"
+                    onClick={onRegister}
+                  >
+                    Registrar
+                  </button>
+                  <button
+                    className="btn-custom btn-secondary-custom"
+                    onClick={onLogin}
+                  >
+                    Login
+                  </button>
+                </div>
+              </div>
+
+              <div className="col-lg-6 d-none d-lg-flex justify-content-center visual-content">
+                <TbShoppingCartDiscount className="icon-showcase" />
+              </div>
             </div>
 
-            <h1
-              className="fw-bold mb-3"
-              style={{
-                letterSpacing: 3,
-                fontWeight: 700,
-                fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-                color: "#1E90FF",
-                textShadow: "0 2px 6px rgba(30,144,255,0.6)",
-                userSelect: "none",
-              }}
-            >
-              Bem-vindo ao <span className="text-primary">Savvy</span>
-            </h1>
+            <footer className="footer-note text-center mt-4">
+              Savvy &copy; {new Date().getFullYear()}
+            </footer>
+          </div>
+        </header>
 
-            <p
-              className="lead mb-5"
-              style={{
-                fontWeight: 500,
-                color: "#444",
-                fontSize: "1.18rem",
-                maxWidth: 380,
-                margin: "0 auto",
-                lineHeight: 1.5,
-                userSelect: "none",
-              }}
-            >
-              Encontre mercados próximos de você em segundos.
-              <br />
-              <span
-                className="text-secondary"
-                style={{ fontWeight: 400, fontSize: "1rem" }}
-              >
-                Cadastre-se ou faça login para aproveitar ofertas e colaborar
-                com a comunidade!
-              </span>
-            </p>
 
-            <div className="d-flex flex-column flex-md-row justify-content-center gap-4">
-              <button
-                className="btn neon-btn btn-primary btn-lg px-5 fw-semibold"
-                onClick={onRegister}
-                style={{
-                  borderRadius: "12px",
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 0 12px #1E90FF",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.boxShadow = "0 0 22px #00CED1")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.boxShadow = "0 0 12px #1E90FF")
-                }
-              >
-                Registrar
-              </button>
-              <button
-                className="btn neon-btn btn-outline-primary btn-lg px-5 fw-semibold"
-                onClick={onLogin}
-                style={{
-                  borderRadius: "12px",
-                  transition: "all 0.3s ease",
-                  boxShadow: "0 0 8px #1E90FF inset",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.boxShadow = "0 0 18px #00CED1 inset")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.boxShadow = "0 0 8px #1E90FF inset")
-                }
-              >
-                Login
-              </button>
+        <main className="page-content-wrapper">
+          <section className="content-section">
+            <h2 className="section-title">Por que Savvy?</h2>
+            <div className="cards-grid">
+              <div className="info-card">
+                <div className="info-card-icon"><FaBolt /></div>
+                <h5>Rapidez</h5>
+                <p>Encontre mercados próximos em segundos e veja ofertas em tempo real.</p>
+              </div>
+              <div className="info-card">
+                <div className="info-card-icon"><FaUsers /></div>
+                <h5>Comunidade</h5>
+                <p>Compartilhe ofertas e descubra promoções postadas por outros usuários.</p>
+              </div>
+              <div className="info-card">
+                <div className="info-card-icon"><FaWallet /></div>
+                <h5>Economia</h5>
+                <p>Compare preços antes de sair de casa e monte seu carrinho para economizar.</p>
+              </div>
             </div>
-<InstallAppButton />
+          </section>
 
-            <style>{`
-    @keyframes pulseGlow {
-      0%, 100% {
-        filter: drop-shadow(0 0 12px #1E90FF) drop-shadow(0 0 8px #00CED1);
-      }
-      50% {
-        filter: drop-shadow(0 0 20px #00CED1) drop-shadow(0 0 14px #1E90FF);
-      }
-    }
-  `}</style>
-          </div>
+          <hr className="section-separator" />
 
-          <hr className="glass-hr" />
+          <section className="content-section">
+            <h2 className="section-title">Como funciona?</h2>
+            <div className="cards-grid">
+              <div className="info-card">
+                <div className="step-icon-wrapper"><FaMapLocationDot /></div>
+                <h6>1. Permita localização</h6>
+                <p>Autorize acesso ao GPS para encontrar mercados próximos a você.</p>
+              </div>
+              <div className="info-card">
+                <div className="step-icon-wrapper"><FaMagnifyingGlass /></div>
+                <h6>2. Busque mercados</h6>
+                <p>Toque em “Buscar” e veja uma lista das lojas em sua região.</p>
+              </div>
+              <div className="info-card">
+                <div className="step-icon-wrapper"><FaCartShopping /></div>
+                <h6>3. Confira ofertas</h6>
+                <p>Selecione um mercado para ver ofertas, salvar favoritos ou montar seu carrinho.</p>
+              </div>
+            </div>
+          </section>
 
-          <small style={{ zIndex: 10, position: "relative" }}>
-            Simples. Rápido.{" "}
-            <span style={{ color: "#1E90FF", fontWeight: 600 }}>
-              Feito para você!
-            </span>
-            <br />
-            <span className="fw-semibold">Savvy</span> &copy;{" "}
-            {new Date().getFullYear()}
-          </small>
-          <div className="scroll-indicator">
-            <i className="bi bi-chevron-double-down"></i>
-          </div>
-        </div>
+          <hr className="section-separator" />
+
+          <section className="content-section">
+            <h2 className="section-title">O que dizem nossos usuários</h2>
+            <div className="testimonial-card">
+              <img
+                src={testimonials[activeTestimonial].avatar}
+                alt="Avatar do usuário"
+                className="testimonial-avatar"
+              />
+              <p className="testimonial-text">
+                {testimonials[activeTestimonial].text}
+              </p>
+              <strong className="testimonial-author">
+                {testimonials[activeTestimonial].author}
+              </strong>
+            </div>
+            <div className="testimonial-nav">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  className={`testimonial-nav-button ${activeTestimonial === index ? "active" : ""
+                    }`}
+                  onClick={() => setActiveTestimonial(index)}
+                  aria-label={`Ver depoimento ${index + 1}`}
+                />
+              ))}
+            </div>
+          </section>
+        </main>
       </div>
-
-      <section className="container py-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">Por que Savvy?</h2>
-        <div className="row g-4">
-          <div className="col-12 col-md-4">
-            <div className="feature-card text-center p-4 h-100">
-              <div className="feature-icon mb-3">
-                <i className="fa-solid fa-bolt"></i>
-              </div>
-              <h5 className="fw-bold">Rapidez</h5>
-              <p className="mx-2 text-secondary">
-                Encontre mercados próximos em menos de 30 segundos e veja
-                ofertas em tempo real.
-              </p>
-            </div>
-          </div>
-          <div className="col-12 col-md-4">
-            <div className="feature-card text-center p-4 h-100">
-              <div className="feature-icon mb-3">
-                <i className="fa-solid fa-users"></i>
-              </div>
-              <h5 className="fw-bold">Comunidade</h5>
-              <p className="mx-2 text-secondary">
-                Compartilhe ofertas e descubra promoções postadas por outros
-                usuários.
-              </p>
-            </div>
-          </div>
-          <div className="col-12 col-md-4">
-            <div className="feature-card text-center p-4 h-100">
-              <div className="feature-icon mb-3">
-                <i className="fa-solid fa-wallet"></i>
-              </div>
-              <h5 className="fw-bold">Economia</h5>
-              <p className="mx-2 text-secondary">
-                Compare preços antes de sair de casa e monte seu carrinho para
-                economizar.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <hr className="glass-hr mx-4" />
-
-      <section className="container py-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">Como funciona?</h2>
-        <div className="row g-4">
-          <div className="col-12 col-md-4">
-            <div className="feature-card text-center p-4 h-100">
-              <div className="step-icon mb-3">
-                <i className="fa-solid fa-map-location-dot"></i>
-              </div>
-              <h6 className="fw-bold">1. Permita localização</h6>
-              <p className="text-secondary">
-                Autorize acesso ao GPS para encontrar mercados próximos.
-              </p>
-            </div>
-          </div>
-          <div className="col-12 col-md-4">
-            <div className="feature-card text-center p-4 h-100">
-              <div className="step-icon mb-3">
-                <i className="fa-solid fa-magnifying-glass"></i>
-              </div>
-              <h6 className="fw-bold">2. Busque mercados</h6>
-              <p className="text-secondary">
-                Toque em “Buscar Mercados” e veja uma lista das lojas em sua
-                região.
-              </p>
-            </div>
-          </div>
-          <div className="col-12 col-md-4">
-            <div className="feature-card text-center p-4 h-100">
-              <div className="step-icon mb-3">
-                <i className="fa-solid fa-cart-shopping"></i>
-              </div>
-              <h6 className="fw-bold">3. Confira ofertas</h6>
-              <p className="text-secondary">
-                Selecione um mercado para ver ofertas, salvar favoritos ou
-                montar seu carrinho.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <hr className="glass-hr mx-4" />
-
-      <section className="container py-5 mb-5" style={{ zIndex: 2 }}>
-        <h2 className="text-center mb-4 fw-semibold">
-          O que dizem nossos usuários
-        </h2>
-
-        <div className="testimonial-slide active" id="t1">
-          <div className="testimonial-card mx-auto">
-            <img
-              src="https://i.pravatar.cc/100?img=5"
-              alt="Avatar"
-              className="testimonial-avatar mb-2"
-            />
-            <p className="text-secondary mb-2">
-              “O Savvy salvou meu fim de semana! Consegui comparar preços e
-              encontrei ofertas incríveis bem pertinho de mim.”
-            </p>
-            <strong>Maria Fernandes</strong>
-          </div>
-        </div>
-        <div className="testimonial-slide" id="t2">
-          <div className="testimonial-card mx-auto">
-            <img
-              src="https://i.pravatar.cc/100?img=14"
-              alt="Avatar"
-              className="testimonial-avatar mb-2"
-            />
-            <p className="text-secondary mb-2">
-              “A comunidade de usuários é ótima: descobri promoções que nem
-              sabia que existiam no meu bairro!”
-            </p>
-            <strong>João Silva</strong>
-          </div>
-        </div>
-        <div className="testimonial-slide" id="t3">
-          <div className="testimonial-card mx-auto">
-            <img
-              src="https://i.pravatar.cc/100?img=22"
-              alt="Avatar"
-              className="testimonial-avatar mb-2"
-            />
-            <p className="text-secondary mb-2">
-              “Uso para montar meu carrinho antes de ir ao mercado. Economia
-              garantida!”
-            </p>
-            <strong>Paulo Mendes</strong>
-          </div>
-        </div>
-
-        {/* Navegação (simples) */}
-        <div className="text-center testimonial-navigation">
-          <button
-            className="active"
-            onClick={() => {
-              document.getElementById("t1").classList.add("active");
-              document.getElementById("t2").classList.remove("active");
-              document.getElementById("t3").classList.remove("active");
-              document
-                .querySelectorAll(".testimonial-navigation button")
-                .forEach((b) => b.classList.remove("active"));
-              document
-                .querySelector(".testimonial-navigation button:nth-child(1)")
-                .classList.add("active");
-            }}
-          />
-          <button
-            onClick={() => {
-              document.getElementById("t1").classList.remove("active");
-              document.getElementById("t2").classList.add("active");
-              document.getElementById("t3").classList.remove("active");
-              document
-                .querySelectorAll(".testimonial-navigation button")
-                .forEach((b) => b.classList.remove("active"));
-              document
-                .querySelector(".testimonial-navigation button:nth-child(2)")
-                .classList.add("active");
-            }}
-          />
-          <button
-            onClick={() => {
-              document.getElementById("t1").classList.remove("active");
-              document.getElementById("t2").classList.remove("active");
-              document.getElementById("t3").classList.add("active");
-              document
-                .querySelectorAll(".testimonial-navigation button")
-                .forEach((b) => b.classList.remove("active"));
-              document
-                .querySelector(".testimonial-navigation button:nth-child(3)")
-                .classList.add("active");
-            }}
-          />
-        </div>
-      </section>
-    </div>
+    </>
   );
 }

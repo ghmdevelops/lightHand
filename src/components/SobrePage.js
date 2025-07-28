@@ -1,6 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 export default function SobrePage() {
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, []);
+
   return (
     <div
       className="container my-5 px-3 px-md-4"
@@ -174,7 +178,7 @@ export default function SobrePage() {
           ></i>
           Missao
         </h4>
-        
+
         <div className="row row-cols-1 row-cols-md-2 gy-4">
           {["Gehaime Barros", "Robinson Silva"].map((nome) => (
             <div key={nome} className="col">

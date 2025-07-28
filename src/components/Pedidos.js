@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { ref, onValue, remove } from "firebase/database";
-import { Card, Container, Row, Col, Spinner, Button, Modal } from "react-bootstrap";
+import { Card, Container, Row, Col, Spinner, Button, Modal, ListGroup, ButtonGroup, Badge } from "react-bootstrap";
+import { FaTrash, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
+
 import { getAuth } from "firebase/auth";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -113,62 +115,111 @@ export default function Pedidos() {
         <Row>
           {pedidos.map((pedido) => {
             const expandido = expandidoIds.includes(pedido.id);
+            // Exemplo: badge para pedidos recentes (menos de 7 dias)
+            const dataPedido = new Date(pedido.dataHora);
+            const ehRecente = (new Date() - dataPedido) / (1000 * 60 * 60 * 24) < 7;
+
             return (
-              <Col md={6} lg={4} key={pedido.id} className="mb-3">
-                <Card>
+              <Col md={6} lg={4} key={pedido.id} className="mb-4">
+                <Card
+                  className="shadow-sm border-0 rounded-4"
+                  style={{ padding: "1.25rem" }} // mais espaçamento interno
+                >
                   <Card.Body>
-                    <Card.Title>{pedido.mercadoNome}</Card.Title>
-                    <Card.Subtitle className="mb-2 text-muted">
-                      Total: R${pedido.total.toFixed(2).replace(".", ",")}
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <Card.Title as="h5" className="mb-0">
+                        {pedido.mercadoNome}
+                      </Card.Title>
+                      {ehRecente && (
+                        <Badge bg="success" pill>
+                          Recente
+                        </Badge>
+                      )}
+                    </div>
+
+                    <Card.Subtitle className="mb-3 text-muted fs-6">
+                      Total: <strong>R${pedido.total.toFixed(2).replace(".", ",")}</strong>
                     </Card.Subtitle>
-                    <Card.Text>
-                      <strong>Data:</strong>{" "}
-                      {new Date(pedido.dataHora).toLocaleString()}
+                    <Card.Text className="mb-4">
+                      <small>
+                        <strong>Data:</strong> {dataPedido.toLocaleString()}
+                      </small>
                     </Card.Text>
 
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => toggleExpandir(pedido.id)}
-                    >
-                      {expandido ? "Ocultar Itens ▲" : "Mostrar Itens ▼"}
-                    </Button>
+                    <ButtonGroup aria-label="Ações do pedido" className="mb-3 w-100 gap-2">
+                      <Button
+                        variant={expandido ? "primary" : "outline-primary"}
+                        size="sm"
+                        onClick={() => toggleExpandir(pedido.id)}
+                        style={{ flexGrow: 1, cursor: "pointer", transition: "background-color 0.2s" }}
+                      >
+                        {expandido ? (
+                          <>
+                            Ocultar Itens <FaChevronUp className="ms-1" />
+                          </>
+                        ) : (
+                          <>
+                            Mostrar Itens <FaChevronDown className="ms-1" />
+                          </>
+                        )}
+                      </Button>
 
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className="ms-2"
-                      onClick={() => excluirPedido(pedido.id)}
-                    >
-                      Excluir
-                    </Button>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => excluirPedido(pedido.id)}
+                        style={{ flexGrow: 1 }}
+                      >
+                        <FaTrash className="me-1" />
+                        Excluir
+                      </Button>
 
-                    <Button
-                      variant="info"
-                      size="sm"
-                      className="ms-2"
-                      onClick={() => abrirMapa(pedido)}
-                    >
-                      Ver Entrega
-                    </Button>
+                      <Button
+                        variant="outline-info"
+                        size="sm"
+                        onClick={() => abrirMapa(pedido)}
+                        style={{ flexGrow: 1 }}
+                      >
+                        <FaMapMarkerAlt className="me-1" />
+                        Ver Entrega
+                      </Button>
+                    </ButtonGroup>
 
-                    {expandido && (
-                      <ul className="mt-2">
-                        {(pedido.itens || []).map((item, idx) => (
-                          <li key={idx}>
-                            {(item.qtd || item.quantidade || 1)}x {item.nome}: R$
-                            {(Number(item.preco) *
-                              (item.qtd || item.quantidade || 1)).toFixed(2).replace(".", ",")}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {/* Animação suave para expandir os itens */}
+                    <div
+                      style={{
+                        maxHeight: expandido ? "1000px" : 0,
+                        overflow: "hidden",
+                        transition: "max-height 0.4s ease",
+                      }}
+                    >
+                      {expandido && (
+                        <ListGroup variant="flush" className="border rounded p-3">
+                          {(pedido.itens || []).map((item, idx) => (
+                            <ListGroup.Item
+                              key={idx}
+                              className="py-2 d-flex justify-content-between align-items-center"
+                            >
+                              <div>
+                                {(item.qtd || item.quantidade || 1)}x {item.nome}
+                              </div>
+                              <div>
+                                R${(Number(item.preco) * (item.qtd || item.quantidade || 1))
+                                  .toFixed(2)
+                                  .replace(".", ",")}
+                              </div>
+                            </ListGroup.Item>
+                          ))}
+                        </ListGroup>
+                      )}
+                    </div>
                   </Card.Body>
                 </Card>
               </Col>
             );
           })}
         </Row>
+
       )}
 
       <Modal show={mapaAberto} onHide={() => setMapaAberto(false)} size="lg" centered>

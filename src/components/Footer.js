@@ -20,7 +20,6 @@ export default function Footer() {
     >
       <div className="container">
         <div className="row g-4 text-center text-md-start">
-          {/* Logo e Slogan */}
           <div className="col-md-4">
             <div className="d-flex align-items-center justify-content-center justify-content-md-start mb-2">
               <i
@@ -47,7 +46,6 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Links rápidos */}
           <div className="col-md-4">
             <h6
               className="text-uppercase mb-3"

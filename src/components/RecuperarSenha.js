@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
+import { FaEnvelope, FaUnlockAlt } from "react-icons/fa";
 
 export default function RecuperarSenha() {
   const [email, setEmail] = useState("");
@@ -32,146 +33,108 @@ export default function RecuperarSenha() {
 
   return (
     <div
-      className="d-flex justify-content-center align-items-center vh-100 text-dark"
+      className="d-flex justify-content-center align-items-center vh-100 px-3"
       style={{
-        backgroundColor: "#f8fafc",
-        paddingTop: "60px",
-        backgroundImage:
-          "linear-gradient(135deg, #f4fbffff 0%, #f4fafeff 100%)",
+        background: "linear-gradient(135deg, #e9f0fb 0%, #f7f9fc 100%)",
+        fontFamily: "'Inter', sans-serif",
+        paddingTop: "120px",
       }}
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
-        body {
-          font-family: 'Inter', sans-serif;
-        }
-
-        .glass-login-card {
-          background: rgba(255, 255, 255, 1);
-          border-radius: 1rem;
-          border: 1px solid rgba(255, 255, 255, 0.61);
-          backdrop-filter: blur(12px);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-          transition: all 0.3s ease-in-out;
-        }
-
-        .glass-login-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 48px rgba(114, 143, 206, 0.3);
-        }
-
-        .form-control {
-          background: rgba(255, 255, 255, 0.1);
-          color: #222;
-          border: none;
-          border-radius: 0.75rem;
-        }
-
-        .form-control:focus {
-          background: rgba(255, 255, 255, 0.2);
-          border: 1px solid #728FCE !important;
-          box-shadow: 0 0 8px rgba(114, 143, 206, 0.5);
-        }
-
-        .btn-neon {
-          background: linear-gradient(to right, #4863A0, #728FCE);
-          color: #fff;
-          font-weight: 600;
-          border-radius: 50px;
-          transition: 0.3s ease;
-        }
-
-        .btn-neon:hover {
-          background: #fff;
-          color: #2F539B;
-          box-shadow: 0 0 15px #728FCE;
-        }
-
-        .lock-icon-wrapper {
-          background: rgba(114, 143, 206, 0.1);
-          border-radius: 50%;
-          width: 70px;
-          height: 70px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .error-msg {
-          animation: fadeIn 0.3s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        .text-register a {
-          color: #4863A0;
-          text-decoration: none;
-          font-weight: 600;
-        }
-
-        .text-register a:hover {
-          color: #728FCE;
-        }
-      `}</style>
-
       <div
-        className="glass-login-card p-4 p-md-5 mx-3"
-        style={{ maxWidth: 400, width: "100%" }}
+        className="shadow-lg rounded-5 p-4 p-md-5 bg-white"
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          boxShadow: "0 12px 24px rgba(50, 115, 220, 0.15)",
+          border: "1px solid #dce3f2",
+        }}
       >
-        <div className="text-center mb-4">
-          <div className="lock-icon-wrapper">
-            <i
-              className="fa-solid fa-unlock-keyhole"
-              style={{ fontSize: "1.8rem", color: "#728FCE" }}
-            ></i>
-          </div>
-          <h3 className="mt-3 fw-bold">Recuperar Senha</h3>
-          <p className="text-muted" style={{ fontSize: "0.9rem" }}>
-            Informe seu e-mail para redefinir a senha.
-          </p>
+        <div
+          style={{
+            backgroundColor: "#c4d6fa",
+            borderRadius: "50%",
+            width: 72,
+            height: 72,
+            margin: "0 auto 20px auto",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            boxShadow: "0 8px 16px rgba(114, 143, 206, 0.25)",
+          }}
+        >
+          <FaUnlockAlt size={32} color="#4a6ef0" />
         </div>
 
-        <form onSubmit={handleReset}>
-          <div className="form-floating mb-3 position-relative">
+        <h2
+          className="fw-bold text-primary text-center"
+          style={{ letterSpacing: "0.7px" }}
+        >
+          Recuperar Senha
+        </h2>
+        <p className="text-secondary fs-6 text-center mt-2">
+          Informe seu e-mail para redefinir a senha.
+        </p>
+
+        <form onSubmit={handleReset} className="mt-4">
+          <div className="input-group shadow-sm rounded-3 overflow-hidden mb-3">
+            <span className="input-group-text bg-white border-0">
+              <FaEnvelope className="text-primary" />
+            </span>
             <input
               type="email"
-              className="form-control"
-              id="resetEmail"
-              placeholder="nome@exemplo.com"
+              className="form-control border-0 shadow-none"
+              placeholder="E-mail"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoFocus
             />
-            <label htmlFor="resetEmail">E-mail</label>
           </div>
 
-          <button type="submit" className="btn btn-neon w-100 py-2 mb-3">
+          <button
+            type="submit"
+            className="btn btn-primary w-100 fw-semibold py-3 shadow-sm mt-3"
+            style={{
+              fontSize: "1.1rem",
+              borderRadius: "1.2rem",
+              letterSpacing: "0.05em",
+            }}
+          >
             Enviar link
           </button>
 
-          <button
-            type="button"
-            className="btn btn-outline-primary w-100 py-2 mb-3"
-            onClick={() => navigate("/login")}
-          >
-            Voltar para Login
-          </button>
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              className="btn btn-link fw-semibold p-0 text-decoration-none"
+              onClick={() => navigate("/login")}
+              style={{ color: "#4a6ef0" }}
+            >
+              Voltar para Login
+            </button>
+          </div>
 
           {mensagem && (
-            <div className="alert alert-success text-center error-msg py-2">
+            <div
+              className="alert alert-success text-center mt-3"
+              style={{
+                borderRadius: "0.75rem",
+                fontWeight: "600",
+              }}
+            >
               {mensagem}
               <div className="small mt-1">Redirecionando para login...</div>
             </div>
           )}
 
           {erro && (
-            <div className="alert alert-danger text-center error-msg py-2">
+            <div
+              className="alert alert-danger text-center mt-3"
+              style={{
+                borderRadius: "0.75rem",
+                fontWeight: "600",
+              }}
+            >
               {erro}
             </div>
           )}
