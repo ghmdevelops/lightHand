@@ -256,12 +256,10 @@ export default function BuscarMercadosOSM({ user }) {
     );
   }
 
-  // Se mostrar carrinho
   if (mostrarCarrinho) {
     return <ProdutosPage onVoltar={() => setMostrarCarrinho(false)} />;
   }
 
-  // Modo busca por CEP
   if (modoBusca === "cep") {
     return (
       <div className="container my-5 px-2 px-md-4">

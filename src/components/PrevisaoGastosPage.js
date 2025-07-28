@@ -74,7 +74,11 @@ export default function PrevisaoGastosPage() {
   }
 
   return (
-    <div className="container my-5 px-3 px-md-4">
+    <div className="container my-5 px-3 px-md-4" 
+     style={{
+        zIndex: 2,
+        paddingTop: "80px",
+      }}>
       <h2 className="mb-4">Histórico de Pedidos & Gastos Mensais</h2>
 
       {dadosMensais.length === 0 ? (

@@ -1,6 +1,6 @@
 import { BiUserPlus } from "react-icons/bi";
 import { FaUserAlt } from "react-icons/fa";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
@@ -19,6 +19,20 @@ export default function NavBar({
   onShowCarts,
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+  const handleScroll = () => {
+    if (window.scrollY > 10) {
+      setScrolled(true);
+    } else {
+      setScrolled(false);
+    }
+  };
+
+  window.addEventListener("scroll", handleScroll);
+  return () => window.removeEventListener("scroll", handleScroll);
+}, []);
 
   return (
     <Navbar
@@ -28,13 +42,12 @@ export default function NavBar({
       variant="light"
       className="px-3"
       style={{
-        backdropFilter: "blur(8px)",
-        background: "rgba(255,255,255,0.85)",
-        borderBottom: "1px solid #1E90FF",
-        boxShadow: "0 2px 12px #0002",
-        transition: "background 0.3s",
-        zIndex: 1030,
-      }}
+    backgroundColor: scrolled ? "#ffffff" : "transparent",
+    transition: "background-color 0.3s ease",
+    borderBottom: scrolled ? "1px solid #ddd" : "none",
+    boxShadow: scrolled ? "0 2px 6px rgba(0,0,0,0.05)" : "none",
+    zIndex: 1030,
+  }}
     >
       <Container fluid>
         <Navbar.Brand
@@ -383,7 +396,6 @@ export default function NavBar({
                       boxShadow: "0 0 6px rgba(0,0,0,0.1)",
                     }}
                   >
-
                     <BiUserPlus size={20} />
                   </Button>
                 </Nav.Item>
