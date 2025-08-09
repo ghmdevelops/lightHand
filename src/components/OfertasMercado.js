@@ -343,11 +343,11 @@ export default function OfertasMercado({
   };
 
   return (
-    <div className="container my-4">
+    <div className="container my-4" style={{ zIndex: 2, paddingTop: "80px" }}>
       <ToastContainer position="top-right" pauseOnHover />
-      <button className="btn btn-link mb-3" onClick={onVoltar}>
-        &larr; Voltar
-      </button>
+      <button className="btn btn-outline-secondary mb-4" onClick={onVoltar}>
+          &larr; Voltar
+        </button>
       <h4>
         Ofertas em <span className="text-primary">{mercado.nome}</span>
         <br />

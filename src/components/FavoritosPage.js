@@ -54,16 +54,12 @@ export default function FavoritosPage({ user, onVoltar }) {
       className="container my-5 px-3 px-md-4"
       style={{
         zIndex: 2,
-        paddingTop: "40px",
+        paddingTop: "70px",
       }}
     >
-      <button
-        className="btn btn-link mb-4"
-        onClick={onVoltar}
-        style={{ fontSize: "1rem" }}
-      >
-        &larr; Voltar
-      </button>
+        <button className="btn btn-outline-secondary mb-4" onClick={onVoltar}>
+            &larr; Voltar
+          </button>
 
       <h2 className="mb-4">Meus Favoritos</h2>
       <p className="mb-5">
