@@ -24,6 +24,7 @@ import RecuperarSenha from "./components/RecuperarSenha";
 import CompararCarrinhosPage from "./components/CompararCarrinhosPage";
 import Pedidos from "./components/Pedidos";
 import Carrinho from "./components/Carrinho";
+import useIsMobile from "./hooks/useIsMobile";
 
 export default function App() {
   const [tela, setTela] = useState("landing");
@@ -31,6 +32,7 @@ export default function App() {
   const [avatarURL, setAvatarURL] = useState(null);
   const [avatarIcon, setAvatarIcon] = useState(null);
   const [ultimaVisita, setUltimaVisita] = useState(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     document.body.className = "bg-light text-dark";
@@ -90,7 +92,9 @@ export default function App() {
               path="/"
               element={
                 !user ? (
-                  tela === "landing" ? (
+                  isMobile ? (
+                    <Navigate to="/login" replace />
+                  ) : tela === "landing" ? (
                     <LandingPage
                       onLogin={() => setTela("login")}
                       onRegister={() => setTela("register")}

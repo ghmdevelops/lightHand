@@ -730,12 +730,12 @@ export default function UserProfile({ user, onVoltar }) {
 
   return (
     <div className="container" style={{ zIndex: 2, paddingTop: "84px" }}>
-      <ToastContainer position="top-right" pauseOnHover />
-      <div className="position-sticky bg-light pt-2 pb-2 mb-3" style={{ top: 56, zIndex: 3, borderBottom: "1px solid #eee" }}>
-        <div className="d-flex align-items-center justify-content-between">
-          <button className="btn btn-outline-secondary" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
+          <button className="btn btn-outline-secondary mt-3" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
             <i className="bi bi-arrow-left me-1"></i> Voltar
           </button>
+      <ToastContainer position="top-right mb-4" pauseOnHover/>
+      <div className="position-sticky bg-light pt-2 pb-2 mb-3" style={{ top: 56, zIndex: 3, borderBottom: "1px solid #eee" }}>
+        <div className="d-flex align-items-center justify-content-between">
           <h4 className="mb-0">Meu Perfil</h4>
           <div style={{ width: 120 }} />
         </div>

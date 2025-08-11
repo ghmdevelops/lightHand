@@ -150,11 +150,11 @@ export default function TrocasPage({ user, onVoltar }) {
 
   return (
     <div className="container my-0 px-3 px-md-4" style={{ minHeight: "100vh", paddingTop: 80 }}>
-      <div className="position-sticky top-0 bg-white" style={{ zIndex: 5, marginLeft: -16, marginRight: -16, padding: "12px 16px", borderBottom: "1px solid #eee" }}>
-        <div className="d-flex align-items-center justify-content-between">
-          <button className="btn btn-outline-secondary rounded-pill fw-semibold" onClick={onVoltar}>
+          <button className="btn btn-outline-secondary mb-3 mt-2" onClick={onVoltar}>
             &larr; Voltar
           </button>
+      <div className="position-sticky top-0 bg-white" style={{ zIndex: 5, marginLeft: -16, marginRight: -16, padding: "12px 16px", borderBottom: "1px solid #eee" }}>
+        <div className="d-flex align-items-center justify-content-between">
           <h4 className="mb-0">Clube de Trocas</h4>
           <div style={{ width: 120 }} />
         </div>

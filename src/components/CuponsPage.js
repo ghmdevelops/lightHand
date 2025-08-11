@@ -226,8 +226,8 @@ export default function CuponsPage({ onVoltar }) {
 
   return (
     <div className="container my-5 px-3 px-md-4" style={{ zIndex: 2, paddingTop: 90, maxWidth: 980 }}>
+        <button className="btn btn-outline-secondary mb-3" onClick={onVoltar || (() => window.history.back())}>&larr; Voltar</button>
       <div className="d-flex align-items-center justify-content-between mb-3">
-        <button className="btn btn-outline-secondary rounded-pill" onClick={onVoltar || (() => window.history.back())}>&larr; Voltar</button>
         <h2 className="mb-0">Pagamentos & Cupons</h2>
         <div />
       </div>
