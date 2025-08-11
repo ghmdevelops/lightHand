@@ -1,27 +1,14 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { db } from "../firebase";
-import {
-  ref as dbRef,
-  onValue,
-  update,
-  remove,
-  off,
-} from "firebase/database";
+import { ref as dbRef, onValue, update, remove, off } from "firebase/database";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import {
-  getStorage,
-  ref as sRef,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// ----- Helpers -----
 const formatCep = (raw) => {
   const digits = (raw + "").replace(/\D/g, "").slice(0, 8);
   if (digits.length > 5) return digits.replace(/^(\d{5})(\d{1,3})$/, "$1-$2");
@@ -31,12 +18,8 @@ const formatCep = (raw) => {
 const formatPhone = (raw) => {
   let digits = (raw + "").replace(/\D/g, "").slice(0, 11);
   if (digits.length <= 2) return digits;
-  if (digits.length <= 6) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  }
-  if (digits.length <= 10) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  }
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 };
 
@@ -49,19 +32,12 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-// ----- Validation schema -----
 const profileSchema = yup.object({
   nome: yup.string().required("Nome obrigatório"),
   apelido: yup.string().nullable(),
   sobrenome: yup.string().nullable(),
-  cep: yup
-    .string()
-    .required("CEP obrigatório")
-    .matches(/^\d{5}-?\d{3}$/, "CEP inválido"),
-  celular: yup
-    .string()
-    .required("Celular obrigatório")
-    .matches(/^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/, "Celular inválido"),
+  cep: yup.string().required("CEP obrigatório").matches(/^\d{5}-?\d{3}$/, "CEP inválido"),
+  celular: yup.string().required("Celular obrigatório").matches(/^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$/, "Celular inválido"),
   rua: yup.string().nullable(),
   bairro: yup.string().nullable(),
   cidade: yup.string().nullable(),
@@ -69,7 +45,6 @@ const profileSchema = yup.object({
   complemento: yup.string().nullable(),
 });
 
-// Presets de avatar: 5 robohash + 45 pravatar
 const AVATAR_OPTIONS = [
   "https://robohash.org/crazy1.png?set=set1",
   "https://robohash.org/crazy2.png?set=set1",
@@ -79,81 +54,134 @@ const AVATAR_OPTIONS = [
   ...Array.from({ length: 45 }, (_, i) => `https://i.pravatar.cc/150?img=${i + 1}`),
 ];
 
-// ----- UI helpers -----
 const SkeletonBox = ({ width = "100%", height = 16, style = {} }) => (
-  <div
-    aria-hidden="true"
-    style={{
-      width,
-      height,
-      background: "#e3e3e3",
-      borderRadius: 4,
-      marginBottom: 8,
-      ...style,
-      position: "relative",
-      overflow: "hidden",
-    }}
-  >
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: "-100%",
-        height: "100%",
-        width: "100%",
-        background:
-          "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%)",
-        animation: "shimmer 1.5s infinite",
-      }}
-    />
-    <style>
-      {`
-        @keyframes shimmer {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(200%); }
-        }
-      `}
-    </style>
+  <div aria-hidden="true" style={{ width, height, background: "#e3e3e3", borderRadius: 4, marginBottom: 8, ...style, position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: 0, left: "-100%", height: "100%", width: "100%", background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%)", animation: "shimmer 1.5s infinite" }} />
+    <style>{`@keyframes shimmer{0%{transform:translateX(0)}100%{transform:translateX(200%)}}`}</style>
   </div>
 );
 
-// ----- Components -----
+function dataUrlFromCanvas(canvas, quality = 0.9) {
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+async function squareCompress(file, size = 512, quality = 0.88) {
+  const blob = file instanceof Blob ? file : new Blob([file]);
+  const url = URL.createObjectURL(blob);
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = url;
+  });
+  const s = Math.min(img.width, img.height);
+  const sx = (img.width - s) / 2;
+  const sy = (img.height - s) / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+  const out = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  URL.revokeObjectURL(url);
+  return out;
+}
+
+function identicon(userId, size = 120) {
+  const str = String(userId || "user");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+  const hue = Math.abs(hash) % 360;
+  const bg = `hsl(${hue},70%,18%)`;
+  const fg = `hsl(${(hue + 180) % 360},75%,60%)`;
+  const cells = 5;
+  const cell = size / cells;
+  const grid = [];
+  for (let y = 0; y < cells; y++) {
+    const row = [];
+    for (let x = 0; x < Math.ceil(cells / 2); x++) {
+      const bit = (hash >> (x + y * cells)) & 1;
+      row[x] = bit;
+    }
+    const mirror = row.slice(0, cells - Math.ceil(cells / 2)).reverse();
+    grid.push(row.concat(mirror));
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = fg;
+  grid.forEach((row, y) =>
+    row.forEach((v, x) => {
+      if (v) ctx.fillRect(x * cell, y * cell, cell, cell);
+    })
+  );
+  return canvas.toDataURL("image/png");
+}
+
 function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [drag, setDrag] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
 
-  const handleFile = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const validateFile = (file) => {
+    const okType = /image\/(jpeg|png|webp)/.test(file.type);
+    const okSize = file.size <= 4 * 1024 * 1024;
+    if (!okType) toast.error("Formato inválido. Use JPG, PNG ou WEBP.");
+    if (!okSize) toast.error("Imagem muito grande (máx. 4MB).");
+    return okType && okSize;
+  };
+
+  const doUpload = async (file) => {
+    if (!file || !validateFile(file)) return;
     setUploadError("");
     setUploading(true);
+    setProgress(0);
     try {
+      const processed = await squareCompress(file, 512, 0.9);
       const storageInstance = getStorage();
       const fileRef = sRef(storageInstance, `avatars/${userId}`);
-      await uploadBytes(fileRef, file);
+      const task = uploadBytesResumable(fileRef, processed, { contentType: "image/jpeg" });
+      await new Promise((resolve, reject) => {
+        task.on(
+          "state_changed",
+          (snap) => setProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+          reject,
+          resolve
+        );
+      });
       const url = await getDownloadURL(fileRef);
       await update(dbRef(db, `usuarios/${userId}`), { avatar: url });
       onChangeAvatar(url);
       toast.success("Avatar atualizado!");
     } catch (err) {
-      console.error(err);
       setUploadError("Falha ao enviar foto.");
       toast.error("Erro no upload do avatar.");
     } finally {
       setUploading(false);
+      setProgress(0);
     }
+  };
+
+  const handleInput = async (e) => {
+    const file = e.target.files?.[0];
+    await doUpload(file);
+    e.target.value = "";
   };
 
   const handleRemove = async () => {
     try {
       const storageInstance = getStorage();
       const fileRef = sRef(storageInstance, `avatars/${userId}`);
-      await deleteObject(fileRef).catch(() => { });
+      await deleteObject(fileRef).catch(() => {});
       await update(dbRef(db, `usuarios/${userId}`), { avatar: null });
       onChangeAvatar(null);
       toast.info("Avatar removido.");
     } catch (err) {
-      console.warn("Erro ao remover avatar", err);
       toast.error("Não foi possível remover o avatar.");
       onChangeAvatar(null);
     }
@@ -164,84 +192,96 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
       await update(dbRef(db, `usuarios/${userId}`), { avatar: url });
       onChangeAvatar(url);
       toast.success("Avatar selecionado!");
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Erro ao definir avatar.");
     }
   };
 
+  const onDrop = async (e) => {
+    e.preventDefault();
+    setDrag(false);
+    const file = e.dataTransfer.files?.[0];
+    await doUpload(file);
+  };
+
+  const generated = useMemo(() => identicon(userId, 120), [userId]);
+
   return (
-    <div className="text-center mb-4">
+    <div className="mb-4">
       <div
-        className="rounded-circle border overflow-hidden position-relative mx-auto mb-2"
-        style={{ width: 120, height: 120 }}
+        className="text-center rounded-circle border overflow-hidden position-relative mx-auto mb-2"
+        style={{ width: 120, height: 120, outline: drag ? "3px solid #0d6efd" : "none", transition: "outline .2s" }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDrag(true);
+        }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={onDrop}
       >
         {avatarURL ? (
-          <img
-            src={avatarURL}
-            alt="Avatar atual"
-            className="w-100 h-100"
-            style={{ objectFit: "cover" }}
-          />
+          <img src={avatarURL} alt="Avatar atual" className="w-100 h-100" style={{ objectFit: "cover" }} />
         ) : (
-          <div
-            className="d-flex justify-content-center align-items-center bg-secondary text-white"
-            style={{ width: "100%", height: "100%", fontSize: "2.5rem" }}
-          >
-            <i className="fa-solid fa-user" aria-hidden="true"></i>
-          </div>
+          <img src={generated} alt="Avatar gerado" className="w-100 h-100" style={{ objectFit: "cover" }} />
         )}
-
         <label
           htmlFor="avatarPhoto"
-          className="position-absolute"
-          style={{
-            bottom: 0,
-            right: 0,
-            background: "#198754",
-            borderRadius: "50%",
-            padding: "6px",
-            cursor: "pointer",
-          }}
+          className="position-absolute d-flex align-items-center justify-content-center"
+          style={{ bottom: 0, right: 0, background: "#198754", borderRadius: "50%", width: 36, height: 36, cursor: "pointer" }}
           title="Selecionar Foto"
         >
-          <i className="fa-solid fa-camera text-white" aria-hidden="true"></i>
+          <i className="bi bi-camera-fill text-white" aria-hidden="true"></i>
         </label>
-        <input
-          type="file"
-          id="avatarPhoto"
-          accept="image/*"
-          onChange={handleFile}
-          style={{ display: "none" }}
-          aria-label="Upload de avatar"
-        />
+        <input type="file" id="avatarPhoto" accept="image/*" onChange={handleInput} style={{ display: "none" }} aria-label="Upload de avatar" />
+        {uploading && (
+          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center" style={{ background: "rgba(0,0,0,.45)", color: "#fff" }}>
+            <div className="progress w-75" role="progressbar" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100" style={{ height: 10, borderRadius: 20 }}>
+              <div className="progress-bar" style={{ width: `${progress}%` }} />
+            </div>
+            <small className="mt-2">{progress}%</small>
+          </div>
+        )}
       </div>
 
-      {uploading && <small className="text-muted d-block">Enviando foto...</small>}
       {uploadError && <small className="text-danger d-block">{uploadError}</small>}
 
       <div className="d-flex justify-content-center gap-2 mb-2">
         {avatarURL && (
-          <button
-            className="btn btn-outline-danger btn-sm"
-            onClick={handleRemove}
-            type="button"
-            aria-label="Remover avatar"
-          >
-            Remover
+          <button className="btn btn-outline-danger btn-sm" onClick={handleRemove} type="button" aria-label="Remover avatar">
+            <i className="bi bi-trash me-1"></i> Remover
           </button>
         )}
+        <button className="btn btn-outline-primary btn-sm" type="button" onClick={() => handlePreset(generated)}>
+          <i className="bi bi-stars me-1"></i> Gerar avatar
+        </button>
       </div>
 
-      <div>
-        <h6 className="mt-3 mb-2">Escolha um avatar:</h6>
-        <div
-          className="d-flex gap-2 flex-wrap justify-content-center"
-          style={{ maxHeight: 220, overflowY: "auto", paddingBottom: 4 }}
+      <div className="d-flex align-items-center justify-content-center gap-2 mt-3 mb-2">
+        <h6 className="mb-0">Avatares sugeridos</h6>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => setShowPresets((v) => !v)}
+          aria-expanded={showPresets}
+          aria-controls="avatarPresetPanel"
         >
+          {showPresets ? "Esconder" : "Mostrar"}
+        </button>
+        <small className="text-muted">{AVATAR_OPTIONS.length} opções</small>
+      </div>
+
+      <div
+        id="avatarPresetPanel"
+        style={{
+          maxHeight: showPresets ? 240 : 0,
+          overflow: "hidden",
+          transition: "max-height .25s ease",
+        }}
+      >
+        <div className="d-flex gap-2 flex-wrap justify-content-center" style={{ paddingBottom: 4 }}>
           {AVATAR_OPTIONS.map((url) => (
-            <div
+            <button
               key={url}
+              type="button"
               className="border rounded-circle overflow-hidden"
               style={{
                 width: 50,
@@ -261,13 +301,8 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
               onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
               onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              <img
-                src={url}
-                alt="Avatar opção"
-                className="w-100 h-100"
-                style={{ objectFit: "cover", borderRadius: "50%" }}
-              />
-            </div>
+              <img src={url} alt="Avatar opção" className="w-100 h-100" style={{ objectFit: "cover", borderRadius: "50%" }} loading="lazy" />
+            </button>
           ))}
         </div>
       </div>
@@ -281,6 +316,7 @@ function ProfileForm({ user, defaultValues, onSaved }) {
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors, isDirty, isSubmitting },
   } = useForm({
     defaultValues,
@@ -289,6 +325,7 @@ function ProfileForm({ user, defaultValues, onSaved }) {
   });
 
   const cepWatch = watch("cep");
+  const ufWatch = watch("estado");
   const debouncedCep = useDebounce(cepWatch, 600);
 
   useEffect(() => {
@@ -300,31 +337,56 @@ function ProfileForm({ user, defaultValues, onSaved }) {
         .then((res) => res.json())
         .then((data) => {
           if (!data.erro) {
-            setValue("rua", data.logradouro || "");
-            setValue("bairro", data.bairro || "");
-            setValue("cidade", data.localidade || "");
-            setValue("estado", data.uf || "");
+            setValue("rua", data.logradouro || "", { shouldDirty: true });
+            setValue("bairro", data.bairro || "", { shouldDirty: true });
+            setValue("cidade", data.localidade || "", { shouldDirty: true });
+            setValue("estado", (data.uf || "").toUpperCase(), { shouldDirty: true });
+          } else {
+            setError("cep", { type: "manual", message: "CEP não encontrado" });
           }
         })
-        .catch(() => { });
+        .catch(() => {});
       return () => controller.abort();
     }
-  }, [debouncedCep, setValue]);
+  }, [debouncedCep, setValue, setError]);
+
+  useEffect(() => {
+    if (!ufWatch) return;
+    const v = String(ufWatch).toUpperCase().slice(0, 2);
+    if (v !== ufWatch) setValue("estado", v, { shouldDirty: true });
+  }, [ufWatch, setValue]);
+
+  useEffect(() => {
+    const pending = localStorage.getItem("savvy_profile_pending");
+    const handler = async () => {
+      if (!navigator.onLine || !pending) return;
+      try {
+        const payload = JSON.parse(pending);
+        await update(dbRef(db, `usuarios/${user.uid}`), payload);
+        localStorage.removeItem("savvy_profile_pending");
+        toast.success("Perfil sincronizado.");
+      } catch {}
+    };
+    window.addEventListener("online", handler);
+    handler();
+    return () => window.removeEventListener("online", handler);
+  }, [user]);
 
   const onSubmit = async (vals) => {
     try {
-      const cleaned = {
-        ...vals,
-        cep: vals.cep.replace(/\D/g, ""),
-        celular: vals.celular.replace(/\D/g, ""),
-      };
+      const cleaned = { ...vals, cep: vals.cep.replace(/\D/g, ""), celular: vals.celular.replace(/\D/g, "") };
+      if (!navigator.onLine) {
+        localStorage.setItem("savvy_profile_pending", JSON.stringify(cleaned));
+        onSaved();
+        toast.info("Sem conexão. Alterações salvas localmente e serão sincronizadas.");
+        return;
+      }
       await update(dbRef(db, `usuarios/${user.uid}`), cleaned);
       onSaved();
       toast.success("Perfil salvo com sucesso!");
-    } catch (err) {
-      console.error("Erro salvando perfil", err);
+    } catch {
       toast.error("Não foi possível salvar o perfil.");
-      throw err;
+      throw new Error("save-failed");
     }
   };
 
@@ -332,39 +394,31 @@ function ProfileForm({ user, defaultValues, onSaved }) {
     <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Formulário de perfil">
       <div className="row">
         <div className="col-md-6 mb-3">
-          <label htmlFor="nome" className="form-label">
-            Nome
-          </label>
-          <input id="nome" {...register("nome")} className="form-control" aria-invalid={!!errors.nome} />
+          <label htmlFor="nome" className="form-label">Nome</label>
+          <input id="nome" {...register("nome")} className="form-control" aria-invalid={!!errors.nome} autoComplete="given-name" />
           {errors.nome && <small className="text-danger">{errors.nome.message}</small>}
         </div>
         <div className="col-md-6 mb-3">
-          <label htmlFor="apelido" className="form-label">
-            Apelido
-          </label>
-          <input id="apelido" {...register("apelido")} className="form-control" />
+          <label htmlFor="apelido" className="form-label">Apelido</label>
+          <input id="apelido" {...register("apelido")} className="form-control" autoComplete="nickname" />
           {errors.apelido && <small className="text-danger">{errors.apelido.message}</small>}
         </div>
       </div>
 
       <div className="mb-3">
-        <label htmlFor="sobrenome" className="form-label">
-          Sobrenome
-        </label>
-        <input id="sobrenome" {...register("sobrenome")} className="form-control" />
+        <label htmlFor="sobrenome" className="form-label">Sobrenome</label>
+        <input id="sobrenome" {...register("sobrenome")} className="form-control" autoComplete="family-name" />
         {errors.sobrenome && <small className="text-danger">{errors.sobrenome.message}</small>}
       </div>
 
       <div className="mb-3">
         <label className="form-label">E-mail</label>
-        <input className="form-control" value={user.email} disabled aria-label="E-mail" />
+        <input className="form-control" value={user.email} disabled aria-label="E-mail" autoComplete="email" />
       </div>
 
       <div className="row">
         <div className="col-md-4 mb-3">
-          <label htmlFor="cep" className="form-label">
-            CEP
-          </label>
+          <label htmlFor="cep" className="form-label">CEP</label>
           <input
             id="cep"
             className="form-control"
@@ -375,13 +429,13 @@ function ProfileForm({ user, defaultValues, onSaved }) {
             }}
             maxLength={9}
             aria-invalid={!!errors.cep}
+            inputMode="numeric"
+            autoComplete="postal-code"
           />
           {errors.cep && <small className="text-danger">{errors.cep.message}</small>}
         </div>
         <div className="col-md-4 mb-3">
-          <label htmlFor="celular" className="form-label">
-            Celular
-          </label>
+          <label htmlFor="celular" className="form-label">Celular</label>
           <input
             id="celular"
             className="form-control"
@@ -392,50 +446,43 @@ function ProfileForm({ user, defaultValues, onSaved }) {
             }}
             maxLength={16}
             aria-invalid={!!errors.celular}
+            inputMode="numeric"
+            autoComplete="tel"
           />
           {errors.celular && <small className="text-danger">{errors.celular.message}</small>}
         </div>
         <div className="col-md-4 mb-3">
-          <label htmlFor="complemento" className="form-label">
-            Complemento
-          </label>
-          <input id="complemento" {...register("complemento")} className="form-control" />
+          <label htmlFor="complemento" className="form-label">Complemento</label>
+          <input id="complemento" {...register("complemento")} className="form-control" autoComplete="address-line2" />
           {errors.complemento && <small className="text-danger">{errors.complemento.message}</small>}
         </div>
       </div>
 
       <div className="row">
         <div className="col-md-4 mb-3">
-          <label htmlFor="rua" className="form-label">
-            Rua
-          </label>
-          <input id="rua" {...register("rua")} className="form-control" />
+          <label htmlFor="rua" className="form-label">Rua</label>
+          <input id="rua" {...register("rua")} className="form-control" autoComplete="address-line1" />
           {errors.rua && <small className="text-danger">{errors.rua.message}</small>}
         </div>
         <div className="col-md-4 mb-3">
-          <label htmlFor="bairro" className="form-label">
-            Bairro
-          </label>
-          <input id="bairro" {...register("bairro")} className="form-control" />
+          <label htmlFor="bairro" className="form-label">Bairro</label>
+          <input id="bairro" {...register("bairro")} className="form-control" autoComplete="address-level3" />
           {errors.bairro && <small className="text-danger">{errors.bairro.message}</small>}
         </div>
-        <div className="col-md-4 mb-3">
-          <label htmlFor="cidade" className="form-label">
-            Cidade
-          </label>
-          <input id="cidade" {...register("cidade")} className="form-control" />
+        <div className="col-md-2 mb-3">
+          <label htmlFor="cidade" className="form-label">Cidade</label>
+          <input id="cidade" {...register("cidade")} className="form-control" autoComplete="address-level2" />
           {errors.cidade && <small className="text-danger">{errors.cidade.message}</small>}
+        </div>
+        <div className="col-md-2 mb-3">
+          <label htmlFor="estado" className="form-label">UF</label>
+          <input id="estado" {...register("estado")} className="form-control text-uppercase" maxLength={2} autoComplete="address-level1" />
+          {errors.estado && <small className="text-danger">{errors.estado.message}</small>}
         </div>
       </div>
 
       <div className="d-flex justify-content-end">
-        <button
-          type="submit"
-          className="btn btn-primary mb-4"
-          disabled={!isDirty || isSubmitting}
-          aria-label="Salvar dados"
-          style={{ minWidth: 140 }}
-        >
+        <button type="submit" className="btn btn-primary mb-2" disabled={!isDirty || isSubmitting} aria-label="Salvar dados" style={{ minWidth: 160, borderRadius: 10 }}>
           {isSubmitting ? "Salvando..." : "Salvar Dados"}
         </button>
       </div>
@@ -443,8 +490,59 @@ function ProfileForm({ user, defaultValues, onSaved }) {
   );
 }
 
+function toBRL(n) {
+  return Number(n || 0).toFixed(2).replace(".", ",");
+}
+
+function exportCartsCSV(carts) {
+  const headers = ["id", "criadoEm", "mercado", "itens", "total"];
+  const rows = carts.map((c) => {
+    const total = (c.items || []).reduce((sum, it) => sum + Number(it.price || 0) * (it.qtd || it.quantidade || 1), 0);
+    const itensTxt = (c.items || []).map((it) => `${(it.qtd || it.quantidade || 1)}x ${it.name} R$ ${toBRL(it.price)}`).join(" | ");
+    return [c.id, new Date(c.criadoEm).toLocaleString(), c.mercadoNome || "", `"${itensTxt.replaceAll('"', '""')}"`, toBRL(total)];
+  });
+  const csv = [headers.join(";")].concat(rows.map((r) => r.join(";"))).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `carrinhos_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function CartList({ userId, carts, onDelete, onCompare }) {
   const backupRef = useRef({});
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("date");
+  const [selected, setSelected] = useState([]);
+  const debouncedQ = useDebounce(q, 250);
+
+  const filtered = useMemo(() => {
+    const term = debouncedQ.trim().toLowerCase();
+    let arr = carts || [];
+    if (term) {
+      arr = arr.filter((c) => {
+        const inMarket = (c.mercadoNome || "").toLowerCase().includes(term);
+        const inItems = (c.items || []).some((it) => (it.name || "").toLowerCase().includes(term));
+        return inMarket || inItems;
+      });
+    }
+    if (sort === "date") arr = [...arr].sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+    if (sort === "total") {
+      arr = [...arr].sort((a, b) => {
+        const ta = (a.items || []).reduce((s, it) => s + Number(it.price || 0) * (it.qtd || it.quantidade || 1), 0);
+        const tb = (b.items || []).reduce((s, it) => s + Number(it.price || 0) * (it.qtd || it.quantidade || 1), 0);
+        return tb - ta;
+      });
+    }
+    return arr;
+  }, [carts, debouncedQ, sort]);
+
+  const toggleAll = () => {
+    if (selected.length === filtered.length) setSelected([]);
+    else setSelected(filtered.map((c) => c.id));
+  };
 
   const handleDelete = (cart) => {
     if (!window.confirm("Deseja realmente excluir este carrinho?")) return;
@@ -462,15 +560,7 @@ function CartList({ userId, carts, onDelete, onCompare }) {
               delete backupRef.current[cart.id];
             }
           }}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#0d6efd",
-            textDecoration: "underline",
-            cursor: "pointer",
-            padding: 0,
-            marginLeft: 8,
-          }}
+          style={{ background: "none", border: "none", color: "#0d6efd", textDecoration: "underline", cursor: "pointer", padding: 0, marginLeft: 8 }}
         >
           Desfazer
         </button>
@@ -485,18 +575,39 @@ function CartList({ userId, carts, onDelete, onCompare }) {
 
   return (
     <>
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <div className="input-group" style={{ maxWidth: 360 }}>
+          <span className="input-group-text"><i className="bi bi-search" /></span>
+          <input className="form-control" placeholder="Buscar por mercado ou item" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <select className="form-select form-select-sm w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="date">Mais recentes</option>
+            <option value="total">Maior total</option>
+          </select>
+          <button className="btn btn-outline-secondary btn-sm" onClick={() => exportCartsCSV(selected.length ? carts.filter((c) => selected.includes(c.id)) : filtered)}>
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="d-flex align-items-center gap-2 mb-2">
+        <div className="form-check">
+          <input className="form-check-input" type="checkbox" id="selAll" checked={selected.length === filtered.length && filtered.length > 0} onChange={toggleAll} />
+          <label className="form-check-label" htmlFor="selAll">Selecionar todos</label>
+        </div>
+        {selected.length > 0 && <small className="text-muted">Selecionados: {selected.length}</small>}
+      </div>
+
       <ul className="list-group mb-3">
-        {carts.map((cart) => {
-          const total = (cart.items || []).reduce(
-            (sum, it) => sum + Number(it.price || 0) * (it.qtd || it.quantidade || 1),
-            0
-          );
+        {filtered.map((cart) => {
+          const total = (cart.items || []).reduce((sum, it) => sum + Number(it.price || 0) * (it.qtd || it.quantidade || 1), 0);
+          const checked = selected.includes(cart.id);
           return (
-            <li
-              key={cart.id}
-              className="list-group-item d-flex justify-content-between align-items-start flex-wrap"
-              aria-label={`Carrinho de ${cart.mercadoNome || "mercado desconhecido"}`}
-            >
+            <li key={cart.id} className="list-group-item d-flex justify-content-between align-items-start flex-wrap" aria-label={`Carrinho de ${cart.mercadoNome || "mercado desconhecido"}`}>
+              <div className="form-check me-3 mt-1">
+                <input className="form-check-input" type="checkbox" checked={checked} onChange={() => setSelected((prev) => (checked ? prev.filter((id) => id !== cart.id) : [...prev, cart.id]))} />
+              </div>
               <div style={{ flex: "1 1 60%" }}>
                 <small className="text-muted">{new Date(cart.criadoEm).toLocaleString()}</small>
                 <div className="mt-1" style={{ fontSize: "0.9rem" }}>
@@ -504,67 +615,49 @@ function CartList({ userId, carts, onDelete, onCompare }) {
                   {cart.mercadoRua && (
                     <>
                       <br />
-                      <strong>Endereço:</strong> {cart.mercadoRua}, {cart.mercadoEstado || ""},{" "}
-                      {cart.mercadoPais || ""}
+                      <strong>Endereço:</strong> {cart.mercadoRua}, {cart.mercadoEstado || ""}, {cart.mercadoPais || ""}
                     </>
                   )}
                 </div>
-                <div className="mt-2" style={{ fontSize: 13 }}>
+                <div className="mt-2" style={{ fontSize: 13, maxHeight: 70, overflow: "auto" }}>
                   {cart.items &&
                     cart.items.map((it, idx) => (
                       <div key={idx}>
-                        {(it.qtd || it.quantidade || 1)}x {it.name} — R${" "}
-                        {Number(it.price || 0).toFixed(2).replace(".", ",")}
+                        {(it.qtd || it.quantidade || 1)}x {it.name} — R$ {Number(it.price || 0).toFixed(2).replace(".", ",")}
                       </div>
                     ))}
                 </div>
                 <div className="mt-2">
                   <strong>
-                    {cart.items?.length || 0} {cart.items?.length !== 1 ? "itens" : "item"} — Total: R${" "}
-                    {total.toFixed(2).replace(".", ",")}
+                    {cart.items?.length || 0} {cart.items?.length !== 1 ? "itens" : "item"} — Total: R$ {total.toFixed(2).replace(".", ",")}
                   </strong>
                 </div>
               </div>
               <div className="d-flex gap-2 mt-2">
-                <button
-                  className="btn btn-outline-danger btn-sm"
-                  onClick={() => handleDelete(cart)}
-                  aria-label="Excluir carrinho"
-                >
-                  Excluir
+                <button className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(cart)} aria-label="Excluir carrinho">
+                  <i className="bi bi-trash me-1"></i> Excluir
                 </button>
               </div>
             </li>
           );
         })}
       </ul>
-      {carts.length > 0 && (
-        <div className="text-end">
-          <button
-            className="btn btn-success px-4 py-2 mb-3"
-            onClick={onCompare}
-            style={{
-              borderRadius: "30px",
-              fontWeight: "600",
-              fontSize: "1rem",
-              background: "linear-gradient(135deg, #28a745, #218838)",
-              boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
-              transition: "all 0.2s ease",
-              border: "none",
-              color: "#fff",
-            }}
-            aria-label="Comparar carrinhos"
-          >
-            <i className="fa-solid fa-scale-balanced me-2" aria-hidden="true"></i>
-            Comparar Carrinhos
-          </button>
-        </div>
-      )}
+      <div className="text-end">
+        <button
+          className="btn btn-success px-4 py-2 mb-2"
+          onClick={() => onCompare(selected.length ? selected : undefined)}
+          style={{ borderRadius: "30px", fontWeight: "600", fontSize: "1rem", background: "linear-gradient(135deg, #28a745, #218838)", boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)", border: "none", color: "#fff" }}
+          aria-label="Comparar carrinhos"
+        >
+          <i className="bi bi-scales me-2" aria-hidden="true"></i>
+          Comparar {selected.length ? `(${selected.length})` : "Carrinhos"}
+        </button>
+      </div>
     </>
   );
 }
 
-export default function UserProfile({ user }) {
+export default function UserProfile({ user, onVoltar }) {
   const [profileData, setProfileData] = useState(null);
   const [avatarURL, setAvatarURL] = useState(null);
   const [carts, setCarts] = useState([]);
@@ -577,7 +670,6 @@ export default function UserProfile({ user }) {
     if (!user) return;
     const userRef = dbRef(db, `usuarios/${user.uid}`);
     const cartsRef = dbRef(db, `usuarios/${user.uid}/carts`);
-
     const handleProfile = (snap) => {
       if (snap.exists()) {
         const d = snap.val();
@@ -594,23 +686,13 @@ export default function UserProfile({ user }) {
           complemento: d.complemento || "",
         });
         if (d.avatar) setAvatarURL(d.avatar);
+        else setAvatarURL(null);
       } else {
-        setProfileData({
-          nome: "",
-          apelido: "",
-          sobrenome: "",
-          cep: "",
-          celular: "",
-          rua: "",
-          bairro: "",
-          cidade: "",
-          estado: "",
-          complemento: "",
-        });
+        setProfileData({ nome: "", apelido: "", sobrenome: "", cep: "", celular: "", rua: "", bairro: "", cidade: "", estado: "", complemento: "" });
+        setAvatarURL(null);
       }
       setLoadingProfile(false);
     };
-
     const handleCarts = (snap) => {
       const data = snap.val() || {};
       const arr = Object.entries(data)
@@ -619,10 +701,8 @@ export default function UserProfile({ user }) {
       setCarts(arr);
       setCartsLoading(false);
     };
-
     onValue(userRef, handleProfile);
     onValue(cartsRef, handleCarts);
-
     return () => {
       off(userRef, "value", handleProfile);
       off(cartsRef, "value", handleCarts);
@@ -636,84 +716,66 @@ export default function UserProfile({ user }) {
   const handleDeleteCart = async (id) => {
     try {
       await remove(dbRef(db, `usuarios/${user.uid}/carts/${id}`));
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Erro ao excluir carrinho.");
     }
   };
 
-  const handleCompare = () => {
-    const ids = carts.map((c) => c.id).join(",");
+  const handleCompare = (selectedIds) => {
+    const ids = (selectedIds && selectedIds.length ? selectedIds : carts.map((c) => c.id)).join(",");
     navigate(`/comparar-carrinhos?ids=${encodeURIComponent(ids)}`);
   };
 
-  if (!user) return <div>Usuário não autenticado.</div>;
+  if (!user) return <div className="container my-5">Usuário não autenticado.</div>;
 
   return (
-    <div
-      className="container mt-4"
-      style={{
-        zIndex: 2,
-        paddingTop: "80px",
-      }}
-    >
+    <div className="container" style={{ zIndex: 2, paddingTop: "84px" }}>
       <ToastContainer position="top-right" pauseOnHover />
-
-      <h4 className="mb-4">Meu Perfil</h4>
-
-      <div className="d-flex flex-column align-items-center mb-4">
-        {loadingProfile ? (
-          <>
-            <SkeletonBox width={120} height={120} style={{ borderRadius: "50%" }} />
-            <div style={{ width: 200 }}>
-              <SkeletonBox width="100%" height={20} />
-              <SkeletonBox width="60%" height={16} />
-            </div>
-          </>
-        ) : (
-          <AvatarPicker userId={user.uid} avatarURL={avatarURL} onChangeAvatar={setAvatarURL} />
-        )}
+      <div className="position-sticky bg-light pt-2 pb-2 mb-3" style={{ top: 56, zIndex: 3, borderBottom: "1px solid #eee" }}>
+        <div className="d-flex align-items-center justify-content-between">
+          <button className="btn btn-outline-secondary" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
+            <i className="bi bi-arrow-left me-1"></i> Voltar
+          </button>
+          <h4 className="mb-0">Meu Perfil</h4>
+          <div style={{ width: 120 }} />
+        </div>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="mb-0">Dados Pessoais</h5>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
-          onClick={() => setShowUserData((v) => !v)}
-          aria-label={showUserData ? "Ocultar dados" : "Mostrar dados"}
-        >
-          <i
-            className="fa-solid fa-chevron-down"
-            style={{
-              transition: "transform 0.3s ease",
-              transform: showUserData ? "rotate(180deg)" : "rotate(0deg)",
-            }}
-            aria-hidden="true"
-          ></i>
-        </button>
-      </div>
-
-      {showUserData && (
-        <div style={{ overflow: "hidden", transition: "all 0.4s ease" }}>
-          {loadingProfile || !profileData ? (
-            <div>
-              <SkeletonBox width="100%" height={24} />
-              <div className="row">
-                <div className="col-md-6">
-                  <SkeletonBox width="90%" height={40} />
-                </div>
-                <div className="col-md-6">
-                  <SkeletonBox width="90%" height={40} />
+      <div className="row g-4">
+        <div className="col-lg-4">
+          <div className="card shadow-sm border-0" style={{ borderRadius: 14 }}>
+            <div className="card-body">
+              {loadingProfile ? (
+                <>
+                  <SkeletonBox width={120} height={120} style={{ borderRadius: "50%", margin: "0 auto 12px" }} />
+                  <SkeletonBox width="70%" height={18} style={{ margin: "0 auto" }} />
+                </>
+              ) : (
+                <AvatarPicker userId={user.uid} avatarURL={avatarURL} onChangeAvatar={setAvatarURL} />
+              )}
+              <div className="text-center">
+                <div className="badge bg-light text-dark border mt-2">
+                  {user.email}
                 </div>
               </div>
-              <SkeletonBox width="60%" height={40} />
             </div>
-          ) : (
-            <ProfileForm user={user} defaultValues={profileData} onSaved={handleSave} />
-          )}
+          </div>
         </div>
-      )}
+
+        <div className="col-lg-8">
+          <div className="card shadow-sm border-0" style={{ borderRadius: 14 }}>
+            <div className="card-header bg-white d-flex justify-content-between align-items-center" style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+              <h5 className="mb-0">Dados Pessoais</h5>
+              <button type="button" className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onClick={() => setShowUserData((v) => !v)} aria-label={showUserData ? "Ocultar dados" : "Mostrar dados"}>
+                <i className={`bi ${showUserData ? "bi-chevron-up" : "bi-chevron-down"}`} />
+              </button>
+            </div>
+            <div className="card-body">
+              {showUserData && (loadingProfile || !profileData ? <SkeletonBox width="100%" height={24} /> : <ProfileForm user={user} defaultValues={profileData} onSaved={handleSave} />)}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

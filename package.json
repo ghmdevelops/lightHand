@@ -14,7 +14,9 @@
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.6",
     "firebase": "^11.8.1",
+    "framer-motion": "^12.23.12",
     "leaflet": "^1.9.4",
+    "lottie-web": "^5.13.0",
     "opening_hours": "^3.9.0",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",
@@ -27,7 +29,7 @@
     "react-scripts": "5.0.1",
     "react-toastify": "^11.0.5",
     "recharts": "^2.15.3",
-    "sweetalert2": "^11.22.2",
+    "sweetalert2": "^11.22.3",
     "web-vitals": "^2.1.4",
     "yup": "^1.7.0"
   },

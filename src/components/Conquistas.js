@@ -72,7 +72,6 @@ export default function PassaportePage({ user, onVoltar }) {
       .toUpperCase();
   };
 
-  // Função para capitalizar cada palavra do nome
   const tituloCapitalizado = (str) => {
     if (!str) return "";
     return str
@@ -83,7 +82,6 @@ export default function PassaportePage({ user, onVoltar }) {
       .join(" ");
   };
 
-  // Limitar string a n caracteres com "..."
   const limitarTexto = (texto, max = 30) =>
     texto.length > max ? texto.slice(0, max - 3) + "..." : texto;
 
@@ -95,6 +93,7 @@ export default function PassaportePage({ user, onVoltar }) {
         paddingTop: "90px",
       }}
     >
+            <button className="btn btn-outline-secondary mb-4" onClick={onVoltar}>&larr; Voltar</button>
       <h2 className="mb-4">Conquistas</h2>
 
       {!loading && pedidos.length > 0 && (
@@ -252,16 +251,6 @@ export default function PassaportePage({ user, onVoltar }) {
           </ul>
         </div>
       )}
-
-      <div className="text-center mt-5">
-        <button
-          className="btn btn-outline-secondary"
-          onClick={onVoltar}
-          style={{ borderRadius: "20px", fontWeight: 500, letterSpacing: 0.5 }}
-        >
-          &larr; Voltar
-        </button>
-      </div>
     </div>
   );
 }

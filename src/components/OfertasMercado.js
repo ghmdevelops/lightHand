@@ -1,17 +1,9 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { db } from "../firebase";
 import { Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import {
-  ref,
-  onValue,
-  push,
-  remove,
-  update,
-  set as firebaseSet,
-  get,
-} from "firebase/database";
+import { ref, onValue, push, remove, update, set as firebaseSet, get, set } from "firebase/database";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -26,33 +18,45 @@ const CATEGORIAS = {
   "Frutas & Verduras": "fruits and vegetables",
 };
 
-export default function OfertasMercado({
-  mercado,
-  user,
-  onVoltar,
-  setUltimaVisita,
-}) {
-  const [ofertas, setOfertas] = useState([]);
-  const [novo, setNovo] = useState({ valor: "", objeto: "" });
-  const [editando, setEditando] = useState(null);
-  const [editInput, setEditInput] = useState({ valor: "", objeto: "" });
+const FONTES = {
+  "OpenFoodFacts": "off",
+  "DummyJSON": "dummy",
+  "Mercado Libre": "meli",
+};
 
+const PAGE_SIZE = 12;
+
+export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisita }) {
+  const [ofertas, setOfertas] = useState([]);
   const [categoria, setCategoria] = useState(Object.keys(CATEGORIAS)[0]);
+  const [fonte, setFonte] = useState("OpenFoodFacts");
+  const [q, setQ] = useState("");
+  const [ordem, setOrdem] = useState("relevancia");
+
   const [produtos, setProdutos] = useState([]);
-  const [carrinho, setCarrinho] = useState([]);
-  const [erro, setErro] = useState("");
   const [produtosLoading, setProdutosLoading] = useState(false);
   const [produtosError, setProdutosError] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+
+  const [carrinho, setCarrinho] = useState([]);
+  const [qtyByKey, setQtyByKey] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [sucesso, setSucesso] = useState("");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+
+  const [salvos, setSalvos] = useState({});
+  const [showSaved, setShowSaved] = useState(false);
+
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSug, setShowSug] = useState(false);
+  const inputRef = useRef(null);
+  const sugRef = useRef(null);
+
+  const cacheRef = useRef({});
+  const sentinelRef = useRef(null);
   const navigate = useNavigate();
 
-  const cacheRef = useRef({}); // cache por categoria+page
-
-  // Ofertas do mercado
   useEffect(() => {
     const ofertasRef = ref(db, `mercados/${mercado.id}/ofertas`);
     const unsubscribe = onValue(ofertasRef, (snap) => {
@@ -63,7 +67,6 @@ export default function OfertasMercado({
     return () => unsubscribe();
   }, [mercado.id]);
 
-  // Registrar visita única
   useEffect(() => {
     if (!user || !mercado?.id) return;
     const visitaRef = ref(db, `usuarios/${user.uid}/visitados/${mercado.id}`);
@@ -76,192 +79,273 @@ export default function OfertasMercado({
           pais: mercado.pais || "",
           timestamp: Date.now(),
         };
-        firebaseSet(visitaRef, visitaObj)
-          .then(() => {
-            if (typeof setUltimaVisita === "function") {
-              setUltimaVisita(mercado.id.toString());
-            }
-          })
-          .catch(console.error);
+        firebaseSet(visitaRef, visitaObj).then(() => {
+          if (typeof setUltimaVisita === "function") setUltimaVisita(mercado.id.toString());
+        }).catch(() => {});
       }
     });
   }, [mercado.id, user, setUltimaVisita]);
 
-  // Busca de produtos no OpenFoodFacts com paginação
-  const fetchProdutos = useCallback(
-    async (categoriaSlug, pageNum) => {
-      const cacheKey = `${categoriaSlug}::${pageNum}`;
-      if (cacheRef.current[cacheKey]) {
-        return cacheRef.current[cacheKey];
-      }
-      const pageSize = 10;
-      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&tagtype_0=categories&tag_contains_0=contains&tag_0=${encodeURIComponent(
-        categoriaSlug
-      )}&page_size=${pageSize}&page=${pageNum}&json=1`;
-      const controller = new AbortController();
-      const signal = controller.signal;
-      try {
-        const res = await fetch(url, { signal });
-        if (!res.ok) throw new Error("Erro na API OpenFoodFacts");
-        const data = await res.json();
-        const products = (data.products || []).map((p) => ({
-          key: p.code,
-          name: p.product_name || p.generic_name || "Sem nome",
-          image: p.image_front_url || "https://via.placeholder.com/120",
-          price: (Math.random() * 19 + 1).toFixed(2), // placeholder de preço
-        }));
-        const result = {
-          products,
-          hasMore: products.length === pageSize,
-        };
-        cacheRef.current[cacheKey] = result;
-        return result;
-      } catch (err) {
-        console.warn("Erro carregando produtos:", err);
-        throw err;
-      }
-    },
-    []
-  );
+  useEffect(() => {
+    if (!user) return;
+    const savedRef = ref(db, `usuarios/${user.uid}/salvosProdutos`);
+    const off = onValue(savedRef, (snap) => {
+      setSalvos(snap.val() || {});
+    });
+    return () => off();
+  }, [user]);
 
-  // Efeito para categoria / página
+  const normalize = (text) => (text || "").toString().trim();
+
+  const fetchOFF = useCallback(async (categoriaSlug, pageNum, searchTerm) => {
+    const params = new URLSearchParams();
+    params.set("search_simple", "1");
+    params.set("action", "process");
+    if (searchTerm) {
+      params.set("search_terms", searchTerm);
+    } else {
+      params.set("tagtype_0", "categories");
+      params.set("tag_contains_0", "contains");
+      params.set("tag_0", categoriaSlug);
+    }
+    params.set("page_size", PAGE_SIZE.toString());
+    params.set("page", pageNum.toString());
+    params.set("json", "1");
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("OpenFoodFacts fora do ar");
+    const data = await res.json();
+    const products = (data.products || []).map((p) => ({
+      source: "off",
+      key: p.code || (crypto?.randomUUID?.() || `${Date.now()}_${Math.random()}`),
+      name: p.product_name || p.generic_name || "Produto",
+      image: p.image_front_url || p.image_url || "https://via.placeholder.com/300x200?text=Sem+Imagem",
+      price: Number((Math.random() * 19 + 1).toFixed(2)),
+    }));
+    return { products, hasMore: products.length === PAGE_SIZE };
+  }, []);
+
+  const fetchDummy = useCallback(async (pageNum, searchTerm) => {
+    const skip = (pageNum - 1) * PAGE_SIZE;
+    const base = "https://dummyjson.com";
+    const url = normalize(searchTerm)
+      ? `${base}/products/search?q=${encodeURIComponent(searchTerm)}&limit=${PAGE_SIZE}&skip=${skip}`
+      : `${base}/products?limit=${PAGE_SIZE}&skip=${skip}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("DummyJSON fora do ar");
+    const data = await res.json();
+    const list = data.products || [];
+    const mapped = list.map((p) => ({
+      source: "dummy",
+      key: `dummy-${p.id}`,
+      name: p.title,
+      image: (p.images && p.images[0]) || p.thumbnail || "https://via.placeholder.com/300x200?text=Sem+Imagem",
+      price: Number((p.price || Math.random() * 20 + 1).toFixed(2)),
+    }));
+    return { products: mapped, hasMore: (data.total || 0) > skip + (data.limit || mapped.length) };
+  }, []);
+
+  const fetchMeli = useCallback(async (pageNum, searchTerm, categoriaSlug) => {
+    const qterm = normalize(searchTerm) || categoriaSlug || "mercado";
+    const offset = (pageNum - 1) * PAGE_SIZE;
+    const url = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(qterm)}&limit=${PAGE_SIZE}&offset=${offset}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Mercado Libre indisponível");
+    const data = await res.json();
+    const mapped = (data.results || []).map((p) => ({
+      source: "meli",
+      key: `meli-${p.id}`,
+      name: p.title,
+      image: (p.thumbnail_id ? `https://http2.mlstatic.com/D_${p.thumbnail_id}-O.jpg` : p.thumbnail) || "https://via.placeholder.com/300x200?text=Sem+Imagem",
+      price: Number((p.price || Math.random() * 20 + 1).toFixed(2)),
+    }));
+    return { products: mapped, hasMore: (data.paging?.offset || 0) + mapped.length < (data.paging?.total || 0) };
+  }, []);
+
+  const fetchProdutos = useCallback(async (fonteKey, categoriaSlug, pageNum, searchTerm) => {
+    const cacheKey = JSON.stringify({ fonteKey, categoriaSlug, pageNum, searchTerm: normalize(searchTerm) });
+    if (cacheRef.current[cacheKey]) return cacheRef.current[cacheKey];
+    let result;
+    if (FONTES[fonteKey] === "off") result = await fetchOFF(categoriaSlug, pageNum, searchTerm);
+    else if (FONTES[fonteKey] === "dummy") result = await fetchDummy(pageNum, searchTerm);
+    else result = await fetchMeli(pageNum, searchTerm, categoriaSlug);
+    cacheRef.current[cacheKey] = result;
+    return result;
+  }, [fetchOFF, fetchDummy, fetchMeli]);
+
+  useEffect(() => {
+    setProdutos([]);
+    setPage(1);
+    setHasMore(false);
+    setProdutosError("");
+  }, [fonte, categoria]);
+
   useEffect(() => {
     let cancelled = false;
     async function carregar() {
-      setProdutosError("");
-      setErro("");
       setProdutosLoading(true);
+      setProdutosError("");
       try {
         const slug = CATEGORIAS[categoria];
-        const { products, hasMore: more } = await fetchProdutos(slug, page);
+        const { products, hasMore: more } = await fetchProdutos(fonte, slug, page, q);
         if (cancelled) return;
         setHasMore(more);
         if (page === 1) {
           setProdutos(products);
         } else {
-          // evitar duplicatas
           setProdutos((prev) => {
-            const existingKeys = new Set(prev.map((p) => p.key));
+            const seen = new Set(prev.map((p) => p.key));
             const merged = [...prev];
             products.forEach((p) => {
-              if (!existingKeys.has(p.key)) merged.push(p);
+              if (!seen.has(p.key)) merged.push(p);
             });
             return merged;
           });
         }
-      } catch (e) {
-        if (!cancelled) {
-          setProdutosError("Não foi possível carregar produtos dessa categoria.");
-          setProdutos([]);
-        }
+      } catch {
+        if (!cancelled) setProdutosError("Não foi possível carregar produtos agora.");
       } finally {
         if (!cancelled) setProdutosLoading(false);
       }
     }
     carregar();
-    return () => {
-      cancelled = true;
-    };
-  }, [categoria, page, fetchProdutos]);
+    return () => { cancelled = true; };
+  }, [fonte, categoria, page, q, fetchProdutos]);
 
-  const handleAdd = async (e) => {
-    e.preventDefault();
-    if (!novo.valor.trim() || !novo.objeto.trim()) return;
-
-    const mercadoRef = ref(db, `mercados/${mercado.id}`);
-    const snapshot = await get(mercadoRef);
-    if (!snapshot.exists()) {
-      await firebaseSet(mercadoRef, {
-        nome: mercado.nome,
-        rua: mercado.rua || "",
-        estado: mercado.estado || "",
-        pais: mercado.pais || "",
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting && hasMore && !produtosLoading) setPage((p) => p + 1);
       });
-    }
+    }, { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, produtosLoading]);
 
-    const ofertasRef = ref(db, `mercados/${mercado.id}/ofertas`);
-    await push(ofertasRef, {
-      usuario: user?.uid || "anon",
-      valor: novo.valor.trim(),
-      objeto: novo.objeto.trim(),
-      criadoEm: Date.now(),
-    });
-
-    if (user) {
-      await firebaseSet(
-        ref(db, `usuarios/${user.uid}/mercadosAtivos/${mercado.id}`),
-        {
-          nome: mercado.nome,
-          rua: mercado.rua || "",
-          estado: mercado.estado || "",
-          pais: mercado.pais || "",
-          dataUltimaOferta: Date.now(),
-          valorUltimaOferta: novo.valor.trim(),
-          objetoUltimaOferta: novo.objeto.trim(),
+  useEffect(() => {
+    const h = setTimeout(async () => {
+      const term = normalize(q);
+      if (term.length < 2) {
+        setSuggestions([]);
+        setShowSug(false);
+        return;
+      }
+      try {
+        const slug = CATEGORIAS[categoria];
+        const { products } = await fetchProdutos(fonte, slug, 1, term);
+        const seen = new Set();
+        const items = [];
+        for (const p of products) {
+          const n = normalize(p.name);
+          if (n && !seen.has(n)) {
+            seen.add(n);
+            items.push({ name: n, image: p.image, price: p.price });
+          }
+          if (items.length >= 8) break;
         }
-      );
-    }
+        setSuggestions(items);
+        setShowSug(true);
+      } catch {
+        setSuggestions([]);
+        setShowSug(false);
+      }
+    }, 220);
+    return () => clearTimeout(h);
+  }, [q, fonte, categoria, fetchProdutos]);
 
-    setNovo({ valor: "", objeto: "" });
-    toast.success("Oferta adicionada");
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!sugRef.current || !inputRef.current) return;
+      const inside = sugRef.current.contains(e.target) || inputRef.current.contains(e.target);
+      if (!inside) setShowSug(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  const addQty = (key, delta) => {
+    setQtyByKey((prev) => {
+      const next = Math.max(1, (prev[key] || 1) + delta);
+      return { ...prev, [key]: next };
+    });
   };
 
-  const adicionar = async (produto) => {
-    const { value: qtdStr } = await Swal.fire({
-      title: `Quantas unidades de "${produto.name}" deseja adicionar?`,
-      input: "number",
-      inputLabel: "Quantidade",
-      inputValue: 1,
-      inputAttributes: {
-        min: 1,
-        step: 1,
-      },
-      showCancelButton: true,
-      confirmButtonText: "Adicionar",
-      cancelButtonText: "Cancelar",
-      inputValidator: (value) => {
-        if (!value || parseInt(value) <= 0) {
-          return "Insira uma quantidade válida maior que 0";
-        }
-      },
-    });
+  const setQty = (key, val) => {
+    const n = Math.max(1, parseInt(val || 1));
+    setQtyByKey((prev) => ({ ...prev, [key]: n }));
+  };
 
-    const qtd = parseInt(qtdStr);
-    if (!qtd || qtd <= 0) return;
-
+  const adicionar = (produto) => {
+    const qtd = qtyByKey[produto.key] || 1;
     const existente = carrinho.find((p) => p.key === produto.key);
     if (existente) {
-      setCarrinho((c) =>
-        c.map((p) =>
-          p.key === produto.key
-            ? { ...p, quantidade: p.quantidade + qtd }
-            : p
-        )
-      );
+      setCarrinho((c) => c.map((p) => p.key === produto.key ? { ...p, quantidade: p.quantidade + qtd } : p));
     } else {
       setCarrinho((c) => [...c, { ...produto, quantidade: qtd }]);
     }
+    toast.success("Adicionado ao carrinho");
   };
 
-  const remover = (key) => {
-    setCarrinho((prev) => prev.filter((item) => item.key !== key));
+  const removerItem = (key) => setCarrinho((prev) => prev.filter((item) => item.key !== key));
+  const alterarQtdCarrinho = (key, delta) => setCarrinho((c) => c.map((p) => p.key === key ? { ...p, quantidade: Math.max(1, (p.quantidade || 1) + delta) } : p));
+  const editarQuantidadeDireto = (key, val) => {
+    const n = Math.max(1, parseInt(val || 1));
+    setCarrinho((c) => c.map((p) => p.key === key ? { ...p, quantidade: n } : p));
   };
 
-  const editarQuantidade = (key) => {
-    const item = carrinho.find((p) => p.key === key);
-    if (!item) return;
-    const novaQtdStr = prompt(
-      `Alterar quantidade de "${item.name}":`,
-      item.quantidade
-    );
-    const novaQtd = parseInt(novaQtdStr);
-    if (!novaQtd || novaQtd <= 0) return;
-    setCarrinho((c) =>
-      c.map((p) => (p.key === key ? { ...p, quantidade: novaQtd } : p))
-    );
+  const toggleSalvar = async (prod) => {
+    if (!user) {
+      toast.info("Faça login para salvar produtos");
+      return;
+    }
+    const path = ref(db, `usuarios/${user.uid}/salvosProdutos/${prod.key}`);
+    if (salvos && salvos[prod.key]) {
+      await remove(path);
+      toast.info("Removido dos salvos");
+    } else {
+      await set(path, {
+        name: prod.name,
+        image: prod.image,
+        price: prod.price,
+        source: prod.source,
+        savedAt: Date.now(),
+      });
+      toast.success("Salvo para depois");
+    }
   };
 
-  const handleSaveCart = async () => {
+  const setPriceAlert = async (prod) => {
+    if (!user) {
+      toast.info("Faça login para criar alerta");
+      return;
+    }
+    const { value: v } = await Swal.fire({
+      title: `Alerta de preço para "${prod.name}"`,
+      input: "number",
+      inputLabel: "Avise-me quando o preço ficar abaixo de:",
+      inputAttributes: { min: 0, step: "0.01" },
+      inputValue: prod.price.toFixed(2),
+      showCancelButton: true,
+      confirmButtonText: "Salvar alerta",
+      cancelButtonText: "Cancelar",
+    });
+    if (v === undefined) return;
+    const threshold = Number(v);
+    if (!(threshold >= 0)) return;
+    const path = ref(db, `usuarios/${user.uid}/priceAlerts/${prod.key}`);
+    await set(path, {
+      name: prod.name,
+      image: prod.image,
+      currentPrice: prod.price,
+      threshold,
+      createdAt: Date.now(),
+    });
+    toast.success("Alerta de preço criado");
+  };
+
+  const salvarCarrinho = async () => {
     setSaveError("");
     setSucesso("");
     if (!user) {
@@ -279,6 +363,19 @@ export default function OfertasMercado({
       const existing = snap.val() || {};
       if (Object.keys(existing).length >= 3) {
         setSaveError("Você já tem 3 carrinhos. Exclua um antes.");
+        setSalvando(false);
+        return;
+      }
+      const { value: nomeCarrinho } = await Swal.fire({
+        title: "Nome do carrinho (opcional)",
+        input: "text",
+        inputPlaceholder: "Ex.: Promoções Semana 12",
+        showCancelButton: true,
+        confirmButtonText: "Salvar",
+        cancelButtonText: "Cancelar",
+      });
+      if (nomeCarrinho === undefined) {
+        setSalvando(false);
         return;
       }
       const newRef = push(cartsRef);
@@ -286,284 +383,285 @@ export default function OfertasMercado({
         items: carrinho,
         criadoEm: Date.now(),
         mercadoId: mercado.id,
-        mercadoNome: mercado.nome || "",
+        mercadoNome: nomeCarrinho || mercado.nome || "",
         mercadoRua: mercado.rua || "",
         mercadoEstado: mercado.estado || "",
         mercadoPais: mercado.pais || "",
       });
-      setSucesso(`Carrinho salvo com sucesso, ${user.displayName || user.email}!`);
+      setSucesso(`Carrinho salvo com sucesso!`);
       setTimeout(() => {
         setCarrinho([]);
         setSucesso("");
-      }, 3000);
-    } catch (err) {
-      console.error(err);
+      }, 2000);
+    } catch {
       setSaveError("Erro ao salvar o carrinho.");
     } finally {
       setSalvando(false);
     }
   };
 
-  const saveEdit = (id) => {
-    update(ref(db, `mercados/${mercado.id}/ofertas/${id}`), {
-      valor: editInput.valor.trim(),
-      objeto: editInput.objeto.trim(),
-    }).then(() => {
-      setEditando(null);
-      setEditInput({ valor: "", objeto: "" });
-    });
+  const fmt = (n) => `R$ ${Number(n || 0).toFixed(2).replace(".", ",")}`;
+  const total = useMemo(() => carrinho.reduce((s, it) => s + Number(it.price) * (it.quantidade || 1), 0), [carrinho]);
+
+  const ordenar = (arr) => {
+    if (ordem === "preco-asc") return [...arr].sort((a, b) => a.price - b.price);
+    if (ordem === "preco-desc") return [...arr].sort((a, b) => b.price - a.price);
+    return arr;
   };
 
-  const cancelEdit = () => setEditando(null);
-
-  function formatarDataHora(timestamp) {
-    if (!timestamp) return "";
-    const d = new Date(timestamp);
-    return d.toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  }
-
-  const total = carrinho.reduce(
-    (sum, it) => sum + Number(it.price) * (it.quantidade || 1),
-    0
-  );
-
-  const handleDeleteOferta = (ofertaId) => {
-    const ofertaRef = ref(db, `mercados/${mercado.id}/ofertas/${ofertaId}`);
-    remove(ofertaRef).catch((err) => {
-      console.error("Erro ao excluir oferta:", err);
-      toast.error("Falha ao excluir oferta.");
-    });
-  };
+  const savedList = useMemo(() => {
+    return Object.entries(salvos || {})
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+  }, [salvos]);
 
   return (
-    <div className="container my-4" style={{ zIndex: 2, paddingTop: "80px" }}>
+    <div className="container my-4" style={{ zIndex: 2, paddingTop: "80px", maxWidth: 1180 }}>
       <ToastContainer position="top-right" pauseOnHover />
-      <button className="btn btn-outline-secondary mb-4" onClick={onVoltar}>
-          &larr; Voltar
-        </button>
-      <h4>
-        Ofertas em <span className="text-primary">{mercado.nome}</span>
-        <br />
-        <small className="text-black">
-          {mercado.rua && <>{mercado.rua}, </>}
-          {mercado.estado && <>{mercado.estado}, </>}
-          {mercado.pais}
-        </small>
-      </h4>
-
-      {/* Seção de categoria / produtos */}
-      <div className="mb-4 d-flex flex-wrap gap-3 align-items-center">
-        <div>
-          <label className="form-label fw-bold me-2">Categoria:</label>
-          <select
-            className="form-select d-inline w-auto"
-            value={categoria}
-            onChange={(e) => {
-              setCategoria(e.target.value);
-              setPage(1);
-            }}
-          >
-            {Object.keys(CATEGORIAS).map((cat) => (
-              <option key={cat}>{cat}</option>
-            ))}
-          </select>
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <button className="btn btn-outline-secondary rounded-pill" onClick={onVoltar || (() => navigate(-1))}>&larr; Voltar</button>
+        <div className="text-center">
+          <h4 className="mb-0">Ofertas em <span className="text-primary">{mercado.nome}</span></h4>
+          <small className="text-muted">
+            {mercado.rua && <>{mercado.rua}, </>}
+            {mercado.estado && <>{mercado.estado}, </>}
+            {mercado.pais}
+          </small>
         </div>
-        <div>
-          {produtosLoading && (
-            <div className="d-inline-block ms-2">
-              <div
-                className="spinner-border text-primary"
-                style={{ width: 20, height: 20 }}
-                role="status"
-              >
-                <span className="visually-hidden">Carregando...</span>
+        <div style={{ width: 140 }} />
+      </div>
+
+      <div className="bg-white border rounded-4 shadow-sm p-3 p-md-4 mb-3">
+        <div className="row g-3 align-items-end">
+          <div className="col-12 col-md-3">
+            <label className="form-label fw-semibold">Fonte</label>
+            <select className="form-select" value={fonte} onChange={(e) => setFonte(e.target.value)}>
+              {Object.keys(FONTES).map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <div className="col-12 col-md-3">
+            <label className="form-label fw-semibold">Categoria</label>
+            <select className="form-select" value={categoria} onChange={(e) => { setCategoria(e.target.value); setPage(1); }}>
+              {Object.keys(CATEGORIAS).map((cat) => <option key={cat}>{cat}</option>)}
+            </select>
+          </div>
+          <div className="col-12 col-md-4 position-relative">
+            <label className="form-label fw-semibold">Buscar</label>
+            <div className="input-group">
+              <span className="input-group-text"><i className="bi bi-search" /></span>
+              <input
+                ref={inputRef}
+                className="form-control"
+                placeholder="produto, marca..."
+                value={q}
+                onChange={(e) => { setQ(e.target.value); setPage(1); }}
+                onFocus={() => suggestions.length && setShowSug(true)}
+              />
+            </div>
+            {showSug && suggestions.length > 0 && (
+              <div ref={sugRef} className="position-absolute w-100 bg-white border rounded-3 shadow-sm mt-1" style={{ zIndex: 10 }}>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={`${s.name}-${i}`}
+                    className="w-100 d-flex align-items-center gap-2 p-2 border-0 bg-white text-start"
+                    onClick={() => { setQ(s.name); setShowSug(false); setPage(1); }}
+                  >
+                    <img src={s.image} alt="" width={34} height={34} style={{ objectFit: "cover", borderRadius: 6 }} />
+                    <span className="flex-grow-1 text-truncate">{s.name}</span>
+                    <small className="text-muted">{fmt(s.price)}</small>
+                  </button>
+                ))}
               </div>
-              <span className="ms-1">Carregando produtos…</span>
+            )}
+          </div>
+          <div className="col-12 col-md-2">
+            <label className="form-label fw-semibold">Ordenar</label>
+            <select className="form-select" value={ordem} onChange={(e) => setOrdem(e.target.value)}>
+              <option value="relevancia">Relevância</option>
+              <option value="preco-asc">Preço: menor</option>
+              <option value="preco-desc">Preço: maior</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <button className="btn btn-outline-primary btn-sm" onClick={() => setShowSaved((v) => !v)}>
+            <i className="bi bi-heart me-1" />
+            Salvos ({savedList.length})
+          </button>
+          {showSaved && (
+            <div className="mt-3 p-2 border rounded-3 bg-light">
+              {savedList.length === 0 ? (
+                <div className="text-muted">Nenhum produto salvo.</div>
+              ) : (
+                <div className="row g-2">
+                  {savedList.map((p) => (
+                    <div key={p.key} className="col-12 col-md-6 col-lg-4">
+                      <div className="d-flex align-items-center p-2 bg-white border rounded-3 shadow-sm gap-2">
+                        <img src={p.image} alt="" width={44} height={44} style={{ objectFit: "cover", borderRadius: 8 }} />
+                        <div className="flex-grow-1">
+                          <div className="text-truncate">{p.name}</div>
+                          <small className="text-muted">{fmt(p.price)}</small>
+                        </div>
+                        <div className="d-flex gap-1">
+                          <button className="btn btn-outline-success btn-sm" onClick={() => adicionar({ ...p, source: p.source })}>
+                            <i className="bi bi-bag-plus" />
+                          </button>
+                          <button className="btn btn-outline-danger btn-sm" onClick={() => toggleSalvar(p)}>
+                            <i className="bi bi-trash" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {produtosError && (
-        <div className="alert alert-danger">{produtosError}</div>
-      )}
+      {produtosError && <div className="alert alert-danger">{produtosError}</div>}
 
-      <div className="row">
-        {produtos.map((p) => (
-          <div key={p.key} className="col-md-4 mb-3">
-            <div className="card h-100 shadow-sm">
-              <img
-                src={p.image}
-                alt={p.name}
-                className="card-img-top"
-                style={{ objectFit: "cover", height: 140 }}
-                loading="lazy"
-              />
-              <div className="card-body d-flex flex-column">
-                <h6 className="card-title flex-grow-1">{p.name}</h6>
-                <p className="text-success fw-bold mb-2">
-                  R$ {Number(p.price).toFixed(2).replace(".", ",")}
-                </p>
-                <button
-                  className="btn btn-success btn-sm mt-2"
-                  onClick={() => adicionar(p)}
-                >
-                  Adicionar ao carrinho
-                </button>
+      <div className="row g-3">
+        {ordenar(produtos).map((p) => {
+          const isSaved = !!(salvos && salvos[p.key]);
+          return (
+            <div key={p.key} className="col-6 col-md-4 col-lg-3">
+              <div className="card h-100 border-0 shadow-sm">
+                <div className="position-relative">
+                  <img src={p.image} alt={p.name} className="card-img-top" style={{ objectFit: "cover", height: 160 }} loading="lazy" />
+                  <span className="badge bg-success position-absolute" style={{ top: 10, right: 10 }}>{fmt(p.price)}</span>
+                  <button
+                    className={`btn btn-sm position-absolute ${isSaved ? "btn-danger" : "btn-outline-danger"}`}
+                    style={{ top: 10, left: 10, borderRadius: 999 }}
+                    onClick={() => toggleSalvar(p)}
+                    title={isSaved ? "Remover dos salvos" : "Salvar para depois"}
+                  >
+                    <i className={isSaved ? "bi bi-heart-fill" : "bi bi-heart"} />
+                  </button>
+                </div>
+                <div className="card-body d-flex flex-column">
+                  <div className="mb-2" style={{ minHeight: 46 }}>
+                    <div className="fw-semibold" style={{ lineHeight: 1.2 }}>{p.name}</div>
+                  </div>
+                  <div className="d-flex align-items-center justify-content-between gap-2 mt-auto">
+                    <div className="btn-group" role="group" aria-label="Quantidade">
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => addQty(p.key, -1)}>-</button>
+                      <input
+                        className="form-control form-control-sm text-center"
+                        style={{ width: 56 }}
+                        value={qtyByKey[p.key] || 1}
+                        onChange={(e) => setQty(p.key, e.target.value)}
+                        inputMode="numeric"
+                      />
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => addQty(p.key, 1)}>+</button>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setPriceAlert(p)} title="Criar alerta de preço">
+                        <i className="bi bi-bell" />
+                      </button>
+                      <button className="btn btn-primary btn-sm" onClick={() => adicionar(p)}>
+                        <i className="bi bi-bag-plus me-1" /> Adicionar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {produtosLoading && Array.from({ length: 8 }).map((_, i) => (
+          <div className="col-6 col-md-4 col-lg-3" key={`sk-${i}`}>
+            <div className="card h-100 border-0 shadow-sm">
+              <div className="placeholder-wave" style={{ height: 160, background: "#eee" }} />
+              <div className="card-body">
+                <div className="placeholder-wave mb-2" style={{ height: 14, background: "#eee" }} />
+                <div className="placeholder-wave mb-2" style={{ height: 14, width: "70%", background: "#eee" }} />
+                <div className="d-flex justify-content-between align-items-center mt-3">
+                  <div className="placeholder-wave" style={{ width: 120, height: 32, background: "#eee" }} />
+                  <div className="placeholder-wave" style={{ width: 90, height: 32, background: "#eee" }} />
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {hasMore && !produtosLoading && (
-        <div className="text-center mb-4">
-          <button
-            className="btn btn-outline-primary"
-            onClick={() => setPage((p) => p + 1)}
-            aria-label="Carregar mais produtos"
-          >
-            Carregar mais
-          </button>
-        </div>
-      )}
-
-      <hr />
-
-      {/* Carrinho */}
-      <h5>
-        Carrinho ({carrinho.length} itens) — Total: R${" "}
-        {total.toFixed(2).replace(".", ",")}
-      </h5>
-      {carrinho.length === 0 ? (
-        <div className="alert alert-info">Seu carrinho está vazio.</div>
-      ) : (
-        <ul className="list-group mb-3">
-          {carrinho.map((item, idx) => (
-            <li
-              key={idx}
-              className="d-flex justify-content-between align-items-center"
-            >
-              <div>
-                {item.name} — {item.quantidade} un — R${" "}
-                {(item.price * item.quantidade)
-                  .toFixed(2)
-                  .replace(".", ",")}
-              </div>
-              <div className="d-flex gap-1">
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={() => editarQuantidade(item.key)}
-                >
-                  ✏️
-                </Button>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={() => remover(item.key)}
-                >
-                  🗑️
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <button
-        className="btn btn-primary"
-        onClick={handleSaveCart}
-        disabled={salvando || carrinho.length === 0}
-      >
-        {salvando ? "Salvando…" : "Salvar Carrinho"}
-      </button>
-      {saveError && <div className="text-danger mt-2">{saveError}</div>}
-      {sucesso && <div className="alert alert-success mt-2">{sucesso}</div>}
-
-      {/* Adicionar oferta manual 
-      <div className="mt-5">
-        <h5>Adicionar oferta manual</h5>
-        <form
-          onSubmit={handleAdd}
-          className="row g-2 align-items-end"
-          aria-label="Adicionar oferta"
-        >
-          <div className="col-md-4">
-            <label className="form-label">Objeto</label>
-            <input
-              type="text"
-              className="form-control"
-              value={novo.objeto}
-              onChange={(e) =>
-                setNovo((n) => ({ ...n, objeto: e.target.value }))
-              }
-              required
-            />
-          </div>
-          <div className="col-md-4">
-            <label className="form-label">Valor</label>
-            <input
-              type="text"
-              className="form-control"
-              value={novo.valor}
-              onChange={(e) =>
-                setNovo((n) => ({ ...n, valor: e.target.value }))
-              }
-              required
-            />
-          </div>
-          <div className="col-md-4">
-            <button type="submit" className="btn btn-secondary w-100">
-              Adicionar oferta
-            </button>
-          </div>
-        </form>
+      <div ref={sentinelRef} className="text-center my-4">
+        {produtosLoading ? <span className="text-muted">Carregando…</span> : hasMore ? <span className="text-muted">Role para carregar mais</span> : <span className="text-muted">Fim dos resultados</span>}
       </div>
-      <div className="mt-5">
-        <h5 className="mb-3">Ofertas enviadas</h5>
-        {ofertas.length === 0 ? (
-          <div className="alert alert-info">Nenhuma oferta registrada.</div>
+
+      <hr className="my-4" />
+
+      <div className="bg-white border rounded-4 shadow-sm p-3 p-md-4">
+        <div className="d-flex flex-wrap align-items-center justify-content-between">
+          <h5 className="mb-3 mb-md-0">Carrinho ({carrinho.length} item{carrinho.length === 1 ? "" : "s"})</h5>
+          <div className="fs-5 fw-semibold">Total: {fmt(total)}</div>
+        </div>
+
+        {carrinho.length === 0 ? (
+          <div className="alert alert-info mt-3">Seu carrinho está vazio.</div>
         ) : (
-          <ul className="list-group">
-            {ofertas
-              .sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0))
-              .map((o) => (
-                <li
-                  key={o.id}
-                  className="list-group-item d-flex justify-content-between align-items-start flex-wrap"
-                >
-                  <div style={{ flex: "1 1 65%" }}>
-                    <div>
-                      <strong>{o.objeto}</strong> — R$ {o.valor}{" "}
-                      <small className="text-muted">
-                        ({formatarDataHora(o.criadoEm)})
-                      </small>
-                    </div>
-                    <div style={{ fontSize: 12 }}>
-                      Enviado por: {o.usuario || "anônimo"}
-                    </div>
-                  </div>
-                  <div className="d-flex gap-2 mt-2">
-                    <button
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => handleDeleteOferta(o.id)}
-                    >
-                      Excluir
-                    </button>
-                  </div>
-                </li>
-              ))}
-          </ul>
+          <div className="table-responsive mt-3">
+            <table className="table align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>Produto</th>
+                  <th className="text-center" style={{ width: 180 }}>Quantidade</th>
+                  <th className="text-end" style={{ width: 140 }}>Preço</th>
+                  <th className="text-end" style={{ width: 160 }}>Subtotal</th>
+                  <th style={{ width: 80 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {carrinho.map((item) => (
+                  <tr key={item.key}>
+                    <td>
+                      <div className="d-flex align-items-center gap-2">
+                        <img src={item.image} alt="" width={44} height={44} style={{ objectFit: "cover", borderRadius: 8 }} />
+                        <div className="fw-semibold" style={{ lineHeight: 1.2 }}>{item.name}</div>
+                      </div>
+                    </td>
+                    <td className="text-center">
+                      <div className="btn-group" role="group">
+                        <button className="btn btn-outline-secondary btn-sm" onClick={() => alterarQtdCarrinho(item.key, -1)}>-</button>
+                        <input
+                          className="form-control form-control-sm text-center"
+                          style={{ width: 64 }}
+                          value={item.quantidade}
+                          onChange={(e) => editarQuantidadeDireto(item.key, e.target.value)}
+                          inputMode="numeric"
+                        />
+                        <button className="btn btn-outline-secondary btn-sm" onClick={() => alterarQtdCarrinho(item.key, 1)}>+</button>
+                      </div>
+                    </td>
+                    <td className="text-end">{fmt(item.price)}</td>
+                    <td className="text-end">{fmt(item.price * item.quantidade)}</td>
+                    <td className="text-end">
+                      <button className="btn btn-outline-danger btn-sm" onClick={() => removerItem(item.key)}>
+                        <i className="bi bi-trash" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>*/}
+
+        <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-3">
+          <div>
+            {saveError && <div className="text-danger">{saveError}</div>}
+            {sucesso && <div className="text-success">{sucesso}</div>}
+          </div>
+          <div className="d-flex gap-2">
+            <button className="btn btn-outline-secondary" onClick={() => setCarrinho([])} disabled={carrinho.length === 0}>Esvaziar</button>
+            <button className="btn btn-primary" onClick={salvarCarrinho} disabled={salvando || carrinho.length === 0}>{salvando ? "Salvando…" : "Salvar Carrinho"}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

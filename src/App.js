@@ -304,7 +304,9 @@ export default function App() {
             />
           </Routes>
         </div>
-        <Footer dark={false} />
+        <div className="d-none d-md-block">
+          <Footer dark={false} />
+        </div>
       </div>
     </BrowserRouter>
   );

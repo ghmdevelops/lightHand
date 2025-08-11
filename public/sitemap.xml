@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /pedidos/
+Sitemap: https://savvymarket.netlify.app/sitemap.xml
