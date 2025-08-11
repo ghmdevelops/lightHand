@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { ref, onValue, remove } from "firebase/database";
@@ -16,7 +16,7 @@ import {
 } from "react-bootstrap";
 import { FaTrash, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { getAuth } from "firebase/auth";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 
 const carroIcon = new L.Icon({
@@ -24,31 +24,192 @@ const carroIcon = new L.Icon({
   iconSize: [40, 40],
 });
 
-function CarroAnimado({ posInicial, posFinal }) {
-  const [posicao, setPosicao] = useState(posInicial);
+function FitBounds({ bounds }) {
   const map = useMap();
-
   useEffect(() => {
-    let step = 0;
-    const passos = 20;
-    const latStep = (posFinal[0] - posInicial[0]) / passos;
-    const lngStep = (posFinal[1] - posInicial[1]) / passos;
+    if (bounds && bounds.length === 2) map.fitBounds(bounds, { padding: [20, 20] });
+  }, [bounds, map]);
+  return null;
+}
 
-    const interval = setInterval(() => {
-      step++;
-      if (step > passos) {
-        clearInterval(interval);
-        return;
+function formatCurrency(v) {
+  const n = Number(v || 0);
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function haversineKm([lat1, lon1], [lat2, lon2]) {
+  const toRad = (x) => (x * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function normalizeLatLng(v) {
+  if (!v) return null;
+  if (Array.isArray(v) && v.length >= 2) {
+    const a = Number(v[0]);
+    const b = Number(v[1]);
+    if (isFinite(a) && isFinite(b)) return [a, b];
+  }
+  if (typeof v === "object") {
+    const lat = v.lat ?? v.latitude ?? v.y;
+    const lng = v.lng ?? v.lon ?? v.long ?? v.longitude ?? v.x;
+    if (isFinite(lat) && isFinite(lng)) return [Number(lat), Number(lng)];
+    if (Array.isArray(v.coordinates) && v.coordinates.length >= 2) {
+      const c0 = Number(v.coordinates[0]);
+      const c1 = Number(v.coordinates[1]);
+      if (isFinite(c0) && isFinite(c1)) return [c0, c1];
+    }
+  }
+  if (typeof v === "string") {
+    const parts = v.split(",").map((s) => parseFloat(String(s).trim()));
+    if (parts.length >= 2 && isFinite(parts[0]) && isFinite(parts[1])) return [parts[0], parts[1]];
+  }
+  return null;
+}
+
+function composeAddressFromParts(e) {
+  if (!e) return null;
+  if (typeof e === "string") return e;
+  const txt =
+    e.texto ||
+    e.descricao ||
+    e.enderecoCompleto ||
+    e.formatted ||
+    e.formattedAddress ||
+    e.address ||
+    e.display_name ||
+    e.description;
+  if (txt) return txt;
+  const rua = e.rua || e.logradouro || e.street || e.road;
+  const num = e.numero || e.num || e.number || e.house_number;
+  const bairro = e.bairro || e.distrito || e.neighborhood || e.suburb;
+  const cidade = e.cidade || e.municipio || e.city || e.town;
+  const uf = e.uf || e.estado || e.state;
+  const cep = e.cep || e.postcode || e.zip;
+  const linha1 = [rua, num].filter(Boolean).join(", ");
+  const linha2 = cidade && uf ? `${cidade}/${uf}` : cidade || uf || null;
+  const parts = [linha1 || null, bairro || null, linha2, cep || null].filter(Boolean);
+  return parts.length ? parts.join(" - ") : null;
+}
+
+function deepFindLatLng(o, depth = 0) {
+  if (!o || depth > 4) return null;
+  const direct =
+    normalizeLatLng(
+      (o.latlng ||
+        o.latLng ||
+        o.location ||
+        o.coords ||
+        o.coordinate ||
+        o.position ||
+        o.geometry ||
+        o.geo ||
+        o.center) ??
+        null
+    ) ||
+    normalizeLatLng(o);
+  if (direct) return direct;
+  if (typeof o === "object") {
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      const r = normalizeLatLng(v);
+      if (r) return r;
+    }
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      if (v && typeof v === "object") {
+        const r = deepFindLatLng(v, depth + 1);
+        if (r) return r;
       }
-      const novaPos = [posInicial[0] + latStep * step, posInicial[1] + lngStep * step];
-      setPosicao(novaPos);
-      map.panTo(novaPos);
-    }, 500);
+    }
+  }
+  return null;
+}
 
-    return () => clearInterval(interval);
-  }, [posInicial, posFinal, map]);
+function deepFindAddress(o, depth = 0) {
+  if (!o || depth > 4) return null;
+  if (typeof o === "string") return o;
+  if (typeof o === "object") {
+    const txt = composeAddressFromParts(o);
+    if (txt) return txt;
+    const keys = [
+      "endereco",
+      "enderecoEntrega",
+      "deliveryAddress",
+      "address",
+      "descricao",
+      "texto",
+      "formattedAddress",
+      "display_name",
+    ];
+    for (const k of keys) if (o[k]) return deepFindAddress(o[k], depth + 1);
+    for (const k of Object.keys(o)) {
+      const v = o[k];
+      if (v && typeof v === "object") {
+        const r = deepFindAddress(v, depth + 1);
+        if (r) return r;
+      }
+    }
+  }
+  return null;
+}
 
-  return <Marker position={posicao} icon={carroIcon} />;
+function getEntregaEndereco(pedido) {
+  const cand =
+    pedido.endereco ||
+    pedido.enderecoEntrega ||
+    pedido.destino ||
+    pedido.deliveryAddress ||
+    pedido.address ||
+    pedido.clienteEndereco ||
+    pedido.enderecoCliente ||
+    null;
+  const texto =
+    deepFindAddress(cand) ||
+    pedido.enderecoTexto ||
+    pedido.enderecoDescricao ||
+    pedido.destinoEndereco ||
+    pedido.addressText ||
+    null;
+  const latlng =
+    deepFindLatLng(cand) ||
+    normalizeLatLng(
+      pedido.enderecoLatLng ||
+        pedido.enderecoLatlng ||
+        pedido.destinoLatLng ||
+        pedido.destinoLatlng ||
+        pedido.clienteLatLng ||
+        pedido.clienteLatlng ||
+        null
+    );
+  return { texto, latlng };
+}
+
+function getLojaEndereco(pedido) {
+  const texto =
+    deepFindAddress(pedido.loja) ||
+    pedido.lojaEndereco ||
+    pedido.enderecoLoja ||
+    pedido.mercadoEndereco ||
+    (pedido.mercado && deepFindAddress(pedido.mercado)) ||
+    null;
+  const latlng =
+    deepFindLatLng(pedido.loja) ||
+    deepFindLatLng(pedido.mercado) ||
+    normalizeLatLng(
+      pedido.lojaLatLng ||
+        pedido.mercadoLatLng ||
+        pedido.lojaLatlng ||
+        pedido.mercadoLatlng ||
+        null
+    );
+  return { texto, latlng };
 }
 
 export default function Pedidos() {
@@ -59,6 +220,15 @@ export default function Pedidos() {
   const [expandidoIds, setExpandidoIds] = useState([]);
   const [mapaAberto, setMapaAberto] = useState(false);
   const [pedidoSelecionado, setPedidoSelecionado] = useState(null);
+  const [mapaTipo, setMapaTipo] = useState(null);
+  const [rotaCoords, setRotaCoords] = useState([]);
+  const [rotaDuracaoSec, setRotaDuracaoSec] = useState(null);
+  const [rotaDistM, setRotaDistM] = useState(null);
+  const [rotaLoading, setRotaLoading] = useState(false);
+  const [origem, setOrigem] = useState(null);
+  const [destino, setDestino] = useState(null);
+
+  const posicaoFallback = useMemo(() => [-23.55052, -46.633308], []);
 
   useEffect(() => {
     if (!user) return;
@@ -78,9 +248,90 @@ export default function Pedidos() {
     if (!window.confirm("Tem certeza que deseja excluir este pedido?")) return;
     try {
       await remove(ref(db, `usuarios/${user.uid}/pedidos/${id}`));
-    } catch (err) {
+    } catch {
       alert("Erro ao excluir pedido");
     }
+  };
+
+  async function fetchOSRM(orig, dest) {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${orig[1]},${orig[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error("rota");
+      const json = await r.json();
+      const route = json.routes && json.routes[0];
+      if (!route) throw new Error("sem rota");
+      const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+      return { coords, duration: route.duration, distance: route.distance };
+    } catch {
+      const distKm = haversineKm(orig, dest);
+      const dur = (distKm / 30) * 3600;
+      return { coords: [orig, dest], duration: dur, distance: distKm * 1000 };
+    }
+  }
+
+  const abrirMapaEntrega = async (pedido) => {
+    const loja = getLojaEndereco(pedido);
+    const entrega = getEntregaEndereco(pedido);
+    const origemLoja = normalizeLatLng(loja.latlng) || posicaoFallback;
+    const destinoCliente = normalizeLatLng(entrega.latlng) || posicaoFallback;
+    setPedidoSelecionado(pedido);
+    setMapaTipo("entrega");
+    setOrigem(origemLoja);
+    setDestino(destinoCliente);
+    setMapaAberto(true);
+    setRotaLoading(true);
+    if (!origemLoja || !destinoCliente) {
+      setRotaLoading(false);
+      setRotaCoords([]);
+      setRotaDuracaoSec(null);
+      setRotaDistM(null);
+      return;
+    }
+    const r = await fetchOSRM(origemLoja, destinoCliente);
+    setRotaCoords(r.coords);
+    setRotaDuracaoSec(r.duration);
+    setRotaDistM(r.distance);
+    setRotaLoading(false);
+  };
+
+  const abrirMapaRetirada = async (pedido) => {
+    setPedidoSelecionado(pedido);
+    setMapaTipo("retirada");
+    setMapaAberto(true);
+    setRotaLoading(true);
+    const loja = getLojaEndereco(pedido);
+    const destinoLoja = normalizeLatLng(loja.latlng) || posicaoFallback;
+    function continuar(orig) {
+      setOrigem(orig);
+      setDestino(destinoLoja);
+      fetchOSRM(orig, destinoLoja).then((r) => {
+        setRotaCoords(r.coords);
+        setRotaDuracaoSec(r.duration);
+        setRotaDistM(r.distance);
+        setRotaLoading(false);
+      });
+    }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => continuar([pos.coords.latitude, pos.coords.longitude]),
+        () => continuar(posicaoFallback),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      continuar(posicaoFallback);
+    }
+  };
+
+  const fecharMapa = () => {
+    setMapaAberto(false);
+    setPedidoSelecionado(null);
+    setMapaTipo(null);
+    setRotaCoords([]);
+    setRotaDuracaoSec(null);
+    setRotaDistM(null);
+    setOrigem(null);
+    setDestino(null);
   };
 
   if (loading)
@@ -90,19 +341,29 @@ export default function Pedidos() {
       </Container>
     );
 
-  const posicaoInicial = [-23.55052, -46.633308];
-  const abrirMapa = (pedido) => {
-    setPedidoSelecionado(pedido);
-    setMapaAberto(true);
-  };
-
   return (
     <Container className="mt-4" style={{ zIndex: 2, paddingTop: "80px" }}>
       <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>
         &larr; Voltar
       </button>
-      <h2>Pedidos Realizados</h2>
-
+      <div
+        className="rounded-4 p-4 mb-4"
+        style={{
+          background: "linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)",
+          color: "#fff",
+          boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
+        }}
+      >
+        <div className="d-flex flex-wrap align-items-center justify-content-between">
+          <h2 className="m-0">Pedidos</h2>
+          <div className="d-flex gap-2">
+            <Badge bg="light" text="dark">
+              {pedidos.length} pedidos
+            </Badge>
+          </div>
+        </div>
+      </div>
+      
       {pedidos.length === 0 ? (
         <div className="alert alert-info mt-4">Você ainda não tem pedidos realizados.</div>
       ) : (
@@ -111,40 +372,79 @@ export default function Pedidos() {
             const expandido = expandidoIds.includes(pedido.id);
             const dataPedido = new Date(pedido.dataHora);
             const ehRecente = (Date.now() - dataPedido) / 86400000 < 7;
+            const itens = pedido.itens || [];
+            const totalItens = itens.reduce(
+              (acc, it) => acc + Number(it.qtd || it.quantidade || 1),
+              0
+            );
+            const totalCalculado = itens.reduce(
+              (acc, it) => acc + Number(it.preco || 0) * Number(it.qtd || it.quantidade || 1),
+              0
+            );
+            const totalPedido = Number(pedido.total || totalCalculado || 0);
+            const entrega = getEntregaEndereco(pedido);
+            const loja = getLojaEndereco(pedido);
+            let etaEntregaMin = null;
+            if (!pedido.retiradaEmLoja && loja.latlng && entrega.latlng) {
+              const distKm = haversineKm(normalizeLatLng(loja.latlng), normalizeLatLng(entrega.latlng));
+              etaEntregaMin = Math.max(1, Math.round((distKm / 30) * 60));
+            }
             return (
               <Col md={6} lg={4} key={pedido.id} className="mb-4">
-                <Card className="shadow-sm border-0 rounded-4" style={{ padding: "1.25rem" }}>
-                  <Card.Body>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <Card.Title as="h5" className="mb-0">
-                        {pedido.mercadoNome}
-                      </Card.Title>
+                <Card className="shadow-sm border-0 rounded-4 overflow-hidden">
+                  <div
+                    className="px-3 py-2"
+                    style={{
+                      background:
+                        pedido.retiradaEmLoja
+                          ? "linear-gradient(90deg,#00b09b,#96c93d)"
+                          : "linear-gradient(90deg,#4facfe,#00f2fe)",
+                      color: "#fff",
+                    }}
+                  >
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div className="fw-semibold">{pedido.mercadoNome || "Pedido"}</div>
                       <div className="d-flex gap-2">
-                        {ehRecente && <Badge bg="success">Recente</Badge>}
-                        {pedido.retiradaEmLoja && <Badge bg="info">Retirar na loja</Badge>}
+                        {ehRecente && <Badge bg="light" text="dark">Recente</Badge>}
+                        {pedido.retiradaEmLoja && <Badge bg="dark">Retirar</Badge>}
                       </div>
                     </div>
-
-                    <Card.Subtitle className="mb-2 text-muted fs-6">
-                      Total: <strong>R${pedido.total.toFixed(2).replace(".", ",")}</strong>
-                    </Card.Subtitle>
-                    <Card.Text className="mb-2">
-                      <small>
-                        <strong>Data:</strong> {dataPedido.toLocaleString()}
-                      </small>
-                    </Card.Text>
-
-                    {pedido.retiradaEmLoja && (
-                      <Card.Text className="mb-3">
-                        <small>
-                          <strong>Endereço da loja:</strong>{" "}
-                          {pedido.lojaEndereco ||
-                            pedido.enderecoLoja ||
-                            "Não disponível"}
-                        </small>
-                      </Card.Text>
+                  </div>
+                  <Card.Body className="p-3">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div className="text-muted">Data</div>
+                      <div className="fw-semibold">{dataPedido.toLocaleString()}</div>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div className="text-muted">Itens</div>
+                      <div className="fw-semibold">{totalItens}</div>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div className="text-muted">Total</div>
+                      <div className="fw-bold">{formatCurrency(totalPedido)}</div>
+                    </div>
+                    {!pedido.retiradaEmLoja && (
+                      <div className="mb-2 small">
+                        <div className="text-muted">Endereço de entrega</div>
+                        <div className="fw-semibold">
+                          {entrega.texto ||
+                            (normalizeLatLng(entrega.latlng)
+                              ? `${normalizeLatLng(entrega.latlng)[0].toFixed(5)}, ${normalizeLatLng(entrega.latlng)[1].toFixed(5)}`
+                              : "Não disponível")}
+                        </div>
+                      </div>
                     )}
-
+                    {pedido.retiradaEmLoja && (
+                      <div className="mb-2 small">
+                        <div className="text-muted">Endereço da loja</div>
+                        <div className="fw-semibold">{loja.texto || "Não disponível"}</div>
+                      </div>
+                    )}
+                    {!pedido.retiradaEmLoja && etaEntregaMin !== null && (
+                      <div className="mb-3">
+                        <Badge bg="secondary">ETA aprox.: {etaEntregaMin} min</Badge>
+                      </div>
+                    )}
                     <ButtonGroup aria-label="Ações" className="mb-3 w-100 gap-2">
                       <Button
                         variant={expandido ? "primary" : "outline-primary"}
@@ -171,19 +471,38 @@ export default function Pedidos() {
                         <FaTrash className="me-1" />
                         Excluir
                       </Button>
-                      {!pedido.retiradaEmLoja && (
+                      {pedido.retiradaEmLoja ? (
                         <Button
                           variant="outline-info"
                           size="sm"
-                          onClick={() => abrirMapa(pedido)}
+                          onClick={() => abrirMapaRetirada(pedido)}
                           style={{ flexGrow: 1 }}
                         >
                           <FaMapMarkerAlt className="me-1" />
-                          Ver Entrega
+                          Rota p/ retirar
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline-info"
+                          size="sm"
+                          onClick={() => abrirMapaEntrega(pedido)}
+                          style={{ flexGrow: 1 }}
+                        >
+                          <FaMapMarkerAlt className="me-1" />
+                          Rota da entrega
                         </Button>
                       )}
                     </ButtonGroup>
-
+                    {origem && destino && (
+                      <a
+                        className="btn btn-light w-100"
+                        href={`https://www.google.com/maps/dir/?api=1&origin=${origem[0]},${origem[1]}&destination=${destino[0]},${destino[1]}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Abrir no Google Maps
+                      </a>
+                    )}
                     <div
                       style={{
                         maxHeight: expandido ? "1000px" : 0,
@@ -192,21 +511,20 @@ export default function Pedidos() {
                       }}
                     >
                       {expandido && (
-                        <ListGroup variant="flush" className="border rounded p-3">
-                          {(pedido.itens || []).map((item, i) => (
-                            <ListGroup.Item
-                              key={i}
-                              className="py-2 d-flex justify-content-between align-items-center"
-                            >
-                              <div>{(item.qtd || item.quantidade || 1)}x {item.nome}</div>
-                              <div>
-                                R$
-                                {(Number(item.preco) * (item.qtd || item.quantidade || 1))
-                                  .toFixed(2)
-                                  .replace(".", ",")}
-                              </div>
-                            </ListGroup.Item>
-                          ))}
+                        <ListGroup variant="flush" className="border rounded p-3 mt-3">
+                          {itens.map((item, i) => {
+                            const qtd = Number(item.qtd || item.quantidade || 1);
+                            const preco = Number(item.preco || 0);
+                            return (
+                              <ListGroup.Item
+                                key={i}
+                                className="py-2 d-flex justify-content-between align-items-center"
+                              >
+                                <div>{qtd}x {item.nome}</div>
+                                <div>{formatCurrency(preco * qtd)}</div>
+                              </ListGroup.Item>
+                            );
+                          })}
                         </ListGroup>
                       )}
                     </div>
@@ -217,26 +535,72 @@ export default function Pedidos() {
           })}
         </Row>
       )}
-
-      <Modal show={mapaAberto} onHide={() => setMapaAberto(false)} size="lg" centered>
+      <Modal show={mapaAberto} onHide={fecharMapa} size="lg" centered>
         <Modal.Header closeButton>
-          <Modal.Title>Simulação de Entrega</Modal.Title>
+          <Modal.Title>
+            {mapaTipo === "retirada" ? "Rota para Retirar na Loja" : "Rota da Entrega"}
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ height: "400px" }}>
+        <Modal.Body style={{ height: "480px", position: "relative" }}>
           {pedidoSelecionado && (
-            <MapContainer center={posicaoInicial} zoom={13} style={{ height: "100%", width: "100%" }}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={posicaoInicial}>
-                <Popup>Posição Inicial (Ex: sua casa)</Popup>
-              </Marker>
-              <CarroAnimado
-                posInicial={posicaoInicial}
-                posFinal={pedidoSelecionado.endereco?.latlng || [-23.5489, -46.6388]}
-              />
-              <Marker position={pedidoSelecionado.endereco?.latlng || [-23.5489, -46.6388]}>
-                <Popup>{pedidoSelecionado.mercadoNome}</Popup>
-              </Marker>
-            </MapContainer>
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  {rotaDistM != null && rotaDistM > 1 && (
+                    <Badge bg="secondary">Distância: {(rotaDistM / 1000).toFixed(2)} km</Badge>
+                  )}
+                  {rotaDuracaoSec != null && rotaDistM != null && rotaDistM > 1 && (
+                    <Badge bg="dark">Tempo estimado: {Math.max(1, Math.round(rotaDuracaoSec / 60))} min</Badge>
+                  )}
+                  {(rotaDistM == null || rotaDistM <= 1) && (
+                    <Badge bg="warning" text="dark">Dados de rota indisponíveis</Badge>
+                  )}
+                </div>
+                <div className="text-muted small">
+                  {mapaTipo === "retirada"
+                    ? pedidoSelecionado.mercadoNome || "Loja"
+                    : pedidoSelecionado.mercadoNome || "Mercado"}
+                </div>
+              </div>
+              <div style={{ height: "420px", width: "100%", borderRadius: 16, overflow: "hidden" }}>
+                <MapContainer
+                  center={destino || posicaoFallback}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  {origem && destino && <FitBounds bounds={[origem, destino]} />}
+                  {origem && (
+                    <Marker position={origem} icon={carroIcon}>
+                      <Popup>Origem</Popup>
+                    </Marker>
+                  )}
+                  {destino && (
+                    <Marker position={destino}>
+                      <Popup>Destino</Popup>
+                    </Marker>
+                  )}
+                  {rotaCoords && rotaCoords.length > 1 && (
+                    <Polyline positions={rotaCoords} weight={5} opacity={0.85} />
+                  )}
+                </MapContainer>
+              </div>
+              {rotaLoading && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(255,255,255,0.6)",
+                    borderRadius: 16,
+                  }}
+                >
+                  <Spinner animation="border" />
+                </div>
+              )}
+            </>
           )}
         </Modal.Body>
       </Modal>

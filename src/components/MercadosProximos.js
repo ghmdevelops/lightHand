@@ -892,7 +892,7 @@ export default function BuscarMercadosOSM({ user }) {
               </div>
               <h2 className="fw-bold mb-2" style={{ color: "#0f172a" }}>Encontre e compare perto de você</h2>
               <p className="mb-3" style={{ color: "#334155", fontSize: "1.05rem" }}>
-                Localize mercados e postos próximos, veja horários e compare preços em tempo real com ajuda da comunidade.
+                Mercados e postos próximos, horários atualizados e comparador de preços em uma experiência simples e rápida.
               </p>
               <div className="d-flex flex-wrap justify-content-center gap-2">
                 <button
@@ -975,42 +975,103 @@ export default function BuscarMercadosOSM({ user }) {
                 <FontAwesomeIcon icon={faArrowLeft} className="me-1" /> Voltar
               </button>
 
-              <div className="d-flex flex-wrap align-items-center gap-2">
-                <div className="input-group" style={{ width: 260 }}>
-                  <span className="input-group-text"><FontAwesomeIcon icon={faSearch} /></span>
-                  <input type="text" className="form-control" placeholder={tipoBusca === "market" ? "Buscar mercado/brand" : "Buscar posto/brand"} value={query} onChange={(e) => setQuery(e.target.value)} />
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <FontAwesomeIcon icon={faSliders} />
-                  <input type="range" min={1000} max={10000} step={500} value={radius} onChange={(e) => setRadius(Number(e.target.value))} />
-                  <span style={{ width: 72, textAlign: "right" }}>{(radius / 1000).toFixed(1)} km</span>
+              <div className="row g-2 align-items-center">
+                <div className="col-12 col-md-4 col-lg-4">
+                  <div className="input-group w-100">
+                    <span className="input-group-text">
+                      <FontAwesomeIcon icon={faSearch} />
+                    </span>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder={tipoBusca === "market" ? "Buscar mercado/brand" : "Buscar posto/brand"}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                {tipoBusca === "fuel" ? (
+                <div className="col-12 col-sm-6 col-md-4 col-lg-3">
                   <div className="d-flex align-items-center gap-2">
-                    <span>Combustível:</span>
-                    <select className="form-select form-select-sm w-auto" value={fuelFilter} onChange={(e) => setFuelFilter(e.target.value)}>
-                      <option value="gasolina">Gasolina</option>
-                      <option value="etanol">Etanol</option>
-                      <option value="diesel">Diesel</option>
-                    </select>
-                    <div className="form-check form-switch ms-2">
-                      <input className="form-check-input" type="checkbox" id="hasPrice" checked={hasPriceOnly} onChange={(e) => setHasPriceOnly(e.target.checked)} />
-                      <label className="form-check-label" htmlFor="hasPrice">Somente com preço</label>
+                    <span className="text-muted d-none d-md-inline">
+                      <FontAwesomeIcon icon={faSliders} />
+                    </span>
+                    <input
+                      type="range"
+                      className="form-range flex-grow-1"
+                      min={1000}
+                      max={10000}
+                      step={500}
+                      value={radius}
+                      onChange={(e) => setRadius(Number(e.target.value))}
+                    />
+                    <span className="text-nowrap" style={{ minWidth: 72, textAlign: "right" }}>
+                      {(radius / 1000).toFixed(1)} km
+                    </span>
+                  </div>
+                </div>
+                {tipoBusca === "fuel" ? (
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-5">
+                    <div className="row g-2 align-items-center">
+                      <div className="col-6 col-lg-4">
+                        <select
+                          className="form-select form-select-sm w-100"
+                          value={fuelFilter}
+                          onChange={(e) => setFuelFilter(e.target.value)}
+                        >
+                          <option value="gasolina">Gasolina</option>
+                          <option value="etanol">Etanol</option>
+                          <option value="diesel">Diesel</option>
+                        </select>
+                      </div>
+
+                      <div className="col-6 col-lg-4">
+                        <div className="form-check form-switch d-flex align-items-center">
+                          <input
+                            className="form-check-input me-2"
+                            type="checkbox"
+                            id="hasPrice"
+                            checked={hasPriceOnly}
+                            onChange={(e) => setHasPriceOnly(e.target.checked)}
+                          />
+                          <label className="form-check-label text-truncate" htmlFor="hasPrice">
+                            Só com preço
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-lg-4">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="d-none d-lg-inline">
+                            <FontAwesomeIcon icon={faSort} /> Ordenar:
+                          </span>
+                          <select
+                            className="form-select form-select-sm w-100"
+                            value={sortFuel}
+                            onChange={(e) => setSortFuel(e.target.value)}
+                          >
+                            <option value="price">Preço</option>
+                            <option value="distance">Distância</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <span><FontAwesomeIcon icon={faSort} /> Ordenar:</span>
-                    <select className="form-select form-select-sm w-auto" value={sortFuel} onChange={(e) => setSortFuel(e.target.value)}>
-                      <option value="price">Preço</option>
-                      <option value="distance">Distância</option>
-                    </select>
                   </div>
                 ) : (
-                  <div className="d-flex align-items-center gap-2">
-                    <span><FontAwesomeIcon icon={faSort} /> Ordenar:</span>
-                    <select className="form-select form-select-sm w-auto" value={sortMarket} onChange={(e) => setSortMarket(e.target.value)}>
-                      <option value="distance">Distância</option>
-                      <option value="name">Nome</option>
-                    </select>
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-5">
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="d-none d-lg-inline">
+                        <FontAwesomeIcon icon={faSort} /> Ordenar:
+                      </span>
+                      <select
+                        className="form-select form-select-sm w-auto"
+                        value={sortMarket}
+                        onChange={(e) => setSortMarket(e.target.value)}
+                      >
+                        <option value="distance">Distância</option>
+                        <option value="name">Nome</option>
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>
