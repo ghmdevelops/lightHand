@@ -111,7 +111,7 @@ function deepFindLatLng(o, depth = 0) {
         o.geometry ||
         o.geo ||
         o.center) ??
-        null
+      null
     ) ||
     normalizeLatLng(o);
   if (direct) return direct;
@@ -181,12 +181,12 @@ function getEntregaEndereco(pedido) {
     deepFindLatLng(cand) ||
     normalizeLatLng(
       pedido.enderecoLatLng ||
-        pedido.enderecoLatlng ||
-        pedido.destinoLatLng ||
-        pedido.destinoLatlng ||
-        pedido.clienteLatLng ||
-        pedido.clienteLatlng ||
-        null
+      pedido.enderecoLatlng ||
+      pedido.destinoLatLng ||
+      pedido.destinoLatlng ||
+      pedido.clienteLatLng ||
+      pedido.clienteLatlng ||
+      null
     );
   return { texto, latlng };
 }
@@ -204,10 +204,10 @@ function getLojaEndereco(pedido) {
     deepFindLatLng(pedido.mercado) ||
     normalizeLatLng(
       pedido.lojaLatLng ||
-        pedido.mercadoLatLng ||
-        pedido.lojaLatlng ||
-        pedido.mercadoLatlng ||
-        null
+      pedido.mercadoLatLng ||
+      pedido.lojaLatlng ||
+      pedido.mercadoLatlng ||
+      null
     );
   return { texto, latlng };
 }
@@ -245,13 +245,33 @@ export default function Pedidos() {
     setExpandidoIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const excluirPedido = async (id) => {
+    const uid = getAuth().currentUser?.uid;
+    if (!uid) { alert("Você não está logado."); return; }
     if (!window.confirm("Tem certeza que deseja excluir este pedido?")) return;
     try {
-      await remove(ref(db, `usuarios/${user.uid}/pedidos/${id}`));
-    } catch {
-      alert("Erro ao excluir pedido");
+      await remove(ref(db, `usuarios/${uid}/pedidos/${id}`));
+      setPedidos((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao excluir pedido: " + (e?.message || ""));
     }
   };
+
+  async function geocodeAddress(text) {
+    if (!text) return null;
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&accept-language=pt&q=${encodeURIComponent(text)}`);
+    if (!r.ok) return null;
+    const arr = await r.json();
+    if (!arr?.length) return null;
+    const lat = parseFloat(arr[0].lat), lon = parseFloat(arr[0].lon);
+    return (isFinite(lat) && isFinite(lon)) ? [lat, lon] : null;
+  }
+
+  function composeEntregaTextoFromPedido(pedido) {
+    const e = pedido?.endereco || {};
+    const parts = [e.rua, e.numero, e.cep, "Brasil"].filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
+  }
 
   async function fetchOSRM(orig, dest) {
     try {
@@ -271,28 +291,42 @@ export default function Pedidos() {
   }
 
   const abrirMapaEntrega = async (pedido) => {
-    const loja = getLojaEndereco(pedido);
     const entrega = getEntregaEndereco(pedido);
-    const origemLoja = normalizeLatLng(loja.latlng) || posicaoFallback;
-    const destinoCliente = normalizeLatLng(entrega.latlng) || posicaoFallback;
+    let destinoCliente = normalizeLatLng(entrega.latlng);
+    if (!destinoCliente) {
+      const txtEntrega =
+        entrega.texto ||
+        [pedido?.endereco?.rua, pedido?.endereco?.numero, pedido?.endereco?.cidade, pedido?.endereco?.estado, pedido?.endereco?.cep, "Brasil"].filter(Boolean).join(", ");
+      destinoCliente = await geocodeAddress(txtEntrega);
+    }
+    if (!destinoCliente) destinoCliente = posicaoFallback;
+
     setPedidoSelecionado(pedido);
     setMapaTipo("entrega");
-    setOrigem(origemLoja);
-    setDestino(destinoCliente);
     setMapaAberto(true);
     setRotaLoading(true);
-    if (!origemLoja || !destinoCliente) {
+
+    const origemUsuario = await new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    });
+
+    const origem = origemUsuario || posicaoFallback;
+    setOrigem(origem);
+    setDestino(destinoCliente);
+
+    try {
+      const r = await fetchOSRM(origem, destinoCliente);
+      setRotaCoords(r.coords);
+      setRotaDuracaoSec(r.duration);
+      setRotaDistM(r.distance);
+    } finally {
       setRotaLoading(false);
-      setRotaCoords([]);
-      setRotaDuracaoSec(null);
-      setRotaDistM(null);
-      return;
     }
-    const r = await fetchOSRM(origemLoja, destinoCliente);
-    setRotaCoords(r.coords);
-    setRotaDuracaoSec(r.duration);
-    setRotaDistM(r.distance);
-    setRotaLoading(false);
   };
 
   const abrirMapaRetirada = async (pedido) => {
@@ -363,7 +397,7 @@ export default function Pedidos() {
           </div>
         </div>
       </div>
-      
+
       {pedidos.length === 0 ? (
         <div className="alert alert-info mt-4">Você ainda não tem pedidos realizados.</div>
       ) : (

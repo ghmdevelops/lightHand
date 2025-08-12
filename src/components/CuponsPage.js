@@ -288,7 +288,6 @@ export default function CuponsPage({ onVoltar }) {
             <option value="valor">Maior valor</option>
             <option value="validade">Vencem antes</option>
           </select>
-          <button className="btn btn-outline-secondary btn-sm" onClick={exportCSV}>Exportar CSV</button>
         </div>
       </div>
 

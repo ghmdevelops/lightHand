@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ref, get, remove } from "firebase/database";
+import { ref, get, remove, set } from "firebase/database";
 import { db } from "../firebase";
 import { useNavigate } from "react-router-dom";
 
 export default function Carrinho({ user }) {
     const [carts, setCarts] = useState([]);
+    const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
     const [sort, setSort] = useState("recent");
-    const [onlyOrdered, setOnlyOrdered] = useState(false);
     const [selected, setSelected] = useState(new Set());
+    const [selectedOrderId, setSelectedOrderId] = useState("");
     const navigate = useNavigate();
+
+    const formatBRL = (n) => Number(n || 0).toFixed(2).replace(".", ",");
 
     useEffect(() => {
         if (!user) return;
@@ -20,7 +23,37 @@ export default function Carrinho({ user }) {
             const arr = Object.entries(data)
                 .map(([id, c]) => ({ id, ...c }))
                 .sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
-            setCarts(arr);
+
+            const sumTotal = (c) =>
+                (c.items || []).reduce(
+                    (s, it) => s + Number(it.price || 0) * (it.qtd || it.quantidade || 1),
+                    0
+                );
+
+            const ordered = arr.filter((c) => !!c.pedidoFeito).map((c) => ({ ...c, total: sumTotal(c) }));
+            const pending = arr.filter((c) => !c.pedidoFeito);
+
+            if (ordered.length) {
+                await Promise.all(
+                    ordered.map((c) =>
+                        set(ref(db, `usuarios/${user.uid}/pedidos/${c.id}`), {
+                            id: c.id,
+                            mercadoNome: c.mercadoNome || "",
+                            mercadoRua: c.mercadoRua || "",
+                            mercadoEstado: c.mercadoEstado || "",
+                            mercadoPais: c.mercadoPais || "",
+                            criadoEm: c.criadoEm || null,
+                            items: c.items || [],
+                            total: c.total,
+                            pedidoFeito: true,
+                            sincronizadoEm: Date.now(),
+                        })
+                    )
+                );
+            }
+
+            setOrders(ordered);
+            setCarts(pending);
             setLoading(false);
         })();
     }, [user]);
@@ -44,12 +77,16 @@ export default function Carrinho({ user }) {
         });
     };
 
-    const formatBRL = (n) =>
-        Number(n || 0).toFixed(2).replace(".", ",");
-
     const filtered = useMemo(() => {
         let arr = [...carts];
         const term = q.trim().toLowerCase();
+
+        const sumTotal = (c) =>
+            (c.items || []).reduce(
+                (s, it) => s + Number(it.price || 0) * (it.qtd || it.quantidade || 1),
+                0
+            );
+
         if (term) {
             arr = arr.filter((c) => {
                 const inMarket = (c.mercadoNome || "").toLowerCase().includes(term);
@@ -59,13 +96,6 @@ export default function Carrinho({ user }) {
                 return inMarket || inItems;
             });
         }
-        if (onlyOrdered) arr = arr.filter((c) => c.pedidoFeito);
-
-        const sumTotal = (c) =>
-            (c.items || []).reduce(
-                (s, it) => s + Number(it.price || 0) * (it.qtd || it.quantidade || 1),
-                0
-            );
 
         if (sort === "total") {
             arr.sort((a, b) => sumTotal(b) - sumTotal(a));
@@ -74,14 +104,17 @@ export default function Carrinho({ user }) {
         } else {
             arr.sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
         }
+
         return arr.map((c) => ({ cart: c, total: sumTotal(c) }));
-    }, [carts, q, onlyOrdered, sort]);
+    }, [carts, q, sort]);
 
     const compareNow = (ids) => {
         const useIds = ids && ids.length ? ids : carts.map((c) => c.id);
         if (!useIds.length) return;
         navigate(`/comparar-carrinhos?ids=${useIds.join(",")}`);
     };
+
+    const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
 
     return (
         <div className="container mt-5" style={{ zIndex: 2, paddingTop: "80px" }}>
@@ -114,22 +147,114 @@ export default function Carrinho({ user }) {
                         <option value="items">Mais itens</option>
                     </select>
 
-                    <div className="form-check form-switch ms-1">
-                        <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="onlyOrdered"
-                            checked={onlyOrdered}
-                            onChange={(e) => setOnlyOrdered(e.target.checked)}
-                        />
-                        <label className="form-check-label" htmlFor="onlyOrdered">
-                            Apenas com pedido
-                        </label>
-                    </div>
+                    <select
+                        className="form-select form-select-sm"
+                        style={{ minWidth: 320 }}
+                        value={selectedOrderId}
+                        onChange={(e) => setSelectedOrderId(e.target.value)}
+                    >
+                        <option value="">Pedidos feitos</option>
+                        {orders.map((o) => (
+                            <option key={o.id} value={o.id}>
+                                {(o.mercadoNome || "Mercado")} • {new Date(o.criadoEm || Date.now()).toLocaleString()} • R$ {formatBRL(o.total)}
+                            </option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
-            <h4 className="mb-3">Meus Carrinhos Salvos</h4>
+            {selectedOrder && (
+                <>
+                    <h4 className="mb-2">Pedido selecionado</h4>
+                    <div className="list-group mb-4">
+                        <div className="list-group-item p-0 border-0">
+                            <div className="card shadow-sm rounded-4 cart-card">
+                                <div className="card-body p-3 p-md-4">
+                                    <div className="d-flex justify-content-between align-items-start gap-3">
+                                        <div className="d-flex align-items-start gap-3">
+                                            <div className="form-check mt-1">
+                                                <input
+                                                    className="form-check-input"
+                                                    type="checkbox"
+                                                    checked={selected.has(selectedOrder.id)}
+                                                    onChange={() => toggleSelect(selectedOrder.id)}
+                                                    aria-label="Selecionar pedido"
+                                                />
+                                            </div>
+                                            <div>
+                                                <div className="d-flex align-items-center gap-2 mb-1">
+                                                    <small className="text-muted">
+                                                        <i className="fa-regular fa-clock me-1" />
+                                                        {new Date(selectedOrder.criadoEm || Date.now()).toLocaleString()}
+                                                    </small>
+                                                    <span className="badge bg-success-subtle text-success-emphasis rounded-pill">
+                                                        <i className="fa-solid fa-check-circle me-1" />
+                                                        Pedido feito
+                                                    </span>
+                                                </div>
+                                                <h5 className="card-title mb-1">
+                                                    <i className="fa-solid fa-store me-2 text-primary" />
+                                                    {selectedOrder.mercadoNome || "Mercado não informado"}
+                                                </h5>
+                                                {selectedOrder.mercadoRua && (
+                                                    <p className="card-text text-muted mb-2">
+                                                        <i className="fa-solid fa-location-dot me-2" />
+                                                        {selectedOrder.mercadoRua}
+                                                        {selectedOrder.mercadoEstado ? `, ${selectedOrder.mercadoEstado}` : ""}
+                                                        {selectedOrder.mercadoPais ? `, ${selectedOrder.mercadoPais}` : ""}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="text-end">
+                                            <div className="fw-bold" style={{ fontSize: "1.05rem" }}>
+                                                Total R$ {formatBRL(selectedOrder.total)}
+                                            </div>
+                                            <small className="text-muted">
+                                                {selectedOrder.items?.length || 0} {selectedOrder.items?.length === 1 ? "item" : "itens"}
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 cart-items-scroll">
+                                        {(selectedOrder.items || []).map((it, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="d-flex justify-content-between align-items-center py-1"
+                                                style={{ fontSize: ".95rem" }}
+                                            >
+                                                <span className="text-truncate me-2" title={it.name}>
+                                                    {(it.qtd || it.quantidade || 1)}x {it.name}
+                                                </span>
+                                                <span className="badge bg-light text-dark">
+                                                    R$ {formatBRL(Number(it.price || 0) * (it.qtd || it.quantidade || 1))}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="d-flex justify-content-between align-items-center mt-3">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <button
+                                                className="btn btn-outline-primary btn-sm"
+                                                onClick={() => toggleSelect(selectedOrder.id)}
+                                                title={selected.has(selectedOrder.id) ? "Desmarcar" : "Selecionar para comparar"}
+                                            >
+                                                <i className={`fa-solid ${selected.has(selectedOrder.id) ? "fa-check" : "fa-plus"} me-1`} />
+                                                {selected.has(selectedOrder.id) ? "Selecionado" : "Selecionar"}
+                                            </button>
+                                        </div>
+                                        <span className="text-muted small">Pedido sincronizado</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            <h4 className="mb-3">Carrinhos Pendentes</h4>
 
             {loading ? (
                 <div className="row g-3">
@@ -153,8 +278,8 @@ export default function Carrinho({ user }) {
                     >
                         <i className="fa-solid fa-basket-shopping text-primary" style={{ fontSize: 24 }} />
                     </div>
-                    <h5 className="fw-bold mb-1">Nada por aqui ainda</h5>
-                    <p className="text-muted mb-3">Salve um carrinho para visualizar e comparar depois.</p>
+                    <h5 className="fw-bold mb-1">Nenhum carrinho pendente</h5>
+                    <p className="text-muted mb-3">Adicione itens para comparar e finalizar depois.</p>
                     <button className="btn btn-primary" onClick={() => navigate(-1)}>
                         Explorar mercados
                     </button>
@@ -182,14 +307,8 @@ export default function Carrinho({ user }) {
                                                     <div className="d-flex align-items-center gap-2 mb-1">
                                                         <small className="text-muted">
                                                             <i className="fa-regular fa-clock me-1" />
-                                                            {new Date(cart.criadoEm).toLocaleString()}
+                                                            {new Date(cart.criadoEm || Date.now()).toLocaleString()}
                                                         </small>
-                                                        {cart.pedidoFeito && (
-                                                            <span className="badge bg-success-subtle text-success-emphasis rounded-pill">
-                                                                <i className="fa-solid fa-check-circle me-1" />
-                                                                Pedido feito
-                                                            </span>
-                                                        )}
                                                     </div>
                                                     <h5 className="card-title mb-1">
                                                         <i className="fa-solid fa-store me-2 text-primary" />
@@ -261,17 +380,15 @@ export default function Carrinho({ user }) {
                 </ul>
             )}
 
-            {carts.length > 0 && (
+            {(carts.length > 0 || selected.size > 0) && (
                 <div className="text-end mt-2">
                     <button
                         className="btn btn-success px-4 py-2 mb-3 compare-all"
                         onClick={() => compareNow([...selected])}
-                        disabled={loading || (carts.length === 0 && selected.size === 0)}
+                        disabled={loading || selected.size === 0}
                     >
                         <i className="fa-solid fa-scale-balanced me-2" />
-                        {selected.size > 0
-                            ? `Comparar selecionados (${selected.size})`
-                            : "Comparar todos"}
+                        {selected.size > 0 ? `Comparar selecionados (${selected.size})` : "Selecionar para comparar"}
                     </button>
                 </div>
             )}

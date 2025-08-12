@@ -39,6 +39,15 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * c * 1000;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const retry = async (fn, tries = 3, delay = 700) => {
+  let err;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); } catch (e) { err = e; if (i < tries - 1) await sleep(delay * (i + 1)); }
+  }
+  throw err;
+};
+
 const openingCache = new Map();
 function getOpeningStatus(raw) {
   if (!raw) return { label: "Horário não disponível", isOpen: null };
@@ -408,10 +417,14 @@ export default function BuscarMercadosOSM({ user }) {
     if (reverseCacheRef.current[key]) return reverseCacheRef.current[key];
     const fn = async () => {
       try {
-        const resp = await requestWithTimeout(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt`,
-          { headers: { "Accept-Language": "pt-BR" } },
-          12000
+        const resp = await retry(
+          () => requestWithTimeout(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt`,
+            { headers: { "Accept-Language": "pt-BR" } },
+            12000
+          ),
+          3,
+          800
         );
         if (!resp.ok) throw new Error();
         const data = await resp.json();
@@ -651,18 +664,17 @@ export default function BuscarMercadosOSM({ user }) {
     setPostos([]);
     setLocalInfo({ rua: "", estado: "", pais: "" });
     try {
-      const posObj = await getAccuratePosition({ desiredAccuracy: 30, maxWait: 5000 });
+      const posObj = await retry(() => getAccuratePosition({ desiredAccuracy: 30, maxWait: 5000 }), 3, 700);
       await buscarProximos(posObj.coords.latitude, posObj.coords.longitude, debouncedRadius);
     } catch {
       try {
-        const resp = await requestWithTimeout("https://ipapi.co/json/", {}, 12000);
+        const resp = await retry(() => requestWithTimeout("https://ipapi.co/json/", {}, 12000), 3, 800);
         if (!resp.ok) throw new Error();
         const data = await resp.json();
         if (data?.latitude && data?.longitude) {
           await buscarProximos(data.latitude, data.longitude, debouncedRadius);
         } else {
-          setErro("Não foi possível obter localização.");
-          setBuscando(false);
+          throw new Error();
         }
       } catch {
         setErro("Não foi possível obter localização.");

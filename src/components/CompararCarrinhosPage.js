@@ -75,13 +75,13 @@ function loadPixFromStorage() {
 function saveCardToStorage(card) {
   try {
     localStorage.setItem(CARD_STORAGE_KEY, JSON.stringify(card));
-  } catch {}
+  } catch { }
 }
 
 function savePixToStorage(pix) {
   try {
     localStorage.setItem(PIX_STORAGE_KEY, JSON.stringify(pix));
-  } catch {}
+  } catch { }
 }
 
 function sanitizeCardForDB(card) {
@@ -253,7 +253,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
           await navigator.clipboard.writeText(pixKey.value || pixCopy.textContent);
           btnCopy.textContent = "Copiado!";
           setTimeout(() => (btnCopy.textContent = "Copiar chave"), 1200);
-        } catch {}
+        } catch { }
       });
     },
     preConfirm: () => {
@@ -300,7 +300,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
       try {
         const c = loadCardFromStorage();
         if (c && typeof c === "object") saveCardToStorage({ ...c, cvv: "" });
-      } catch {}
+      } catch { }
     },
   });
   if (!isConfirmed) return null;
@@ -310,7 +310,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
 export default function CompararCarrinhosPage({ user }) {
   const q = useQuery();
   const navigate = useNavigate();
-  const carrinhoIds = q.get("ids")?.split(",") || [];
+  const carrinhoIds = (q.get("ids") || "").split(",").filter(Boolean);
   const selectedIdQuery = q.get("selected") || "";
   const [ruaCompleta, setRuaCompleta] = useState("");
   const [cep, setCep] = useState("");
@@ -327,22 +327,21 @@ export default function CompararCarrinhosPage({ user }) {
   const [ordenarPor, setOrdenarPor] = useState("distancia");
   const [retirarNaLoja, setRetirarNaLoja] = useState(false);
   const [enderecoLoja, setEnderecoLoja] = useState("");
-  const [incluirFrete, setIncluirFrete] = useState(false);
-  const [fretePorKmBase, setFretePorKmBase] = useState(2);
-  const [freteFaixa1Max, setFreteFaixa1Max] = useState(3);
-  const [freteFaixa2Max, setFreteFaixa2Max] = useState(7);
-  const [freteExtraFaixa1, setFreteExtraFaixa1] = useState(0);
-  const [freteExtraFaixa2, setFreteExtraFaixa2] = useState(5);
-  const [freteExtraFaixa3, setFreteExtraFaixa3] = useState(10);
-  const [descontoRetiradaPercent, setDescontoRetiradaPercent] = useState(10);
   const [cupomCodigo, setCupomCodigo] = useState("BEMVINDO10");
   const [cupomTipo, setCupomTipo] = useState("percentual");
   const [cupomValor, setCupomValor] = useState("10");
-  const [raioAtendimentoKm, setRaioAtendimentoKm] = useState(7);
   const [janelaEntrega, setJanelaEntrega] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [sugestoesRecompra, setSugestoesRecompra] = useState([]);
   const [alertasAtivos, setAlertasAtivos] = useState({});
+  const FRETE_POR_KM_BASE = 2;
+  const FRETE_FAIXA1_MAX = 3;
+  const FRETE_FAIXA2_MAX = 7;
+  const FRETE_EXTRA_FAIXA1 = 0;
+  const FRETE_EXTRA_FAIXA2 = 5;
+  const FRETE_EXTRA_FAIXA3 = 10;
+  const DESCONTO_RETIRADA_PERCENT = 10;
+  const RAIO_ATENDIMENTO_KM = 7;
 
   const parseNum = (x) => {
     const n = parseFloat(String(x).replace(",", "."));
@@ -373,7 +372,7 @@ export default function CompararCarrinhosPage({ user }) {
         if (c) setCep(c);
         const n = await fetchNearbyMarkets(latitude, longitude);
         setMercadosProximos(n);
-      } catch {}
+      } catch { }
     });
   }, []);
 
@@ -381,23 +380,37 @@ export default function CompararCarrinhosPage({ user }) {
     if (cep.length >= 8) buscarEnderecoPorCEP(cep);
   }, [cep]);
 
+  const idsKey = carrinhoIds.join(",");
+
   useEffect(() => {
+    let alive = true;
     async function fetchCarrinhos() {
       const s = await get(ref(db, `usuarios/${user.uid}/carts`));
+      if (!alive) return;
       const a = s.val() || {};
       const o = carrinhoIds.map((id) => ({ id, ...a[id] })).filter((c) => c?.items);
       setCarrinhos(o);
-      if (!selectedIdQuery && o.length) setCarrinhoSelecionadoId(o[0].id);
+      if (selectedIdQuery && o.some((c) => c.id === selectedIdQuery)) {
+        setCarrinhoSelecionadoId((prev) => (prev || "") !== selectedIdQuery ? selectedIdQuery : prev);
+      } else if (!selectedIdQuery && o.length) {
+        setCarrinhoSelecionadoId((prev) => prev || o[0].id);
+      }
       setLoading(false);
     }
-    fetchCarrinhos();
-  }, [carrinhoIds, user, selectedIdQuery]);
+    if (user?.uid && idsKey) fetchCarrinhos();
+    return () => {
+      alive = false;
+    };
+  }, [user?.uid, idsKey, selectedIdQuery]);
 
   useEffect(() => {
     if (!carrinhoSelecionadoId) return;
     const p = new URLSearchParams(window.location.search);
+    const currentSel = p.get("selected") || "";
+    if (currentSel === carrinhoSelecionadoId) return;
     p.set("selected", carrinhoSelecionadoId);
-    navigate(`${window.location.pathname}?${p.toString()}`, { replace: true });
+    const url = `${window.location.pathname}?${p.toString()}`;
+    navigate(url, { replace: true });
   }, [carrinhoSelecionadoId, navigate]);
 
   useEffect(() => {
@@ -479,8 +492,10 @@ export default function CompararCarrinhosPage({ user }) {
         .slice(0, 12);
       setSugestoesRecompra(arr);
     }
-    ensureReferral();
-    loadReorders();
+    if (user?.uid) {
+      ensureReferral();
+      loadReorders();
+    }
   }, [user]);
 
   useEffect(() => {
@@ -502,10 +517,10 @@ export default function CompararCarrinhosPage({ user }) {
   if (loading) return <div className="container mt-5">Carregando comparação...</div>;
 
   const carrinhoSelecionado = carrinhos.find((c) => c.id === carrinhoSelecionadoId);
-  const totalSelecionado = carrinhoSelecionado.items.reduce((s, i) => s + Number(i.price) * (i.qtd || i.quantidade || 1), 0);
+  const totalSelecionado = carrinhoSelecionado?.items?.reduce((s, i) => s + Number(i.price) * (i.qtd || i.quantidade || 1), 0) || 0;
 
   const menoresPrecosPorProduto = {};
-  carrinhoSelecionado.items.forEach((item) => {
+  (carrinhoSelecionado?.items || []).forEach((item) => {
     let m = Infinity;
     for (let mid of mercadosSelecionados) {
       const p = precosFixos[item.name]?.[mid];
@@ -524,45 +539,40 @@ export default function CompararCarrinhosPage({ user }) {
       return Math.max(0, d);
     }
     const v = parseNum(cupomValor);
-    if (!v) return applyingForRetirada ? subtotal * (parseNum(descontoRetiradaPercent) / 100) : 0;
+    if (!v) return applyingForRetirada ? subtotal * (DESCONTO_RETIRADA_PERCENT / 100) : 0;
     if (cupomTipo === "percentual") {
       const base = subtotal * (v / 100);
-      const ret = applyingForRetirada ? subtotal * (parseNum(descontoRetiradaPercent) / 100) : 0;
+      const ret = applyingForRetirada ? subtotal * (DESCONTO_RETIRADA_PERCENT / 100) : 0;
       return Math.max(0, base + ret);
     }
-    const ret = applyingForRetirada ? subtotal * (parseNum(descontoRetiradaPercent) / 100) : 0;
+    const ret = applyingForRetirada ? subtotal * (DESCONTO_RETIRADA_PERCENT / 100) : 0;
     return Math.max(0, Math.min(v, subtotal) + ret);
   };
 
   function calcFrete(km) {
-    const base = km * parseNum(fretePorKmBase);
+    const base = km * FRETE_POR_KM_BASE;
     let extra = 0;
-    if (km <= parseNum(freteFaixa1Max)) extra = parseNum(freteExtraFaixa1);
-    else if (km <= parseNum(freteFaixa2Max)) extra = parseNum(freteExtraFaixa2);
-    else extra = parseNum(freteExtraFaixa3);
+    if (km <= FRETE_FAIXA1_MAX) extra = FRETE_EXTRA_FAIXA1;
+    else if (km <= FRETE_FAIXA2_MAX) extra = FRETE_EXTRA_FAIXA2;
+    else extra = FRETE_EXTRA_FAIXA3;
     return Math.max(0, base + extra);
   }
 
   const totalPorMercado = {};
   mercadosSelecionados.forEach((mid) => {
-    totalPorMercado[mid] = carrinhoSelecionado.items.reduce((s, item) => {
+    totalPorMercado[mid] = (carrinhoSelecionado?.items || []).reduce((s, item) => {
       const p = precosFixos[item.name]?.[mid];
       return s + (p ? Number(p) : 0) * (item.qtd || item.quantidade || 1);
     }, 0);
   });
 
-  const fretePorMercado = {};
   const descontoPorMercado = {};
   const totalFinalPorMercado = {};
   mercadosSelecionados.forEach((mid) => {
     const sub = totalPorMercado[mid] || 0;
-    const m = mercadosProximos.find((x) => x.id === mid);
-    const km = (m?.distance || 0) / 1000;
-    const frete = incluirFrete ? calcFrete(km) : 0;
     const desc = calcDesconto(sub, false);
     descontoPorMercado[mid] = desc;
-    fretePorMercado[mid] = frete;
-    totalFinalPorMercado[mid] = Math.max(0, sub - desc) + frete;
+    totalFinalPorMercado[mid] = Math.max(0, sub - desc);
   });
 
   const vals = Object.values(totalFinalPorMercado);
@@ -594,11 +604,8 @@ export default function CompararCarrinhosPage({ user }) {
       });
   }
 
-  const todosMarcados = mercadosProximos.length > 0 && mercadosSelecionados.length === mercadosProximos.length;
-
-  function toggleSelecionarTodos() {
-    if (todosMarcados) setMercadosSelecionados([]);
-    else setMercadosSelecionados(mercadosProximos.map((m) => m.id));
+  function mercadoForaDoRaio(m) {
+    return (m.distance || 0) / 1000 > RAIO_ATENDIMENTO_KM;
   }
 
   const ordenarPorDist = (a, o) => a.distance - o.distance;
@@ -669,9 +676,22 @@ export default function CompararCarrinhosPage({ user }) {
     navigate(`/comparar-carrinhos?ids=${encodeURIComponent(ids)}&selected=${res.key}`);
   }
 
-  function mercadoForaDoRaio(m) {
-    return (m.distance || 0) / 1000 > parseNum(raioAtendimentoKm);
+  const todosMarcados =
+    mercadosOrdenados.length > 0 &&
+    mercadosSelecionados.length === mercadosOrdenados.length &&
+    mercadosOrdenados.every((m) => mercadosSelecionados.includes(m.id));
+
+  function toggleSelecionarTodos() {
+    if (todosMarcados) setMercadosSelecionados([]);
+    else setMercadosSelecionados(mercadosOrdenados.map((m) => m.id));
   }
+
+  const freteEstimadoSelecionado = (() => {
+    if (!mercadoSelecionadoPedido || retirarNaLoja) return 0;
+    const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
+    const km = (mSel?.distance || 0) / 1000;
+    return calcFrete(km);
+  })();
 
   return (
     <div className="container mt-5" style={{ paddingTop: "90px" }}>
@@ -691,7 +711,7 @@ export default function CompararCarrinhosPage({ user }) {
             try {
               await navigator.clipboard.writeText(referralCode);
               Swal.fire("Copiado", "Código de indicação copiado para a área de transferência.", "success");
-            } catch {}
+            } catch { }
           }}
         >
           Copiar código
@@ -728,7 +748,7 @@ export default function CompararCarrinhosPage({ user }) {
           <div className="card-body">
             <h5 className="card-title">Itens do Carrinho Selecionado</h5>
             <ul className="list-group">
-              {carrinhoSelecionado.items.map((item, idx) => (
+              {(carrinhoSelecionado.items || []).map((item, idx) => (
                 <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
                   <div className="me-2">
                     {(item.qtd || item.quantidade || 1)}x {item.name}
@@ -746,12 +766,12 @@ export default function CompararCarrinhosPage({ user }) {
                         if (v) criarAlerta(item.name, v);
                       }}
                     />
-                    <span className="badge bg-secondary">{fmt((item.price * (item.qtd || item.quantidade || 1)))}</span>
+                    <span className="badge bg-secondary">{`R$ ${Number(item.price * (item.qtd || item.quantidade || 1)).toFixed(2).replace(".", ",")}`}</span>
                   </div>
                 </li>
               ))}
             </ul>
-            <strong className="d-block mt-2">Total: {fmt(totalSelecionado)}</strong>
+            <strong className="d-block mt-2">{`Total: R$ ${Number(totalSelecionado).toFixed(2).replace(".", ",")}`}</strong>
           </div>
         </div>
       )}
@@ -761,7 +781,7 @@ export default function CompararCarrinhosPage({ user }) {
           <span><strong>Mais perto:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} ({kmFmt(mercadoMaisPertoObj.dist)} km)</span>
         )}
         {mercadoMaisBarato && (
-          <span><strong>Mais barato:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} ({fmt(minTotal)})</span>
+          <span><strong>Mais barato:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} ({`R$ ${Number(minTotal).toFixed(2).replace(".", ",")}`})</span>
         )}
       </div>
 
@@ -769,89 +789,10 @@ export default function CompararCarrinhosPage({ user }) {
         <h5 className="mb-3">Comparar preços por mercado</h5>
 
         <div className="row g-2 mb-3">
-          <div className="col-md-3">
+          <div className="col-md-4">
             <input type="text" className="form-control" placeholder="Digite seu CEP" value={cep} onChange={(e) => setCep(e.target.value)} />
           </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">R$/km</span>
-              <input type="number" step="0.01" className="form-control" value={fretePorKmBase} onChange={(e) => setFretePorKmBase(e.target.value)} />
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">Raio (km)</span>
-              <input type="number" step="0.1" className="form-control" value={raioAtendimentoKm} onChange={(e) => setRaioAtendimentoKm(e.target.value)} />
-            </div>
-          </div>
-          <div className="col-md-3 d-flex align-items-center">
-            <div className="form-check form-switch">
-              <input className="form-check-input" type="checkbox" id="incluiFrete" checked={incluirFrete} onChange={() => setIncluirFrete(!incluirFrete)} />
-              <label className="form-check-label ms-2" htmlFor="incluiFrete">Incluir frete</label>
-            </div>
-          </div>
-        </div>
-
-        <div className="row g-2 mb-3">
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">0–{freteFaixa1Max}km +R$</span>
-              <input type="number" step="0.01" className="form-control" value={freteExtraFaixa1} onChange={(e) => setFreteExtraFaixa1(e.target.value)} />
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">{freteFaixa1Max}–{freteFaixa2Max}km +R$</span>
-              <input type="number" step="0.01" className="form-control" value={freteExtraFaixa2} onChange={(e) => setFreteExtraFaixa2(e.target.value)} />
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">{freteFaixa2Max}km+ +R$</span>
-              <input type="number" step="0.01" className="form-control" value={freteExtraFaixa3} onChange={(e) => setFreteExtraFaixa3(e.target.value)} />
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">Faixa 1 max</span>
-              <input type="number" step="0.1" className="form-control" value={freteFaixa1Max} onChange={(e) => setFreteFaixa1Max(e.target.value)} />
-            </div>
-            <div className="input-group mt-2">
-              <span className="input-group-text">Faixa 2 max</span>
-              <input type="number" step="0.1" className="form-control" value={freteFaixa2Max} onChange={(e) => setFreteFaixa2Max(e.target.value)} />
-            </div>
-          </div>
-        </div>
-
-        <div className="row g-2 mb-3">
-          <div className="col-md-3">
-            <input type="text" className="form-control" placeholder="Cupom" value={cupomCodigo} onChange={(e) => setCupomCodigo(e.target.value)} />
-          </div>
-          <div className="col-md-3">
-            <select className="form-select" value={cupomTipo} onChange={(e) => setCupomTipo(e.target.value)}>
-              <option value="percentual">Percentual (%)</option>
-              <option value="fixo">Valor fixo (R$)</option>
-            </select>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">{cupomTipo === "percentual" ? "%" : "R$"}</span>
-              <input type="number" step="0.01" className="form-control" value={cupomValor} onChange={(e) => setCupomValor(e.target.value)} disabled={isReferralCupom(cupomCodigo)} />
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">Retirada %</span>
-              <input type="number" step="0.1" className="form-control" value={descontoRetiradaPercent} onChange={(e) => setDescontoRetiradaPercent(e.target.value)} />
-            </div>
-          </div>
-        </div>
-
-        <div className="row g-2 mb-3">
-          <div className="col-md-6">
-            <button className="btn btn-success w-100" onClick={() => { setMercadosSelecionados([]); setPrecosFixos({}); }}>Atualizar Mercados Próximos</button>
-          </div>
-          <div className="col-md-6">
+          <div className="col-md-8">
             <div className="btn-group w-100">
               <button className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`} onClick={() => setOrdenarPor("distancia")}>Ordenar por Distância</button>
               <button className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`} onClick={() => setOrdenarPor("preco")}>Ordenar por Preço Total</button>
@@ -910,7 +851,7 @@ export default function CompararCarrinhosPage({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {carrinhoSelecionado.items.map((item, idx) => (
+                {(carrinhoSelecionado?.items || []).map((item, idx) => (
                   <tr key={idx}>
                     <td>{item.name}</td>
                     {mercadosSelecionadosOrdenados.map((id) => {
@@ -938,7 +879,6 @@ export default function CompararCarrinhosPage({ user }) {
                 const nome = m?.nome || id;
                 const sub = totalPorMercado[id] || 0;
                 const desc = descontoPorMercado[id] || 0;
-                const frete = fretePorMercado[id] || 0;
                 const total = totalFinalPorMercado[id] || 0;
                 const low = id === mercadoMaisBarato;
                 const high = id === mercadoMaisCaro;
@@ -947,10 +887,9 @@ export default function CompararCarrinhosPage({ user }) {
                   <li key={id} className={`list-group-item d-flex justify-content-between align-items-center ${low ? "list-group-item-success" : ""} ${high ? "list-group-item-danger" : ""}`}>
                     <span>{nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
                     <span className="text-end">
-                      <div><small>Subtotal: {fmt(sub)}</small></div>
-                      <div><small>Desconto: -{fmt(desc)}</small></div>
-                      {incluirFrete && <div><small>Frete: +{fmt(frete)}</small></div>}
-                      <strong>Total: {fmt(total)}</strong>
+                      <div><small>Subtotal: {`R$ ${Number(sub).toFixed(2).replace(".", ",")}`}</small></div>
+                      <div><small>Desconto: -{`R$ ${Number(desc).toFixed(2).replace(".", ",")}`}</small></div>
+                      <strong>Total: {`R$ ${Number(total).toFixed(2).replace(".", ",")}`}</strong>
                       {low && <span className="badge bg-success ms-2">Mais barato</span>}
                       {high && <span className="badge bg-danger ms-2">Mais caro</span>}
                       {near && <span className="badge bg-info ms-2">Mais perto</span>}
@@ -961,7 +900,7 @@ export default function CompararCarrinhosPage({ user }) {
             </ul>
 
             <p className="fs-5">
-              Você pode economizar <strong className="text-success">{fmt(economia)}</strong> comprando no mercado{" "}
+              Você pode economizar <strong className="text-success">{`R$ ${Number(economia).toFixed(2).replace(".", ",")}`}</strong> comprando no mercado{" "}
               <strong>{mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome}</strong> ao invés do mercado{" "}
               <strong>{mercadosProximos.find((m) => m.id === mercadoMaisCaro)?.nome}</strong>.
             </p>
@@ -996,14 +935,16 @@ export default function CompararCarrinhosPage({ user }) {
                   </div>
                 </div>
 
-                {!retirarNaLoja && (
-                  <>
-                    <label className="form-label">Endereço para entrega:</label>
-                    <input type="text" className="form-control mb-2" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} />
-                    <input type="text" className="form-control mb-3" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} />
-                    <input type="text" className="form-control mb-3" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
-                  </>
-                )}
+                {!retirarNaLoja && mercadoSelecionadoPedido && (() => {
+                  const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
+                  const desc = calcDesconto(sub, retirarNaLoja);
+                  const totalComFrete = Math.max(0, sub - desc) + freteEstimadoSelecionado;
+                  return (
+                    <div className="mt-2">
+                      <strong>Total com frete:</strong> {fmt(totalComFrete)}
+                    </div>
+                  );
+                })()}
 
                 <label className="form-label mb-3">Escolha o Mercado:</label>
                 <select className="form-select mb-2" value={mercadoSelecionadoPedido} onChange={(e) => setMercadoSelecionadoPedido(e.target.value)}>
@@ -1025,10 +966,10 @@ export default function CompararCarrinhosPage({ user }) {
                       return Math.max(0, ssub - sdesc) + sfrete;
                     }));
                     const fora = m ? mercadoForaDoRaio(m) : false;
-                    const txt = diff === 0 ? `→ Mais barato (economize até ${fmt(economia)})` : `(+ ${fmt(diff)})`;
+                    const txt = diff === 0 ? `→ Mais barato (economize até R$ ${Number(economia).toFixed(2).replace(".", ",")})` : `(+ R$ ${Number(diff).toFixed(2).replace(".", ",")})`;
                     return (
                       <option key={id} value={id} disabled={fora && !retirarNaLoja}>
-                        {nome} - {fmt(tot)} {fora && !retirarNaLoja ? "(fora do raio)" : txt}
+                        {nome} - {`R$ ${Number(tot).toFixed(2).replace(".", ",")}`} {fora && !retirarNaLoja ? "(fora do raio)" : txt}
                       </option>
                     );
                   })}
@@ -1054,21 +995,17 @@ export default function CompararCarrinhosPage({ user }) {
                       return;
                     }
                     const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
-                    if (mSel && mercadoForaDoRaio(mSel) && !retirarNaLoja) {
-                      Swal.fire("Fora do raio", "Este mercado está fora do raio de atendimento.", "warning");
-                      return;
-                    }
                     const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
                     const desc = calcDesconto(sub, retirarNaLoja);
-                    const km = (mSel?.distance || 0) / 1000;
+                    const km = ((mSel?.distance || 0) / 1000);
                     const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
                     const tot = Math.max(0, sub - desc) + fretePedido;
-                    const totalBRL = fmt(tot);
+                    const totalBRL = `R$ ${Number(tot).toFixed(2).replace(".", ",")}`;
                     const payment = await askPayment(totalBRL, "");
                     if (!payment) return;
                     if (payment?.method === "card" && payment.payload) payment.payload.cvv = "";
                     const nome = mSel?.nome || mercadoSelecionadoPedido;
-                    const itens = carrinhoSelecionado.items.map((item) => ({
+                    const itens = (carrinhoSelecionado?.items || []).map((item) => ({
                       nome: item.name,
                       preco: precosFixos[item.name]?.[mercadoSelecionadoPedido] || item.price,
                       qtd: item.qtd || item.quantidade || 1,
@@ -1138,7 +1075,7 @@ export default function CompararCarrinhosPage({ user }) {
               <div key={s.name} className="col">
                 <div className="border rounded p-2 d-flex flex-column h-100">
                   <div className="fw-semibold">{s.name}</div>
-                  <div className="text-muted">Preço recente: {fmt(s.price)}</div>
+                  <div className="text-muted">Preço recente: {`R$ ${Number(s.price).toFixed(2).replace(".", ",")}`}</div>
                   <div className="mt-auto d-flex gap-2">
                     <button
                       className="btn btn-sm btn-outline-primary w-100"

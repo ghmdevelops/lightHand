@@ -180,7 +180,7 @@ export default function SobrePage() {
         </h4>
 
         <div className="row row-cols-1 row-cols-md-2 gy-4">
-          {["Gehaime Barros", "Robinson Silva"].map((nome) => (
+          {["Gehaime Barros", "Robinson Silva", "Fabiana"].map((nome) => (
             <div key={nome} className="col">
               <div
                 className="card h-100 border-0 shadow-sm d-flex flex-row align-items-center px-4 py-3"

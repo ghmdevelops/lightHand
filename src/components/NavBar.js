@@ -23,6 +23,10 @@ import Button from "react-bootstrap/Button";
 import Offcanvas from "react-bootstrap/Offcanvas";
 import Nav from "react-bootstrap/Nav";
 
+// >>> ADIÇÕES PARA OUVIR O FIREBASE <<<
+import { ref, onValue } from "firebase/database";
+import { db } from "../firebase";
+
 export default function NavBar({
   user,
   avatarURL,
@@ -41,6 +45,9 @@ export default function NavBar({
   const [progress, setProgress] = useState(0);
   const [progressVisible, setProgressVisible] = useState(false);
   const location = useLocation();
+
+  // >>> CONTAGEM DE CARRINHOS PENDENTES <<<
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -76,6 +83,21 @@ export default function NavBar({
       setProgressVisible(false);
     };
   }, [location.pathname]);
+
+  // >>> OUVINTE DO FIREBASE PARA PENDENTES <<<
+  useEffect(() => {
+    if (!user) {
+      setPendingCount(0);
+      return;
+    }
+    const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
+    const off = onValue(cartsRef, (snap) => {
+      const val = snap.val() || {};
+      const count = Object.values(val).filter((c) => !c?.pedidoFeito).length;
+      setPendingCount(count);
+    });
+    return () => off();
+  }, [user]);
 
   const AuthButton = ({ onClick, title, Icon, label, filled }) => {
     const showLabel = Boolean(label) && !isMobile;
@@ -231,8 +253,12 @@ export default function NavBar({
     </Nav>
   );
 
+  // estilos do badge/dot do carrinho
+  const countLabel = pendingCount > 99 ? "99+" : String(pendingCount);
+
   return (
     <>
+      {/* barra de progresso topo */}
       <div
         style={{
           position: "fixed",
@@ -257,6 +283,43 @@ export default function NavBar({
           }}
         />
       </div>
+
+      {/* keyframes/estilos para o badge e dot */}
+      <style>{`
+        @keyframes cartBlink {
+          0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,.55); }
+          50% { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+        }
+        .cart-badge {
+          position: absolute;
+          top: -6px;
+          right: -6px;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 6px;
+          border-radius: 999px;
+          background: #ef4444;
+          color: #fff;
+          font-weight: 900;
+          font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+          z-index: 2;
+        }
+        .cart-dot {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          width: 8px;
+          height: 8px;
+          background: #ef4444;
+          border-radius: 50%;
+          animation: cartBlink 1.2s ease-in-out infinite;
+          z-index: 1;
+        }
+      `}</style>
 
       <Navbar
         fixed="top"
@@ -332,7 +395,34 @@ export default function NavBar({
             </div>
           </Navbar.Brand>
 
+          {/* MOBILE: carrinho + avatar */}
           <div className="d-flex d-lg-none ms-auto align-items-center gap-2">
+            {user && pendingCount > 0 && (
+              <Link
+                to="/carrinho"
+                aria-label={`Você tem ${pendingCount} carrinho${pendingCount > 1 ? "s" : ""} pendente${pendingCount > 1 ? "s" : ""}`}
+                className="position-relative"
+                style={{ textDecoration: "none" }}
+              >
+                <div
+                  className="d-flex align-items-center justify-content-center"
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg,#ffffff,#f8fafc)",
+                    color: "#0f172a",
+                    boxShadow: "0 10px 26px rgba(2,6,23,0.12)",
+                    position: "relative",
+                  }}
+                >
+                  <FaShoppingCart />
+                  <span className="cart-dot" />
+                  <span className="cart-badge">{countLabel}</span>
+                </div>
+              </Link>
+            )}
+
             <Button
               variant="link"
               aria-label="Abrir menu"
@@ -393,7 +483,34 @@ export default function NavBar({
             </Button>
           </div>
 
+          {/* DESKTOP: carrinho + avatar/menu */}
           <div className="ms-auto d-none d-lg-flex align-items-center gap-3">
+            {user && pendingCount > 0 && (
+              <Link
+                to="/carrinho"
+                aria-label={`Você tem ${pendingCount} carrinho${pendingCount > 1 ? "s" : ""} pendente${pendingCount > 1 ? "s" : ""}`}
+                className="position-relative"
+                style={{ textDecoration: "none" }}
+              >
+                <div
+                  className="d-flex align-items-center justify-content-center"
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg,#ffffff,#f8fafc)",
+                    color: "#0f172a",
+                    boxShadow: "0 12px 28px rgba(2,6,23,0.12)",
+                    position: "relative",
+                  }}
+                >
+                  <FaShoppingCart />
+                  <span className="cart-dot" />
+                  <span className="cart-badge">{countLabel}</span>
+                </div>
+              </Link>
+            )}
+
             {user ? (
               <Dropdown align="end">
                 <Dropdown.Toggle

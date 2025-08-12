@@ -19,12 +19,13 @@ const CATEGORIAS = {
 };
 
 const FONTES = {
-  "OpenFoodFacts": "off",
-  "DummyJSON": "dummy",
+  OpenFoodFacts: "off",
+  DummyJSON: "dummy",
   "Mercado Libre": "meli",
 };
 
 const PAGE_SIZE = 12;
+const MAX_CARTS = 100;
 
 export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisita }) {
   const [ofertas, setOfertas] = useState([]);
@@ -32,29 +33,23 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
   const [fonte, setFonte] = useState("OpenFoodFacts");
   const [q, setQ] = useState("");
   const [ordem, setOrdem] = useState("relevancia");
-
   const [produtos, setProdutos] = useState([]);
   const [produtosLoading, setProdutosLoading] = useState(false);
   const [produtosError, setProdutosError] = useState("");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-
   const [carrinho, setCarrinho] = useState([]);
   const [qtyByKey, setQtyByKey] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [sucesso, setSucesso] = useState("");
-
   const [salvos, setSalvos] = useState({});
   const [showSaved, setShowSaved] = useState(false);
-
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
   const inputRef = useRef(null);
   const sugRef = useRef(null);
-
   const cacheRef = useRef({});
-  const sentinelRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -81,7 +76,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
         };
         firebaseSet(visitaRef, visitaObj).then(() => {
           if (typeof setUltimaVisita === "function") setUltimaVisita(mercado.id.toString());
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }, [mercado.id, user, setUltimaVisita]);
@@ -162,7 +157,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     return { products: mapped, hasMore: (data.paging?.offset || 0) + mapped.length < (data.paging?.total || 0) };
   }, []);
 
-  const fetchProdutos = useCallback(async (fonteKey, categoriaSlug, pageNum, searchTerm) => {
+  const doFetchProdutos = useCallback(async (fonteKey, categoriaSlug, pageNum, searchTerm) => {
     const cacheKey = JSON.stringify({ fonteKey, categoriaSlug, pageNum, searchTerm: normalize(searchTerm) });
     if (cacheRef.current[cacheKey]) return cacheRef.current[cacheKey];
     let result;
@@ -187,7 +182,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       setProdutosError("");
       try {
         const slug = CATEGORIAS[categoria];
-        const { products, hasMore: more } = await fetchProdutos(fonte, slug, page, q);
+        const { products, hasMore: more } = await doFetchProdutos(fonte, slug, page, q);
         if (cancelled) return;
         setHasMore(more);
         if (page === 1) {
@@ -209,20 +204,10 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       }
     }
     carregar();
-    return () => { cancelled = true; };
-  }, [fonte, categoria, page, q, fetchProdutos]);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting && hasMore && !produtosLoading) setPage((p) => p + 1);
-      });
-    }, { rootMargin: "400px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, produtosLoading]);
+    return () => {
+      cancelled = true;
+    };
+  }, [fonte, categoria, page, q, doFetchProdutos]);
 
   useEffect(() => {
     const h = setTimeout(async () => {
@@ -234,7 +219,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       }
       try {
         const slug = CATEGORIAS[categoria];
-        const { products } = await fetchProdutos(fonte, slug, 1, term);
+        const { products } = await doFetchProdutos(fonte, slug, 1, term);
         const seen = new Set();
         const items = [];
         for (const p of products) {
@@ -253,7 +238,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       }
     }, 220);
     return () => clearTimeout(h);
-  }, [q, fonte, categoria, fetchProdutos]);
+  }, [q, fonte, categoria, doFetchProdutos]);
 
   useEffect(() => {
     function onDocClick(e) {
@@ -281,7 +266,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     const qtd = qtyByKey[produto.key] || 1;
     const existente = carrinho.find((p) => p.key === produto.key);
     if (existente) {
-      setCarrinho((c) => c.map((p) => p.key === produto.key ? { ...p, quantidade: p.quantidade + qtd } : p));
+      setCarrinho((c) => c.map((p) => (p.key === produto.key ? { ...p, quantidade: p.quantidade + qtd } : p)));
     } else {
       setCarrinho((c) => [...c, { ...produto, quantidade: qtd }]);
     }
@@ -289,10 +274,10 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
   };
 
   const removerItem = (key) => setCarrinho((prev) => prev.filter((item) => item.key !== key));
-  const alterarQtdCarrinho = (key, delta) => setCarrinho((c) => c.map((p) => p.key === key ? { ...p, quantidade: Math.max(1, (p.quantidade || 1) + delta) } : p));
+  const alterarQtdCarrinho = (key, delta) => setCarrinho((c) => c.map((p) => (p.key === key ? { ...p, quantidade: Math.max(1, (p.quantidade || 1) + delta) } : p)));
   const editarQuantidadeDireto = (key, val) => {
     const n = Math.max(1, parseInt(val || 1));
-    setCarrinho((c) => c.map((p) => p.key === key ? { ...p, quantidade: n } : p));
+    setCarrinho((c) => c.map((p) => (p.key === key ? { ...p, quantidade: n } : p)));
   };
 
   const toggleSalvar = async (prod) => {
@@ -361,8 +346,8 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
       const snap = await get(cartsRef);
       const existing = snap.val() || {};
-      if (Object.keys(existing).length >= 3) {
-        setSaveError("Você já tem 3 carrinhos. Exclua um antes.");
+       if (Object.keys(existing).length >= MAX_CARTS) {
+        setSaveError(`Você já tem ${MAX_CARTS} carrinhos. Exclua um antes.`);
         setSalvando(false);
         return;
       }
@@ -417,10 +402,10 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
 
   return (
     <div className="container my-4" style={{ zIndex: 2, paddingTop: "80px", maxWidth: 1180 }}>
+      <button className="btn btn-outline-secondary mb-3" onClick={onVoltar || (() => navigate(-1))}>&larr; Voltar</button>
       <ToastContainer position="top-right" pauseOnHover />
       <div className="d-flex align-items-center justify-content-between mb-3">
-        <button className="btn btn-outline-secondary rounded-pill" onClick={onVoltar || (() => navigate(-1))}>&larr; Voltar</button>
-        <div className="text-center">
+        <div className="text-dark">
           <h4 className="mb-0">Ofertas em <span className="text-primary">{mercado.nome}</span></h4>
           <small className="text-muted">
             {mercado.rua && <>{mercado.rua}, </>}
@@ -545,24 +530,32 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
                   <div className="mb-2" style={{ minHeight: 46 }}>
                     <div className="fw-semibold" style={{ lineHeight: 1.2 }}>{p.name}</div>
                   </div>
-                  <div className="d-flex align-items-center justify-content-between gap-2 mt-auto">
-                    <div className="btn-group" role="group" aria-label="Quantidade">
-                      <button className="btn btn-outline-secondary btn-sm" onClick={() => addQty(p.key, -1)}>-</button>
-                      <input
-                        className="form-control form-control-sm text-center"
-                        style={{ width: 56 }}
-                        value={qtyByKey[p.key] || 1}
-                        onChange={(e) => setQty(p.key, e.target.value)}
-                        inputMode="numeric"
-                      />
-                      <button className="btn btn-outline-secondary btn-sm" onClick={() => addQty(p.key, 1)}>+</button>
+                  <div className="row g-2 mt-auto align-items-stretch">
+                    <div className="col-12 col-sm-auto">
+                      <div className="btn-group w-100" role="group" aria-label="Quantidade">
+                        <button className="btn btn-outline-secondary btn-sm" onClick={() => addQty(p.key, -1)}>-</button>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="form-control form-control-sm text-center"
+                          style={{ width: 56 }}
+                          value={qtyByKey[p.key] || 1}
+                          onChange={(e) => setQty(p.key, e.target.value)}
+                          inputMode="numeric"
+                          aria-label="Quantidade"
+                        />
+                        <button className="btn btn-outline-secondary btn-sm" onClick={() => addQty(p.key, 1)}>+</button>
+                      </div>
                     </div>
-                    <div className="d-flex gap-2">
-                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setPriceAlert(p)} title="Criar alerta de preço">
+                    <div className="col-12 col-sm d-flex gap-2 justify-content-sm-end">
+                      <button className="btn btn-outline-secondary btn-sm flex-grow-1" onClick={() => setPriceAlert(p)} title="Criar alerta de preço" aria-label="Criar alerta de preço">
                         <i className="bi bi-bell" />
+                        <span className="d-none d-sm-inline ms-1">Alerta</span>
                       </button>
-                      <button className="btn btn-primary btn-sm" onClick={() => adicionar(p)}>
-                        <i className="bi bi-bag-plus me-1" /> Adicionar
+                      <button className="btn btn-primary btn-sm flex-grow-1" onClick={() => adicionar(p)} aria-label="Adicionar ao carrinho">
+                        <i className="bi bi-bag-plus" />
+                        <span className="d-none d-sm-inline ms-1">Adicionar</span>
                       </button>
                     </div>
                   </div>
@@ -571,27 +564,15 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
             </div>
           );
         })}
-
-        {produtosLoading && Array.from({ length: 8 }).map((_, i) => (
-          <div className="col-6 col-md-4 col-lg-3" key={`sk-${i}`}>
-            <div className="card h-100 border-0 shadow-sm">
-              <div className="placeholder-wave" style={{ height: 160, background: "#eee" }} />
-              <div className="card-body">
-                <div className="placeholder-wave mb-2" style={{ height: 14, background: "#eee" }} />
-                <div className="placeholder-wave mb-2" style={{ height: 14, width: "70%", background: "#eee" }} />
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                  <div className="placeholder-wave" style={{ width: 120, height: 32, background: "#eee" }} />
-                  <div className="placeholder-wave" style={{ width: 90, height: 32, background: "#eee" }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
 
-      <div ref={sentinelRef} className="text-center my-4">
-        {produtosLoading ? <span className="text-muted">Carregando…</span> : hasMore ? <span className="text-muted">Role para carregar mais</span> : <span className="text-muted">Fim dos resultados</span>}
-      </div>
+      {hasMore && (
+        <div className="text-center my-3">
+          <button className="btn btn-outline-secondary" onClick={() => setPage((p) => p + 1)} disabled={produtosLoading}>
+            {produtosLoading ? "Carregando..." : "Carregar mais"}
+          </button>
+        </div>
+      )}
 
       <hr className="my-4" />
 
