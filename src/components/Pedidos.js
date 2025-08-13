@@ -14,7 +14,7 @@ import {
   ButtonGroup,
   Badge,
 } from "react-bootstrap";
-import { FaTrash, FaMapMarkerAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaTrash, FaMapMarkerAlt, FaChevronDown, FaChevronUp, FaRoute } from "react-icons/fa";
 import { getAuth } from "firebase/auth";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -29,6 +29,14 @@ function FitBounds({ bounds }) {
   useEffect(() => {
     if (bounds && bounds.length === 2) map.fitBounds(bounds, { padding: [20, 20] });
   }, [bounds, map]);
+  return null;
+}
+
+function FitAll({ points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points && points.length >= 2) map.fitBounds(points, { padding: [20, 20] });
+  }, [points, map]);
   return null;
 }
 
@@ -110,10 +118,8 @@ function deepFindLatLng(o, depth = 0) {
         o.position ||
         o.geometry ||
         o.geo ||
-        o.center) ??
-      null
-    ) ||
-    normalizeLatLng(o);
+        o.center) ?? null
+    ) || normalizeLatLng(o);
   if (direct) return direct;
   if (typeof o === "object") {
     for (const k of Object.keys(o)) {
@@ -181,12 +187,12 @@ function getEntregaEndereco(pedido) {
     deepFindLatLng(cand) ||
     normalizeLatLng(
       pedido.enderecoLatLng ||
-      pedido.enderecoLatlng ||
-      pedido.destinoLatLng ||
-      pedido.destinoLatlng ||
-      pedido.clienteLatLng ||
-      pedido.clienteLatlng ||
-      null
+        pedido.enderecoLatlng ||
+        pedido.destinoLatLng ||
+        pedido.destinoLatlng ||
+        pedido.clienteLatLng ||
+        pedido.clienteLatlng ||
+        null
     );
   return { texto, latlng };
 }
@@ -204,10 +210,10 @@ function getLojaEndereco(pedido) {
     deepFindLatLng(pedido.mercado) ||
     normalizeLatLng(
       pedido.lojaLatLng ||
-      pedido.mercadoLatLng ||
-      pedido.lojaLatlng ||
-      pedido.mercadoLatlng ||
-      null
+        pedido.mercadoLatLng ||
+        pedido.lojaLatlng ||
+        pedido.mercadoLatlng ||
+        null
     );
   return { texto, latlng };
 }
@@ -227,6 +233,7 @@ export default function Pedidos() {
   const [rotaLoading, setRotaLoading] = useState(false);
   const [origem, setOrigem] = useState(null);
   const [destino, setDestino] = useState(null);
+  const [waypoints, setWaypoints] = useState([]);
 
   const posicaoFallback = useMemo(() => [-23.55052, -46.633308], []);
 
@@ -246,25 +253,32 @@ export default function Pedidos() {
 
   const excluirPedido = async (id) => {
     const uid = getAuth().currentUser?.uid;
-    if (!uid) { alert("Você não está logado."); return; }
+    if (!uid) {
+      alert("Você não está logado.");
+      return;
+    }
     if (!window.confirm("Tem certeza que deseja excluir este pedido?")) return;
     try {
       await remove(ref(db, `usuarios/${uid}/pedidos/${id}`));
       setPedidos((prev) => prev.filter((p) => p.id !== id));
     } catch (e) {
-      console.error(e);
       alert("Erro ao excluir pedido: " + (e?.message || ""));
     }
   };
 
   async function geocodeAddress(text) {
     if (!text) return null;
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&accept-language=pt&q=${encodeURIComponent(text)}`);
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&accept-language=pt&q=${encodeURIComponent(
+        text
+      )}`
+    );
     if (!r.ok) return null;
     const arr = await r.json();
     if (!arr?.length) return null;
-    const lat = parseFloat(arr[0].lat), lon = parseFloat(arr[0].lon);
-    return (isFinite(lat) && isFinite(lon)) ? [lat, lon] : null;
+    const lat = parseFloat(arr[0].lat),
+      lon = parseFloat(arr[0].lon);
+    return isFinite(lat) && isFinite(lon) ? [lat, lon] : null;
   }
 
   function composeEntregaTextoFromPedido(pedido) {
@@ -290,6 +304,30 @@ export default function Pedidos() {
     }
   }
 
+  async function fetchOSRMMulti(points) {
+    try {
+      if (!points || points.length < 2) throw new Error("poucos pontos");
+      const path = points.map(([lat, lon]) => `${lon},${lat}`).join(";");
+      const url = `https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error("rota");
+      const json = await r.json();
+      const route = json.routes && json.routes[0];
+      if (!route) throw new Error("sem rota");
+      const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+      return { coords, duration: route.duration, distance: route.distance };
+    } catch {
+      let distance = 0;
+      const coords = [points[0]];
+      for (let i = 0; i < points.length - 1; i++) {
+        distance += haversineKm(points[i], points[i + 1]) * 1000;
+        coords.push(points[i + 1]);
+      }
+      const duration = (distance / 1000 / 30) * 3600;
+      return { coords, duration, distance };
+    }
+  }
+
   const abrirMapaEntrega = async (pedido) => {
     const entrega = getEntregaEndereco(pedido);
     let destinoCliente = normalizeLatLng(entrega.latlng);
@@ -300,12 +338,10 @@ export default function Pedidos() {
       destinoCliente = await geocodeAddress(txtEntrega);
     }
     if (!destinoCliente) destinoCliente = posicaoFallback;
-
     setPedidoSelecionado(pedido);
     setMapaTipo("entrega");
     setMapaAberto(true);
     setRotaLoading(true);
-
     const origemUsuario = await new Promise((resolve) => {
       if (!navigator.geolocation) return resolve(null);
       navigator.geolocation.getCurrentPosition(
@@ -314,13 +350,12 @@ export default function Pedidos() {
         { enableHighAccuracy: true, timeout: 8000 }
       );
     });
-
-    const origem = origemUsuario || posicaoFallback;
-    setOrigem(origem);
+    const origemLocal = origemUsuario || posicaoFallback;
+    setOrigem(origemLocal);
     setDestino(destinoCliente);
-
+    setWaypoints([]);
     try {
-      const r = await fetchOSRM(origem, destinoCliente);
+      const r = await fetchOSRM(origemLocal, destinoCliente);
       setRotaCoords(r.coords);
       setRotaDuracaoSec(r.duration);
       setRotaDistM(r.distance);
@@ -339,6 +374,7 @@ export default function Pedidos() {
     function continuar(orig) {
       setOrigem(orig);
       setDestino(destinoLoja);
+      setWaypoints([]);
       fetchOSRM(orig, destinoLoja).then((r) => {
         setRotaCoords(r.coords);
         setRotaDuracaoSec(r.duration);
@@ -357,6 +393,65 @@ export default function Pedidos() {
     }
   };
 
+  function mercadosDoPedido(p) {
+    const nomes =
+      (Array.isArray(p.mercadosNomes) && p.mercadosNomes.length ? p.mercadosNomes : null) ||
+      (Array.isArray(p.mercados) && p.mercados.length ? p.mercados.map((m) => m.nome || m.id) : null) ||
+      (Array.isArray(p.mercadosInfo) && p.mercadosInfo.length ? p.mercadosInfo.map((m) => m.nome || m.id) : null) ||
+      null;
+    if (nomes) return Array.from(new Set(nomes.filter(Boolean)));
+    const itens = Array.isArray(p.itens) ? p.itens : [];
+    const fromItens = Array.from(new Set(itens.map((it) => it.mercadoNome).filter(Boolean)));
+    if (fromItens.length) return fromItens;
+    if (p.mercadoNome) return [p.mercadoNome];
+    return [];
+  }
+
+  const abrirMapaMulti = async (pedido) => {
+    setPedidoSelecionado(pedido);
+    setMapaTipo("multi");
+    setMapaAberto(true);
+    setRotaLoading(true);
+    const entrega = getEntregaEndereco(pedido);
+    let destinoCliente = normalizeLatLng(entrega.latlng);
+    let entregaTexto =
+      entrega.texto ||
+      [pedido?.endereco?.rua, pedido?.endereco?.numero, pedido?.endereco?.cidade, pedido?.endereco?.estado, pedido?.endereco?.cep, "Brasil"].filter(Boolean).join(", ");
+    if (!destinoCliente) destinoCliente = (await geocodeAddress(entregaTexto)) || posicaoFallback;
+    const origemUsuario = await new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    });
+    const origemLocal = origemUsuario || posicaoFallback;
+    const nomesMercados = mercadosDoPedido(pedido);
+    const cidadeHint =
+      (pedido?.endereco?.cidade && pedido?.endereco?.estado
+        ? `${pedido.endereco.cidade} ${pedido.endereco.estado} Brasil`
+        : "Brasil") || "Brasil";
+    const stops = [];
+    for (const nome of nomesMercados) {
+      const q = `${nome} supermercado ${cidadeHint}`;
+      const c = await geocodeAddress(q);
+      if (c) stops.push({ nome, coord: c });
+    }
+    const points = [origemLocal, ...stops.map((s) => s.coord), destinoCliente];
+    setOrigem(origemLocal);
+    setDestino(destinoCliente);
+    setWaypoints(stops.map((s) => s.coord));
+    try {
+      const r = await fetchOSRMMulti(points);
+      setRotaCoords(r.coords);
+      setRotaDuracaoSec(r.duration);
+      setRotaDistM(r.distance);
+    } finally {
+      setRotaLoading(false);
+    }
+  };
+
   const fecharMapa = () => {
     setMapaAberto(false);
     setPedidoSelecionado(null);
@@ -366,6 +461,7 @@ export default function Pedidos() {
     setRotaDistM(null);
     setOrigem(null);
     setDestino(null);
+    setWaypoints([]);
   };
 
   if (loading)
@@ -407,10 +503,7 @@ export default function Pedidos() {
             const dataPedido = new Date(pedido.dataHora);
             const ehRecente = (Date.now() - dataPedido) / 86400000 < 7;
             const itens = pedido.itens || [];
-            const totalItens = itens.reduce(
-              (acc, it) => acc + Number(it.qtd || it.quantidade || 1),
-              0
-            );
+            const totalItens = itens.reduce((acc, it) => acc + Number(it.qtd || it.quantidade || 1), 0);
             const totalCalculado = itens.reduce(
               (acc, it) => acc + Number(it.preco || 0) * Number(it.qtd || it.quantidade || 1),
               0
@@ -423,24 +516,30 @@ export default function Pedidos() {
               const distKm = haversineKm(normalizeLatLng(loja.latlng), normalizeLatLng(entrega.latlng));
               etaEntregaMin = Math.max(1, Math.round((distKm / 30) * 60));
             }
+            const isMulti = !!pedido.multiMercado || (Array.isArray(pedido.mercadosNomes) && pedido.mercadosNomes.length > 1) || (Array.isArray(pedido.mercados) && pedido.mercados.length > 1);
+            const mercadosNomes = (pedido.mercadosNomes && pedido.mercadosNomes.length ? pedido.mercadosNomes : null) || (pedido.mercados && pedido.mercados.length ? pedido.mercados.map((m) => m.nome || m.id) : null) || [];
             return (
               <Col md={6} lg={4} key={pedido.id} className="mb-4">
                 <Card className="shadow-sm border-0 rounded-4 overflow-hidden">
                   <div
                     className="px-3 py-2"
                     style={{
-                      background:
-                        pedido.retiradaEmLoja
-                          ? "linear-gradient(90deg,#00b09b,#96c93d)"
-                          : "linear-gradient(90deg,#4facfe,#00f2fe)",
+                      background: isMulti
+                        ? "linear-gradient(90deg,#f7971e,#ffd200)"
+                        : pedido.retiradaEmLoja
+                        ? "linear-gradient(90deg,#00b09b,#96c93d)"
+                        : "linear-gradient(90deg,#4facfe,#00f2fe)",
                       color: "#fff",
                     }}
                   >
                     <div className="d-flex justify-content-between align-items-center">
-                      <div className="fw-semibold">{pedido.mercadoNome || "Pedido"}</div>
+                      <div className="fw-semibold">
+                        {isMulti ? "Pedido Personalizado (Multi-mercados)" : pedido.mercadoNome || "Pedido"}
+                      </div>
                       <div className="d-flex gap-2">
                         {ehRecente && <Badge bg="light" text="dark">Recente</Badge>}
-                        {pedido.retiradaEmLoja && <Badge bg="dark">Retirar</Badge>}
+                        {pedido.retiradaEmLoja && !isMulti && <Badge bg="dark">Retirar</Badge>}
+                        {isMulti && <Badge bg="dark">Paradas {mercadosNomes.length || (pedido.mercadosInfo?.length || 0)}</Badge>}
                       </div>
                     </div>
                   </div>
@@ -457,28 +556,68 @@ export default function Pedidos() {
                       <div className="text-muted">Total</div>
                       <div className="fw-bold">{formatCurrency(totalPedido)}</div>
                     </div>
-                    {!pedido.retiradaEmLoja && (
-                      <div className="mb-2 small">
-                        <div className="text-muted">Endereço de entrega</div>
-                        <div className="fw-semibold">
-                          {entrega.texto ||
-                            (normalizeLatLng(entrega.latlng)
-                              ? `${normalizeLatLng(entrega.latlng)[0].toFixed(5)}, ${normalizeLatLng(entrega.latlng)[1].toFixed(5)}`
-                              : "Não disponível")}
+
+                    {isMulti ? (
+                      <>
+                        <div className="mb-2 small">
+                          <div className="text-muted">Janela de entrega</div>
+                          <div className="fw-semibold">{pedido.janelaEntrega || "Não informado"}</div>
                         </div>
-                      </div>
+                        <div className="mb-2 small">
+                          <div className="text-muted">Mercados</div>
+                          <div className="fw-semibold">
+                            {(mercadosNomes && mercadosNomes.length ? mercadosNomes : pedido.mercadosInfo?.map((m) => m.nome))?.join(", ") || "—"}
+                          </div>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <div className="text-muted">Distância da rota</div>
+                          <div className="fw-semibold">
+                            {pedido.rotaKm != null ? `${Number(pedido.rotaKm).toFixed(2)} km` : "—"}
+                          </div>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <div className="text-muted">Frete da rota</div>
+                          <div className="fw-semibold">
+                            {pedido.freteRota != null ? formatCurrency(pedido.freteRota) : "—"}
+                          </div>
+                        </div>
+                        <div className="mb-2 small">
+                          <div className="text-muted">Endereço de entrega</div>
+                          <div className="fw-semibold">
+                            {entrega.texto ||
+                              (normalizeLatLng(entrega.latlng)
+                                ? `${normalizeLatLng(entrega.latlng)[0].toFixed(5)}, ${normalizeLatLng(entrega.latlng)[1].toFixed(5)}`
+                                : "Não disponível")}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {!pedido.retiradaEmLoja && (
+                          <div className="mb-2 small">
+                            <div className="text-muted">Endereço de entrega</div>
+                            <div className="fw-semibold">
+                              {entrega.texto ||
+                                (normalizeLatLng(entrega.latlng)
+                                  ? `${normalizeLatLng(entrega.latlng)[0].toFixed(5)}, ${normalizeLatLng(entrega.latlng)[1].toFixed(5)}`
+                                  : "Não disponível")}
+                            </div>
+                          </div>
+                        )}
+                        {pedido.retiradaEmLoja && (
+                          <div className="mb-2 small">
+                            <div className="text-muted">Endereço da loja</div>
+                            <div className="fw-semibold">{loja.texto || "Não disponível"}</div>
+                          </div>
+                        )}
+                        {!pedido.retiradaEmLoja && etaEntregaMin !== null && (
+                          <div className="mb-3">
+                            <Badge bg="secondary">ETA aprox.: {etaEntregaMin} min</Badge>
+                          </div>
+                        )}
+                      </>
                     )}
-                    {pedido.retiradaEmLoja && (
-                      <div className="mb-2 small">
-                        <div className="text-muted">Endereço da loja</div>
-                        <div className="fw-semibold">{loja.texto || "Não disponível"}</div>
-                      </div>
-                    )}
-                    {!pedido.retiradaEmLoja && etaEntregaMin !== null && (
-                      <div className="mb-3">
-                        <Badge bg="secondary">ETA aprox.: {etaEntregaMin} min</Badge>
-                      </div>
-                    )}
+
                     <ButtonGroup aria-label="Ações" className="mb-3 w-100 gap-2">
                       <Button
                         variant={expandido ? "primary" : "outline-primary"}
@@ -505,7 +644,17 @@ export default function Pedidos() {
                         <FaTrash className="me-1" />
                         Excluir
                       </Button>
-                      {pedido.retiradaEmLoja ? (
+                      {isMulti ? (
+                        <Button
+                          variant="outline-warning"
+                          size="sm"
+                          onClick={() => abrirMapaMulti(pedido)}
+                          style={{ flexGrow: 1 }}
+                        >
+                          <FaRoute className="me-1" />
+                          Mapa do percurso
+                        </Button>
+                      ) : pedido.retiradaEmLoja ? (
                         <Button
                           variant="outline-info"
                           size="sm"
@@ -527,16 +676,24 @@ export default function Pedidos() {
                         </Button>
                       )}
                     </ButtonGroup>
+
                     {origem && destino && (
                       <a
                         className="btn btn-light w-100"
-                        href={`https://www.google.com/maps/dir/?api=1&origin=${origem[0]},${origem[1]}&destination=${destino[0]},${destino[1]}`}
+                        href={
+                          mapaTipo === "multi" && waypoints.length
+                            ? `https://www.google.com/maps/dir/?api=1&origin=${origem[0]},${origem[1]}&destination=${destino[0]},${destino[1]}&waypoints=${waypoints
+                                .map((w) => `${w[0]},${w[1]}`)
+                                .join("|")}`
+                            : `https://www.google.com/maps/dir/?api=1&origin=${origem[0]},${origem[1]}&destination=${destino[0]},${destino[1]}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                       >
                         Abrir no Google Maps
                       </a>
                     )}
+
                     <div
                       style={{
                         maxHeight: expandido ? "1000px" : 0,
@@ -554,7 +711,12 @@ export default function Pedidos() {
                                 key={i}
                                 className="py-2 d-flex justify-content-between align-items-center"
                               >
-                                <div>{qtd}x {item.nome}</div>
+                                <div>
+                                  {qtd}x {item.nome}
+                                  {isMulti && item.mercadoNome ? (
+                                    <span className="ms-2 badge bg-light text-dark">{item.mercadoNome}</span>
+                                  ) : null}
+                                </div>
                                 <div>{formatCurrency(preco * qtd)}</div>
                               </ListGroup.Item>
                             );
@@ -569,13 +731,18 @@ export default function Pedidos() {
           })}
         </Row>
       )}
+
       <Modal show={mapaAberto} onHide={fecharMapa} size="lg" centered>
         <Modal.Header closeButton>
           <Modal.Title>
-            {mapaTipo === "retirada" ? "Rota para Retirar na Loja" : "Rota da Entrega"}
+            {mapaTipo === "retirada"
+              ? "Rota para Retirar na Loja"
+              : mapaTipo === "multi"
+              ? "Percurso Multi-mercados"
+              : "Rota da Entrega"}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body style={{ height: "480px", position: "relative" }}>
+        <Modal.Body style={{ height: "520px", position: "relative" }}>
           {pedidoSelecionado && (
             <>
               <div className="d-flex justify-content-between align-items-center mb-2">
@@ -586,6 +753,11 @@ export default function Pedidos() {
                   {rotaDuracaoSec != null && rotaDistM != null && rotaDistM > 1 && (
                     <Badge bg="dark">Tempo estimado: {Math.max(1, Math.round(rotaDuracaoSec / 60))} min</Badge>
                   )}
+                  {mapaTipo === "multi" && (
+                    <Badge bg="warning" text="dark">
+                      Paradas: {waypoints.length}
+                    </Badge>
+                  )}
                   {(rotaDistM == null || rotaDistM <= 1) && (
                     <Badge bg="warning" text="dark">Dados de rota indisponíveis</Badge>
                   )}
@@ -593,30 +765,33 @@ export default function Pedidos() {
                 <div className="text-muted small">
                   {mapaTipo === "retirada"
                     ? pedidoSelecionado.mercadoNome || "Loja"
-                    : pedidoSelecionado.mercadoNome || "Mercado"}
+                    : pedidoSelecionado.mercadoNome || "Percurso"}
                 </div>
               </div>
-              <div style={{ height: "420px", width: "100%", borderRadius: 16, overflow: "hidden" }}>
-                <MapContainer
-                  center={destino || posicaoFallback}
-                  zoom={13}
-                  style={{ height: "100%", width: "100%" }}
-                >
+              <div style={{ height: "460px", width: "100%", borderRadius: 16, overflow: "hidden" }}>
+                <MapContainer center={destino || posicaoFallback} zoom={13} style={{ height: "100%", width: "100%" }}>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {origem && destino && <FitBounds bounds={[origem, destino]} />}
+                  {mapaTipo === "multi" ? (
+                    <FitAll points={[...(origem ? [origem] : []), ...waypoints, ...(destino ? [destino] : [])]} />
+                  ) : origem && destino ? (
+                    <FitBounds bounds={[origem, destino]} />
+                  ) : null}
                   {origem && (
                     <Marker position={origem} icon={carroIcon}>
                       <Popup>Origem</Popup>
                     </Marker>
                   )}
+                  {waypoints.map((w, idx) => (
+                    <Marker key={idx} position={w}>
+                      <Popup>Parada {idx + 1}</Popup>
+                    </Marker>
+                  ))}
                   {destino && (
                     <Marker position={destino}>
                       <Popup>Destino</Popup>
                     </Marker>
                   )}
-                  {rotaCoords && rotaCoords.length > 1 && (
-                    <Polyline positions={rotaCoords} weight={5} opacity={0.85} />
-                  )}
+                  {rotaCoords && rotaCoords.length > 1 && <Polyline positions={rotaCoords} weight={5} opacity={0.85} />}
                 </MapContainer>
               </div>
               {rotaLoading && (

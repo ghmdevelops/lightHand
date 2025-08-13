@@ -269,7 +269,6 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
   const e = posto.prices?.etanol;
   const d = posto.prices?.diesel;
   const updated = posto.updatedAt ? timeAgo(posto.updatedAt) : null;
-
   const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || `${posto.lat},${posto.lon}`)}`;
 
   return (
@@ -341,7 +340,7 @@ function valueToShade(v) {
   const g = Math.round(200 - t * 120);
   const b = Math.round(16 + t * 60);
   const fg = t > 0.6 ? "#111" : "#0f172a";
-  return { bg: `rgb(${r},${g},${b},0.15)`, fg, border: `rgba(${r},${g},${b},0.4)` };
+  return { bg: `rgba(${r},${g},${b},0.15)`, fg, border: `rgba(${r},${g},${b},0.4)` };
 }
 
 function timeAgo(ts) {
@@ -359,10 +358,8 @@ export default function BuscarMercadosOSM({ user }) {
   const [showIntro, setShowIntro] = useState(true);
   const [tipoBusca, setTipoBusca] = useState(null);
   const [modoBusca, setModoBusca] = useState(null);
-
   const [mercados, setMercados] = useState([]);
   const [postos, setPostos] = useState([]);
-
   const [erro, setErro] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [pos, setPos] = useState(null);
@@ -378,18 +375,16 @@ export default function BuscarMercadosOSM({ user }) {
   const [sortFuel, setSortFuel] = useState("price");
   const [hasPriceOnly, setHasPriceOnly] = useState(false);
   const [query, setQuery] = useState("");
-
   const debouncedRadius = useDebounced(radius, 250);
   const deferredQuery = useDeferredValue(query);
   const navigate = useNavigate();
-
   const reverseCacheRef = useRef({});
   const reverseLimiterRef = useRef(createLimiter(3));
   const overpassCacheRef = useRef(new Map());
   const fetchSeqRef = useRef(0);
   const overpassControllerRef = useRef(null);
-
   const [communityPrices, setCommunityPrices] = useState({});
+
   useEffect(() => {
     const refAll = ref(db, "fuelPrices");
     onValue(refAll, (snap) => setCommunityPrices(snap.val() || {}));
@@ -616,6 +611,35 @@ export default function BuscarMercadosOSM({ user }) {
     }
   }, [getEnderecoFromCoords, overpassFetch, parseFuelPrices, sortFuel, hasPriceOnly, mergeCommunity]);
 
+  const applyMarketSortAndFilters = (arr, sortKey, q) => {
+    const ql = (q || "").trim().toLowerCase();
+    let r = arr;
+    if (ql) r = r.filter((m) => [m.nome, m.brand, m.tipo].filter(Boolean).some((s) => s.toLowerCase().includes(ql)));
+    if (sortKey === "name") r = [...r].sort((a, b) => a.nome.localeCompare(b.nome));
+    else r = [...r].sort((a, b) => a.distance - b.distance);
+    return r;
+  };
+
+  const pPrice = (p, fuelKey) => p?.prices?.[fuelKey];
+
+  const applyFuelSortAndFilters = (arr, sortKey, fuelKey, q) => {
+    const ql = (q || "").trim().toLowerCase();
+    let r = arr;
+    if (ql) r = r.filter((p) => [p.nome, p.brand].filter(Boolean).some((s) => s.toLowerCase().includes(ql)));
+    if (sortKey === "distance") r = [...r].sort((a, b) => a.distance - b.distance);
+    else {
+      r = [...r].sort((a, b) => {
+        const pa = pPrice(a, fuelKey);
+        const pb = pPrice(b, fuelKey);
+        if (pa != null && pb != null) return pa - pb;
+        if (pa != null) return -1;
+        if (pb != null) return 1;
+        return a.distance - b.distance;
+      });
+    }
+    return r;
+  };
+
   const buscarProximos = useCallback(async (lat, lon, baseRadius) => {
     const seq = ++fetchSeqRef.current;
     setErro("");
@@ -629,25 +653,32 @@ export default function BuscarMercadosOSM({ user }) {
       if (seq !== fetchSeqRef.current) return;
       setLocalInfo(enderecoData);
       const tryRadii = [baseRadius, Math.min(baseRadius + 2000, 8000), Math.min(baseRadius + 4000, 10000)];
+      let found = false;
       for (let i = 0; i < tryRadii.length; i++) {
         const r = tryRadii[i];
         if (tipoBusca === "market") {
           const lista = await fetchNearbyMarkets(lat, lon, r, 24);
           if (seq !== fetchSeqRef.current) return;
-          if (lista.length > 0 || i === tryRadii.length - 1) {
+          if (lista.length > 0) {
             setMercados(applyMarketSortAndFilters(lista, sortMarket, deferredQuery));
-            if (lista.length === 0) setErro("Nenhum mercado encontrado no raio pesquisado.");
+            setErro("");
+            found = true;
             break;
           }
         } else if (tipoBusca === "fuel") {
           const lista = await fetchNearbyFuel(lat, lon, r, 20, fuelFilter);
           if (seq !== fetchSeqRef.current) return;
-          if (lista.length > 0 || i === tryRadii.length - 1) {
+          if (lista.length > 0) {
             setPostos(applyFuelSortAndFilters(lista, sortFuel, fuelFilter, deferredQuery));
-            if (lista.length === 0) setErro("Nenhum posto encontrado no raio pesquisado.");
+            setErro("");
+            found = true;
             break;
           }
         }
+      }
+      if (!found) {
+        if (tipoBusca === "market") setErro("Nenhum mercado encontrado no raio pesquisado.");
+        else if (tipoBusca === "fuel") setErro("Nenhum posto encontrado no raio pesquisado.");
       }
     } catch {
       if (seq !== fetchSeqRef.current) return;
@@ -745,35 +776,6 @@ export default function BuscarMercadosOSM({ user }) {
     setLocalInfo({ rua: "", estado: "", pais: "" });
     setQuery("");
   }, []);
-
-  const applyMarketSortAndFilters = (arr, sortKey, q) => {
-    const ql = (q || "").trim().toLowerCase();
-    let r = arr;
-    if (ql) r = r.filter((m) => [m.nome, m.brand, m.tipo].filter(Boolean).some((s) => s.toLowerCase().includes(ql)));
-    if (sortKey === "name") r = [...r].sort((a, b) => a.nome.localeCompare(b.nome));
-    else r = [...r].sort((a, b) => a.distance - b.distance);
-    return r;
-  };
-
-  const applyFuelSortAndFilters = (arr, sortKey, fuelKey, q) => {
-    const ql = (q || "").trim().toLowerCase();
-    let r = arr;
-    if (ql) r = r.filter((p) => [p.nome, p.brand].filter(Boolean).some((s) => s.toLowerCase().includes(ql)));
-    if (sortKey === "distance") r = [...r].sort((a, b) => a.distance - b.distance);
-    else {
-      r = [...r].sort((a, b) => {
-        const pa = pPrice(a, fuelKey);
-        const pb = pPrice(b, fuelKey);
-        if (pa != null && pb != null) return pa - pb;
-        if (pa != null) return -1;
-        if (pb != null) return 1;
-        return a.distance - b.distance;
-      });
-    }
-    return r;
-  };
-
-  const pPrice = (p, fuelKey) => p?.prices?.[fuelKey];
 
   useEffect(() => {
     if (!pos) return;
