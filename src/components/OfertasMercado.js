@@ -26,6 +26,7 @@ const FONTES = {
 
 const PAGE_SIZE = 12;
 const MAX_CARTS = 100;
+const TOAST_ID = "ofertas";
 
 export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisita }) {
   const [ofertas, setOfertas] = useState([]);
@@ -270,7 +271,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     } else {
       setCarrinho((c) => [...c, { ...produto, quantidade: qtd }]);
     }
-    toast.success("Adicionado ao carrinho");
+    toast.success("Adicionado ao carrinho", { containerId: TOAST_ID });
   };
 
   const removerItem = (key) => setCarrinho((prev) => prev.filter((item) => item.key !== key));
@@ -282,13 +283,13 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
 
   const toggleSalvar = async (prod) => {
     if (!user) {
-      toast.info("Faça login para salvar produtos");
+      toast.info("Faça login para salvar produtos", { containerId: TOAST_ID });
       return;
     }
     const path = ref(db, `usuarios/${user.uid}/salvosProdutos/${prod.key}`);
     if (salvos && salvos[prod.key]) {
       await remove(path);
-      toast.info("Removido dos salvos");
+      toast.info("Removido dos salvos", { containerId: TOAST_ID });
     } else {
       await set(path, {
         name: prod.name,
@@ -297,13 +298,13 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
         source: prod.source,
         savedAt: Date.now(),
       });
-      toast.success("Salvo para depois");
+      toast.success("Salvo para depois", { containerId: TOAST_ID });
     }
   };
 
   const setPriceAlert = async (prod) => {
     if (!user) {
-      toast.info("Faça login para criar alerta");
+      toast.info("Faça login para criar alerta", { containerId: TOAST_ID });
       return;
     }
     const { value: v } = await Swal.fire({
@@ -327,12 +328,13 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       threshold,
       createdAt: Date.now(),
     });
-    toast.success("Alerta de preço criado");
+    toast.success("Alerta de preço criado", { containerId: TOAST_ID });
   };
 
   const salvarCarrinho = async () => {
     setSaveError("");
     setSucesso("");
+
     if (!user) {
       setSaveError("Você precisa estar logado para salvar.");
       return;
@@ -341,43 +343,40 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       setSaveError("Carrinho vazio.");
       return;
     }
+
     setSalvando(true);
     try {
       const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
       const snap = await get(cartsRef);
       const existing = snap.val() || {};
-       if (Object.keys(existing).length >= MAX_CARTS) {
+      if (Object.keys(existing).length >= MAX_CARTS) {
         setSaveError(`Você já tem ${MAX_CARTS} carrinhos. Exclua um antes.`);
-        setSalvando(false);
         return;
       }
-      const { value: nomeCarrinho } = await Swal.fire({
-        title: "Nome do carrinho (opcional)",
-        input: "text",
-        inputPlaceholder: "Ex.: Promoções Semana 12",
-        showCancelButton: true,
-        confirmButtonText: "Salvar",
-        cancelButtonText: "Cancelar",
-      });
-      if (nomeCarrinho === undefined) {
-        setSalvando(false);
-        return;
-      }
+
       const newRef = push(cartsRef);
       await firebaseSet(newRef, {
         items: carrinho,
         criadoEm: Date.now(),
         mercadoId: mercado.id,
-        mercadoNome: nomeCarrinho || mercado.nome || "",
+        mercadoNome: mercado.nome || "",
         mercadoRua: mercado.rua || "",
         mercadoEstado: mercado.estado || "",
         mercadoPais: mercado.pais || "",
       });
-      setSucesso(`Carrinho salvo com sucesso!`);
-      setTimeout(() => {
-        setCarrinho([]);
-        setSucesso("");
-      }, 2000);
+
+      setSucesso("Carrinho salvo com sucesso!");
+      setCarrinho([]);
+
+      const res = await Swal.fire({
+        title: "Carrinho salvo!",
+        text: "Deseja ir para o carrinho agora?",
+        icon: "success",
+        showCancelButton: true,
+        confirmButtonText: "Ir para o carrinho",
+        cancelButtonText: "Ficar aqui",
+      });
+      if (res.isConfirmed) navigate("/carrinho");
     } catch {
       setSaveError("Erro ao salvar o carrinho.");
     } finally {
@@ -403,7 +402,7 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
   return (
     <div className="container my-4" style={{ zIndex: 2, paddingTop: "80px", maxWidth: 1180 }}>
       <button className="btn btn-outline-secondary mb-3" onClick={onVoltar || (() => navigate(-1))}>&larr; Voltar</button>
-      <ToastContainer position="top-right" pauseOnHover />
+      <ToastContainer position="top-right" pauseOnHover containerId={TOAST_ID} />
       <div className="d-flex align-items-center justify-content-between mb-3">
         <div className="text-dark">
           <h4 className="mb-0">Ofertas em <span className="text-primary">{mercado.nome}</span></h4>

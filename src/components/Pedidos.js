@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
-import { ref, onValue, remove } from "firebase/database";
+import { ref, onValue, update } from "firebase/database";
+
 import {
   Card,
   Container,
@@ -187,12 +188,12 @@ function getEntregaEndereco(pedido) {
     deepFindLatLng(cand) ||
     normalizeLatLng(
       pedido.enderecoLatLng ||
-        pedido.enderecoLatlng ||
-        pedido.destinoLatLng ||
-        pedido.destinoLatlng ||
-        pedido.clienteLatLng ||
-        pedido.clienteLatlng ||
-        null
+      pedido.enderecoLatlng ||
+      pedido.destinoLatLng ||
+      pedido.destinoLatlng ||
+      pedido.clienteLatLng ||
+      pedido.clienteLatlng ||
+      null
     );
   return { texto, latlng };
 }
@@ -210,10 +211,10 @@ function getLojaEndereco(pedido) {
     deepFindLatLng(pedido.mercado) ||
     normalizeLatLng(
       pedido.lojaLatLng ||
-        pedido.mercadoLatLng ||
-        pedido.lojaLatlng ||
-        pedido.mercadoLatlng ||
-        null
+      pedido.mercadoLatLng ||
+      pedido.lojaLatlng ||
+      pedido.mercadoLatlng ||
+      null
     );
   return { texto, latlng };
 }
@@ -241,9 +242,9 @@ export default function Pedidos() {
     if (!user) return;
     const pedidosRef = ref(db, `usuarios/${user.uid}/pedidos`);
     onValue(pedidosRef, (snap) => {
-      const data = snap.val();
-      const lista = data ? Object.entries(data).map(([id, p]) => ({ id, ...p })) : [];
-      setPedidos(lista.reverse());
+      const data = snap.val() || {};
+      const lista = Object.entries(data).map(([id, p]) => ({ id, ...p })).reverse();
+      setPedidos(lista);
       setLoading(false);
     });
   }, [user]);
@@ -251,16 +252,21 @@ export default function Pedidos() {
   const toggleExpandir = (id) =>
     setExpandidoIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const excluirPedido = async (id) => {
+  const excluirPedido = async (pedido) => {
     const uid = getAuth().currentUser?.uid;
-    if (!uid) {
-      alert("Você não está logado.");
-      return;
-    }
+    if (!uid) { alert("Você não está logado."); return; }
     if (!window.confirm("Tem certeza que deseja excluir este pedido?")) return;
+
     try {
-      await remove(ref(db, `usuarios/${uid}/pedidos/${id}`));
-      setPedidos((prev) => prev.filter((p) => p.id !== id));
+      const updates = {};
+      updates[`usuarios/${uid}/pedidos/${pedido.id}`] = null;
+      if (pedido.carrinhoId) {
+        updates[`usuarios/${uid}/carts/${pedido.carrinhoId}/pedidoFeito`] = null;
+      }
+      updates[`usuarios/${uid}/pedidosDeleted/${pedido.id}`] = true;
+
+      await update(ref(db), updates);
+      setPedidos((prev) => prev.filter((p) => p.id !== pedido.id));
     } catch (e) {
       alert("Erro ao excluir pedido: " + (e?.message || ""));
     }
@@ -527,8 +533,8 @@ export default function Pedidos() {
                       background: isMulti
                         ? "linear-gradient(90deg,#f7971e,#ffd200)"
                         : pedido.retiradaEmLoja
-                        ? "linear-gradient(90deg,#00b09b,#96c93d)"
-                        : "linear-gradient(90deg,#4facfe,#00f2fe)",
+                          ? "linear-gradient(90deg,#00b09b,#96c93d)"
+                          : "linear-gradient(90deg,#4facfe,#00f2fe)",
                       color: "#fff",
                     }}
                   >
@@ -638,7 +644,7 @@ export default function Pedidos() {
                       <Button
                         variant="outline-danger"
                         size="sm"
-                        onClick={() => excluirPedido(pedido.id)}
+                        onClick={() => excluirPedido(pedido)}
                         style={{ flexGrow: 1 }}
                       >
                         <FaTrash className="me-1" />
@@ -683,8 +689,8 @@ export default function Pedidos() {
                         href={
                           mapaTipo === "multi" && waypoints.length
                             ? `https://www.google.com/maps/dir/?api=1&origin=${origem[0]},${origem[1]}&destination=${destino[0]},${destino[1]}&waypoints=${waypoints
-                                .map((w) => `${w[0]},${w[1]}`)
-                                .join("|")}`
+                              .map((w) => `${w[0]},${w[1]}`)
+                              .join("|")}`
                             : `https://www.google.com/maps/dir/?api=1&origin=${origem[0]},${origem[1]}&destination=${destino[0]},${destino[1]}`
                         }
                         target="_blank"
@@ -738,8 +744,8 @@ export default function Pedidos() {
             {mapaTipo === "retirada"
               ? "Rota para Retirar na Loja"
               : mapaTipo === "multi"
-              ? "Percurso Multi-mercados"
-              : "Rota da Entrega"}
+                ? "Percurso Multi-mercados"
+                : "Rota da Entrega"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ height: "520px", position: "relative" }}>

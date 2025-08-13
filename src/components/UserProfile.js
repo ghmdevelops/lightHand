@@ -177,7 +177,7 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
     try {
       const storageInstance = getStorage();
       const fileRef = sRef(storageInstance, `avatars/${userId}`);
-      await deleteObject(fileRef).catch(() => {});
+      await deleteObject(fileRef).catch(() => { });
       await update(dbRef(db, `usuarios/${userId}`), { avatar: null });
       onChangeAvatar(null);
       toast.info("Avatar removido.");
@@ -271,13 +271,19 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
 
       <div
         id="avatarPresetPanel"
+        tabIndex={0}
         style={{
           maxHeight: showPresets ? 240 : 0,
-          overflow: "hidden",
+          overflowY: showPresets ? "auto" : "hidden",
+          overflowX: "hidden",
           transition: "max-height .25s ease",
+          paddingRight: 4
         }}
       >
-        <div className="d-flex gap-2 flex-wrap justify-content-center" style={{ paddingBottom: 4 }}>
+        <div
+          className="d-flex gap-2 flex-wrap justify-content-center"
+          style={{ paddingBottom: 4 }}
+        >
           {AVATAR_OPTIONS.map((url) => (
             <button
               key={url}
@@ -345,7 +351,7 @@ function ProfileForm({ user, defaultValues, onSaved }) {
             setError("cep", { type: "manual", message: "CEP não encontrado" });
           }
         })
-        .catch(() => {});
+        .catch(() => { });
       return () => controller.abort();
     }
   }, [debouncedCep, setValue, setError]);
@@ -365,7 +371,7 @@ function ProfileForm({ user, defaultValues, onSaved }) {
         await update(dbRef(db, `usuarios/${user.uid}`), payload);
         localStorage.removeItem("savvy_profile_pending");
         toast.success("Perfil sincronizado.");
-      } catch {}
+      } catch { }
     };
     window.addEventListener("online", handler);
     handler();
@@ -730,10 +736,10 @@ export default function UserProfile({ user, onVoltar }) {
 
   return (
     <div className="container" style={{ zIndex: 2, paddingTop: "84px" }}>
-          <button className="btn btn-outline-secondary mt-3" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
-            <i className="bi bi-arrow-left me-1"></i> Voltar
-          </button>
-      <ToastContainer position="top-right mb-4" pauseOnHover/>
+      <button className="btn btn-outline-secondary mt-3" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Voltar
+      </button>
+      <ToastContainer position="top-right mb-4" pauseOnHover />
       <div className="position-sticky bg-light pt-2 pb-2 mb-3" style={{ top: 56, zIndex: 3, borderBottom: "1px solid #eee" }}>
         <div className="d-flex align-items-center justify-content-between">
           <h4 className="mb-0">Meu Perfil</h4>

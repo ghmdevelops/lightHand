@@ -29,6 +29,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { db } from "../firebase";
 import { ref, get, set, remove, onValue, off } from "firebase/database";
 
+const CONTACT_EMAIL = "savvy@suporte.com.br";
+
+const parseAddr = (a) => {
+  const rua = a.road || a.pedestrian || a.path || a.neighbourhood || a.suburb || a.locality || a.village || a.town || a.city || "";
+  const cidade = a.city || a.town || a.village || a.locality || "";
+  const uf = a.state || a.region || a.principalSubdivision || "";
+  const estado = [cidade, uf].filter(Boolean).join(" - ");
+  const pais = a.country || a.country_name || a.countryName || "";
+  return { rua, estado, pais };
+};
+
 function haversine(lat1, lon1, lat2, lon2) {
   const toRad = (x) => (x * Math.PI) / 180;
   const R = 6371;
@@ -79,6 +90,23 @@ function getOpeningStatus(raw) {
   }
 }
 
+function useOpeningStatusLazy(raw) {
+  const [state, setState] = useState({ label: "", isOpen: null });
+  useEffect(() => {
+    let done = false;
+    const run = () => {
+      if (!done) setState(getOpeningStatus(raw));
+    };
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      window.requestIdleCallback(run, { timeout: 600 });
+    } else {
+      setTimeout(run, 0);
+    }
+    return () => { done = true; };
+  }, [raw]);
+  return state;
+}
+
 function getAccuratePosition({ desiredAccuracy = 30, maxWait = 5000 } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -106,6 +134,20 @@ function getAccuratePosition({ desiredAccuracy = 30, maxWait = 5000 } = {}) {
       if (best) resolve(best);
       else reject(new Error("Não foi possível obter localização precisa"));
     }, maxWait + 120);
+  });
+}
+
+function getQuickPosition(timeout = 1500) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocalização não suportada"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve(p),
+      (e) => reject(e),
+      { enableHighAccuracy: false, timeout, maximumAge: 60000 }
+    );
   });
 }
 
@@ -147,14 +189,26 @@ function useDebounced(value, delay) {
   return v;
 }
 
+function addressFromTags(tags = {}) {
+  const rua = [tags["addr:street"] || tags["addr:road"] || "", tags["addr:housenumber"] || ""].filter(Boolean).join(", ");
+  const cidade = tags["addr:city"] || tags["addr:town"] || tags["addr:suburb"] || "";
+  const uf = tags["addr:state"] || "";
+  const estado = [cidade, uf].filter(Boolean).join(" - ");
+  const pais = tags["addr:country"] || "";
+  return { rua, estado, pais };
+}
+
+const keyOf = (x) => `${x.type}-${x.id}`;
+
 const MarketCard = React.memo(function MarketCard({ market: m, user, onVisit, onToggleFavorito, isFavorited }) {
   const [expanded, setExpanded] = useState(false);
-  const address = [m.rua, m.estado, m.pais].filter(Boolean).join(", ");
-  const { label: openLabel, isOpen } = useMemo(() => getOpeningStatus(m.opening_hours), [m.opening_hours]);
+  const fallbackAddr = `${m.lat?.toFixed(4)}, ${m.lon?.toFixed(4)}`;
+  const addressText = [m.rua, m.estado, m.pais].filter(Boolean).join(", ") || fallbackAddr;
+  const { label: openLabel, isOpen } = useOpeningStatusLazy(m.opening_hours);
 
   const handleCopyAddress = async () => {
     try {
-      await navigator.clipboard.writeText(address);
+      await navigator.clipboard.writeText(addressText);
       toast.info("Endereço copiado");
     } catch {
       toast.error("Falha ao copiar");
@@ -162,7 +216,7 @@ const MarketCard = React.memo(function MarketCard({ market: m, user, onVisit, on
   };
 
   const osmLink = `https://www.openstreetmap.org/?mlat=${m.lat}&mlon=${m.lon}#map=18/${m.lat}/${m.lon}`;
-  const googleLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || `${m.lat},${m.lon}`)}`;
+  const googleLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`;
 
   return (
     <motion.div layout className="col-12 col-md-6 col-lg-4">
@@ -216,7 +270,7 @@ const MarketCard = React.memo(function MarketCard({ market: m, user, onVisit, on
           </div>
           <p className="card-text flex-grow-1" style={{ fontSize: "0.92rem", lineHeight: 1.35, marginTop: 4 }}>
             <strong>Categoria:</strong> {m.tipo || "—"} <br />
-            <strong>Endereço:</strong> {address || "Não disponível"}
+            <strong>Endereço:</strong> {addressText}
           </p>
           <AnimatePresence>
             {expanded && (
@@ -263,13 +317,14 @@ const MarketCard = React.memo(function MarketCard({ market: m, user, onVisit, on
 }, (prev, next) => prev.isFavorited === next.isFavorited && prev.market === next.market && prev.user === next.user);
 
 const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight }) {
-  const address = [posto.rua, posto.estado, posto.pais].filter(Boolean).join(", ");
-  const { label: openLabel } = useMemo(() => getOpeningStatus(posto.opening_hours), [posto.opening_hours]);
+  const fallbackAddr = `${posto.lat?.toFixed(4)}, ${posto.lon?.toFixed(4)}`;
+  const address = [posto.rua, posto.estado, posto.pais].filter(Boolean).join(", ") || fallbackAddr;
+  const { label: openLabel } = useOpeningStatusLazy(posto.opening_hours);
   const g = posto.prices?.gasolina;
   const e = posto.prices?.etanol;
   const d = posto.prices?.diesel;
   const updated = posto.updatedAt ? timeAgo(posto.updatedAt) : null;
-  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || `${posto.lat},${posto.lon}`)}`;
+  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
   return (
     <motion.div layout className="col-12 col-md-6 col-lg-4">
@@ -300,7 +355,7 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
           </div>
 
           <div className="mt-3" style={{ fontSize: "0.95rem" }}>
-            <strong>Endereço:</strong> {address || "Não disponível"}
+            <strong>Endereço:</strong> {address}
           </div>
 
           <div className="mt-3">
@@ -383,7 +438,10 @@ export default function BuscarMercadosOSM({ user }) {
   const overpassCacheRef = useRef(new Map());
   const fetchSeqRef = useRef(0);
   const overpassControllerRef = useRef(null);
+  const reverseControllerRef = useRef(null);
+  const reverseSeqRef = useRef(0);
   const [communityPrices, setCommunityPrices] = useState({});
+  const [addrCache, setAddrCache] = useState({});
 
   useEffect(() => {
     const refAll = ref(db, "fuelPrices");
@@ -407,30 +465,73 @@ export default function BuscarMercadosOSM({ user }) {
       });
   }, [user]);
 
-  const getEnderecoFromCoords = useCallback(async (lat, lon) => {
+  const getEnderecoFromCoords = useCallback(async (lat, lon, controller) => {
     const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
     if (reverseCacheRef.current[key]) return reverseCacheRef.current[key];
     const fn = async () => {
       try {
-        const resp = await retry(
+        const r1 = await retry(
           () => requestWithTimeout(
-            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=pt`,
-            { headers: { "Accept-Language": "pt-BR" } },
-            12000
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1&accept-language=pt-BR`,
+            { headers: { "Accept-Language": "pt-BR", "Referrer-Policy": "strict-origin-when-cross-origin" } },
+            12000,
+            controller
           ),
-          3,
-          800
+          2,
+          700
         );
-        if (!resp.ok) throw new Error();
-        const data = await resp.json();
-        const result = { rua: data.address.road || "", estado: data.address.state || "", pais: data.address.country || "" };
-        reverseCacheRef.current[key] = result;
-        return result;
-      } catch {
-        const result = { rua: "Não disponível", estado: "", pais: "" };
-        reverseCacheRef.current[key] = result;
-        return result;
-      }
+        if (r1.ok) {
+          const j1 = await r1.json();
+          const a1 = j1?.address ? parseAddr(j1.address) : null;
+          if (a1 && (a1.rua || a1.estado || a1.pais)) {
+            reverseCacheRef.current[key] = a1;
+            return a1;
+          }
+        }
+      } catch { }
+      try {
+        const r2 = await retry(
+          () => requestWithTimeout(
+            `https://geocode.maps.co/reverse?lat=${lat}&lon=${lon}&accept-language=pt-BR`,
+            {},
+            12000,
+            controller
+          ),
+          2,
+          700
+        );
+        if (r2.ok) {
+          const j2 = await r2.json();
+          const a2 = j2?.address ? parseAddr(j2.address) : null;
+          if (a2 && (a2.rua || a2.estado || a2.pais)) {
+            reverseCacheRef.current[key] = a2;
+            return a2;
+          }
+        }
+      } catch { }
+      try {
+        const r3 = await retry(
+          () => requestWithTimeout(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`,
+            {},
+            12000,
+            controller
+          ),
+          2,
+          700
+        );
+        if (r3.ok) {
+          const j3 = await r3.json();
+          const a3 = parseAddr(j3 || {});
+          if (a3 && (a3.rua || a3.estado || a3.pais)) {
+            reverseCacheRef.current[key] = a3;
+            return a3;
+          }
+        }
+      } catch { }
+      const fallback = { rua: `${lat.toFixed(4)}, ${lon.toFixed(4)}`, estado: "", pais: "" };
+      reverseCacheRef.current[key] = fallback;
+      return fallback;
     };
     return reverseLimiterRef.current(fn);
   }, []);
@@ -444,14 +545,14 @@ export default function BuscarMercadosOSM({ user }) {
   const overpassFetch = useCallback(async (queryStr) => {
     const cacheKey = queryStr;
     const cached = overpassCacheRef.current.get(cacheKey);
-    if (cached && Date.now() - cached.ts < 5 * 60 * 1000) return cached.data;
+    if (cached && Date.now() - cached.ts < 15 * 60 * 1000) return cached.data;
     if (overpassControllerRef.current) overpassControllerRef.current.abort("new-request");
     const controller = new AbortController();
     overpassControllerRef.current = controller;
     for (const ep of overpassEndpoints) {
       try {
         const url = `${ep}?data=${encodeURIComponent(queryStr)}`;
-        const res = await requestWithTimeout(url, {}, 20000, controller);
+        const res = await requestWithTimeout(url, {}, 15000, controller);
         if (!res.ok) throw new Error("overpass-fail");
         const data = await res.json();
         overpassCacheRef.current.set(cacheKey, { ts: Date.now(), data });
@@ -467,13 +568,13 @@ export default function BuscarMercadosOSM({ user }) {
   const fetchNearbyMarkets = useCallback(async (lat, lon, rad = 4000, limit = 20) => {
     try {
       const q = `
-        [out:json][timeout:25];
+        [out:json][timeout:15];
         (
           node["shop"~"supermarket|convenience|grocery"](around:${rad},${lat},${lon});
           way["shop"~"supermarket|convenience|grocery"](around:${rad},${lat},${lon});
           relation["shop"~"supermarket|convenience|grocery"](around:${rad},${lat},${lon});
         );
-        out center;
+        out body center qt;
       `;
       const data = await overpassFetch(q);
       const elements = data.elements || [];
@@ -486,33 +587,36 @@ export default function BuscarMercadosOSM({ user }) {
           const k = `${e.type}-${e.id}`;
           if (seen.has(k)) return null;
           seen.add(k);
+          const tags = e.tags || {};
+          const addr = addressFromTags(tags);
           const distance = haversine(lat, lon, lat0, lon0);
           return {
             id: `${e.id}`,
             type: e.type,
-            nome: (e.tags && e.tags.name) || "Mercado",
-            tipo: (e.tags && e.tags.shop) || "",
-            brand: (e.tags && e.tags.brand) || "",
+            nome: tags.name || "Mercado",
+            tipo: tags.shop || "",
+            brand: tags.brand || "",
             lat: lat0,
             lon: lon0,
             distance,
-            rawTags: e.tags || {},
-            opening_hours: e.tags?.opening_hours || null,
-            phone: e.tags?.phone || e.tags?.["contact:phone"] || null,
-            website: e.tags?.website || e.tags?.url || null,
-            operator: e.tags?.operator || null,
-            description: e.tags?.description || null,
+            rawTags: tags,
+            opening_hours: tags.opening_hours || null,
+            phone: tags.phone || tags["contact:phone"] || null,
+            website: tags.website || tags.url || null,
+            operator: tags.operator || null,
+            description: tags.description || null,
+            ...addr,
+            _needsReverse: !(addr.rua || addr.estado || addr.pais),
           };
         })
         .filter(Boolean)
         .sort((a, b) => a.distance - b.distance)
         .slice(0, limit);
-      const withAddress = await Promise.all(markets.map(async (m) => ({ ...m, ...(await getEnderecoFromCoords(m.lat, m.lon)) })));
-      return withAddress;
+      return markets;
     } catch {
       return [];
     }
-  }, [getEnderecoFromCoords, overpassFetch]);
+  }, [overpassFetch]);
 
   const parseFuelPrices = useCallback((tags = {}) => {
     const prices = {};
@@ -557,13 +661,13 @@ export default function BuscarMercadosOSM({ user }) {
   const fetchNearbyFuel = useCallback(async (lat, lon, rad = 4000, limit = 15, fuelKey = "gasolina") => {
     try {
       const q = `
-        [out:json][timeout:25];
+        [out:json][timeout:15];
         (
           node["amenity"="fuel"](around:${rad},${lat},${lon});
           way["amenity"="fuel"](around:${rad},${lat},${lon});
           relation["amenity"="fuel"](around:${rad},${lat},${lon});
         );
-        out tags center;
+        out tags center qt;
       `;
       const data = await overpassFetch(q);
       const elements = data.elements || [];
@@ -578,28 +682,31 @@ export default function BuscarMercadosOSM({ user }) {
           seen.add(k);
           const distance = haversine(lat, lon, lat0, lon0);
           const osmPrices = parseFuelPrices(e.tags || {});
+          const tags = e.tags || {};
+          const addr = addressFromTags(tags);
           return {
             id: `${e.id}`,
             type: e.type,
-            nome: (e.tags && (e.tags.name || e.tags.brand)) || "Posto",
-            brand: e.tags?.brand || "",
+            nome: (tags.name || tags.brand) || "Posto",
+            brand: tags.brand || "",
             lat: lat0,
             lon: lon0,
             distance,
-            opening_hours: e.tags?.opening_hours || null,
-            phone: e.tags?.phone || e.tags?.["contact:phone"] || null,
-            website: e.tags?.website || e.tags?.url || null,
-            rawTags: e.tags || {},
+            opening_hours: tags.opening_hours || null,
+            phone: tags.phone || tags["contact:phone"] || null,
+            website: tags.website || tags.url || null,
+            rawTags: tags,
             ...mergeCommunity(`${e.id}`, osmPrices),
+            ...addr,
+            _needsReverse: !(addr.rua || addr.estado || addr.pais),
           };
         })
         .filter(Boolean);
-      const withAddress = await Promise.all(stationsRaw.map(async (s) => ({ ...s, ...(await getEnderecoFromCoords(s.lat, s.lon)) })));
-      const filtered = withAddress.filter((p) => !hasPriceOnly || (p.prices && Object.keys(p.prices).length > 0));
+      const filtered = stationsRaw.filter((p) => !hasPriceOnly || (p.prices && Object.keys(p.prices).length > 0));
       const sorted = filtered.sort((a, b) => {
         if (sortFuel === "distance") return a.distance - b.distance;
-        const pa = a.prices?.[fuelKey];
-        const pb = b.prices?.[fuelKey];
+        const pa = pPrice(a, fuelKey);
+        const pb = pPrice(b, fuelKey);
         if (pa != null && pb != null) return pa - pb;
         if (pa != null) return -1;
         if (pb != null) return 1;
@@ -609,7 +716,7 @@ export default function BuscarMercadosOSM({ user }) {
     } catch {
       return [];
     }
-  }, [getEnderecoFromCoords, overpassFetch, parseFuelPrices, sortFuel, hasPriceOnly, mergeCommunity]);
+  }, [parseFuelPrices, sortFuel, hasPriceOnly, mergeCommunity, overpassFetch]);
 
   const applyMarketSortAndFilters = (arr, sortKey, q) => {
     const ql = (q || "").trim().toLowerCase();
@@ -688,6 +795,28 @@ export default function BuscarMercadosOSM({ user }) {
     }
   }, [tipoBusca, getEnderecoFromCoords, fetchNearbyMarkets, fetchNearbyFuel, sortMarket, sortFuel, fuelFilter, deferredQuery]);
 
+  useEffect(() => {
+    if (!pos) return;
+    const seq = ++reverseSeqRef.current;
+    if (reverseControllerRef.current) reverseControllerRef.current.abort("new-reverse-batch");
+    const controller = new AbortController();
+    reverseControllerRef.current = controller;
+    const list = tipoBusca === "market" ? mercados : postos;
+    const need = list.filter((x) => x._needsReverse && !addrCache[keyOf(x)]).slice(0, 8);
+    let cancelled = false;
+    (async () => {
+      for (const it of need) {
+        const a = await getEnderecoFromCoords(it.lat, it.lon, controller);
+        if (cancelled || seq !== reverseSeqRef.current) return;
+        setAddrCache((prev) => ({ ...prev, [keyOf(it)]: a }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort("cleanup");
+    };
+  }, [mercados, postos, tipoBusca, pos, getEnderecoFromCoords, addrCache]);
+
   const handleBuscarLocalizacao = useCallback(async () => {
     setErro("");
     setBuscando(true);
@@ -695,8 +824,25 @@ export default function BuscarMercadosOSM({ user }) {
     setPostos([]);
     setLocalInfo({ rua: "", estado: "", pais: "" });
     try {
-      const posObj = await retry(() => getAccuratePosition({ desiredAccuracy: 30, maxWait: 5000 }), 3, 700);
-      await buscarProximos(posObj.coords.latitude, posObj.coords.longitude, debouncedRadius);
+      let quick = null;
+      try {
+        quick = await getQuickPosition(1500);
+      } catch { }
+      if (quick) {
+        await buscarProximos(quick.coords.latitude, quick.coords.longitude, debouncedRadius);
+      }
+      const posObj = await retry(() => getAccuratePosition({ desiredAccuracy: 30, maxWait: 5000 }), 2, 500);
+      if (posObj) {
+        const hadQuick = !!quick;
+        if (!hadQuick) {
+          await buscarProximos(posObj.coords.latitude, posObj.coords.longitude, debouncedRadius);
+        } else {
+          const d = haversine(quick.coords.latitude, quick.coords.longitude, posObj.coords.latitude, posObj.coords.longitude);
+          if (d > 250) {
+            await buscarProximos(posObj.coords.latitude, posObj.coords.longitude, debouncedRadius);
+          }
+        }
+      }
     } catch {
       try {
         const resp = await retry(() => requestWithTimeout("https://ipapi.co/json/", {}, 12000), 3, 800);
@@ -780,11 +926,17 @@ export default function BuscarMercadosOSM({ user }) {
   useEffect(() => {
     if (!pos) return;
     if (tipoBusca === "market") {
-      setMercados((prev) => applyMarketSortAndFilters(prev, sortMarket, deferredQuery));
+      setMercados((prev) => {
+        const merged = prev.map((m) => ({ ...m, ...(addrCache[keyOf(m)] || {}) }));
+        return applyMarketSortAndFilters(merged, sortMarket, deferredQuery);
+      });
     } else if (tipoBusca === "fuel") {
-      setPostos((prev) => applyFuelSortAndFilters(prev, sortFuel, fuelFilter, deferredQuery));
+      setPostos((prev) => {
+        const merged = prev.map((p) => ({ ...p, ...(addrCache[keyOf(p)] || {}) }));
+        return applyFuelSortAndFilters(merged, sortFuel, fuelFilter, deferredQuery);
+      });
     }
-  }, [sortMarket, sortFuel, deferredQuery, fuelFilter, tipoBusca, pos]);
+  }, [sortMarket, sortFuel, deferredQuery, fuelFilter, tipoBusca, pos, addrCache]);
 
   useEffect(() => {
     if (!pos) return;
@@ -878,104 +1030,337 @@ export default function BuscarMercadosOSM({ user }) {
     );
   }
 
+  const approxText = pos ? ([localInfo.rua, localInfo.estado, localInfo.pais].filter(Boolean).join(", ") || `${pos.lat.toFixed(4)}, ${pos.lon.toFixed(4)}`) : "";
+
   return (
-    <div className="container my-5 px-2 px-md-4" style={{ zIndex: 2, paddingTop: "80px" }}>
+    <div className="container my-5 px-2 px-md-4" style={{ zIndex: 2, paddingTop: "10px" }}>
       <ToastContainer position="top-right" pauseOnHover />
       <AnimatePresence mode="wait">
         {showIntro ? (
-          <motion.div
+          <motion.section
             key="intro"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.25 }}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              show: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: 0.25, when: "beforeChildren", staggerChildren: 0.06 }
+              }
+            }}
             className="d-flex align-items-center justify-content-center"
             style={{ minHeight: "70vh" }}
+            role="region"
+            aria-labelledby="intro-title"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              const k = e.key.toLowerCase();
+              if (k === "enter" || k === " ") setShowIntro(false);
+            }}
           >
-            <div className="text-center p-4 p-md-5 shadow-sm" style={{ maxWidth: 720, borderRadius: 16, background: "linear-gradient(135deg,#f8fafc 0%, #eef2ff 100%)", border: "1px solid #e5e7eb" }}>
-              <div className="d-flex justify-content-center gap-3 mb-3">
-                <div className="d-flex align-items-center justify-content-center" style={{ width: 56, height: 56, borderRadius: "50%", background: "#0d6efd", color: "#fff" }}>
-                  <FontAwesomeIcon icon={faStore} />
-                </div>
-                <div className="d-flex align-items-center justify-content-center" style={{ width: 56, height: 56, borderRadius: "50%", background: "#10b981", color: "#fff" }}>
-                  <FontAwesomeIcon icon={faGasPump} />
-                </div>
-                <div className="d-flex align-items-center justify-content-center" style={{ width: 56, height: 56, borderRadius: "50%", background: "#6366f1", color: "#fff" }}>
-                  <FontAwesomeIcon icon={faMapLocationDot} />
-                </div>
-              </div>
-              <h2 className="fw-bold mb-2" style={{ color: "#0f172a" }}>Encontre e compare perto de você</h2>
-              <p className="mb-3" style={{ color: "#334155", fontSize: "1.05rem" }}>
+            <motion.div
+              className="text-center p-4 p-md-5 shadow-sm"
+              style={{
+                maxWidth: 720,
+                borderRadius: 20,
+                background: "linear-gradient(135deg,#f8fafc 0%, #eef2ff 100%)",
+                border: "1px solid #e5e7eb",
+                boxShadow: "0 12px 28px rgba(2,6,23,.08)"
+              }}
+              variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+            >
+              <motion.div
+                className="d-flex justify-content-center gap-3 mb-4"
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }}
+              >
+                {[
+                  { bg: "#0d6efd", icon: faStore },
+                  { bg: "#10b981", icon: faGasPump },
+                  { bg: "#6366f1", icon: faMapLocationDot }
+                ].map((it, i) => (
+                  <motion.div
+                    key={i}
+                    className="d-flex align-items-center justify-content-center"
+                    style={{ width: 64, height: 64, borderRadius: "50%", background: it.bg, color: "#fff" }}
+                    variants={{ hidden: { opacity: 0, y: 8, scale: .9 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                    whileHover={{ y: -3 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <FontAwesomeIcon icon={it.icon} />
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              <motion.h2
+                id="intro-title"
+                className="fw-bold mb-2"
+                style={{ color: "#0f172a" }}
+                variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+              >
+                Encontre e compare perto de você
+              </motion.h2>
+
+              <motion.p
+                className="mb-4"
+                style={{ color: "#334155", fontSize: "1.05rem" }}
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+              >
                 Mercados e postos próximos, horários atualizados e comparador de preços em uma experiência simples e rápida.
-              </p>
-              <div className="d-flex flex-wrap justify-content-center gap-2">
-                <button
-                  className="btn btn-primary btn-lg px-4"
+              </motion.p>
+
+              <motion.div
+                className="d-flex flex-wrap justify-content-center gap-2"
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+              >
+                <motion.button
+                  className="btn btn-lg px-4"
                   onClick={() => setShowIntro(false)}
-                  style={{ borderRadius: 12 }}
+                  aria-label="Começar agora"
+                  style={{
+                    borderRadius: 14,
+                    background: "linear-gradient(135deg,#0ea5e9,#2563eb)",
+                    color: "#fff",
+                    border: "none",
+                    boxShadow: "0 8px 24px rgba(37,99,235,.25)",
+                    fontWeight: 700
+                  }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Começar
-                </button>
-              </div>
-            </div>
-          </motion.div>
+                </motion.button>
+                <motion.span
+                  className="text-muted d-block w-100 mt-2"
+                  style={{ fontSize: ".9rem" }}
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: .1 } } }}
+                >
+                </motion.span>
+              </motion.div>
+            </motion.div>
+          </motion.section>
         ) : !tipoBusca ? (
-          <motion.div
+          <motion.section
             key="choose-type"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.25 }}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              show: { opacity: 1, y: 0, transition: { duration: 0.25, when: "beforeChildren", staggerChildren: 0.06 } }
+            }}
             className="text-center mt-5"
             style={{ zIndex: 2, paddingTop: 60 }}
+            role="region"
+            aria-labelledby="choose-type-title"
+            onKeyDown={(e) => {
+              if (e.key.toLowerCase() === "m") setTipoBusca("market");
+              if (["p", "f"].includes(e.key.toLowerCase())) setTipoBusca("fuel");
+            }}
+            tabIndex={0}
           >
-            <h3 className="fw-bold mb-4 text-primary">O que você quer encontrar?</h3>
-            <div className="d-flex justify-content-center gap-4 flex-wrap" style={{ maxWidth: 600, margin: "0 auto" }}>
-              <button type="button" className="btn btn-primary btn-lg d-flex align-items-center gap-3 px-5 shadow mb-4" style={{ borderRadius: 12 }} onClick={() => setTipoBusca("market")}>
-                <FontAwesomeIcon icon={faStore} size="lg" />
-                Mercados
-              </button>
-              <button type="button" className="btn btn-outline-primary btn-lg d-flex align-items-center gap-3 px-5 shadow-sm mb-4" style={{ borderRadius: 12 }} onClick={() => setTipoBusca("fuel")}>
-                <FontAwesomeIcon icon={faGasPump} size="lg" />
-                Postos de gasolina
-              </button>
+            <motion.h3
+              id="choose-type-title"
+              className="fw-bold mb-4"
+              style={{ color: "#0d6efd" }}
+              variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+            >
+              O que você quer encontrar?
+            </motion.h3>
+
+            <div className="d-flex justify-content-center gap-3 gap-md-4 flex-wrap" style={{ maxWidth: 680, margin: "0 auto" }}>
+              <motion.button
+                type="button"
+                onClick={() => setTipoBusca("market")}
+                aria-label="Procurar mercados próximos"
+                variants={{ hidden: { opacity: 0, y: 10, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn btn-lg d-flex align-items-center justify-content-center shadow"
+                style={{
+                  borderRadius: 16,
+                  padding: "1rem 1.5rem",
+                  minWidth: 260,
+                  background: "linear-gradient(135deg,#2563eb,#3b82f6)",
+                  color: "#fff",
+                  border: "none"
+                }}
+              >
+                <FontAwesomeIcon icon={faStore} size="lg" className="me-3" />
+                <div className="text-start">
+                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Mercados</div>
+                  <div className="opacity-90" style={{ fontSize: ".9rem" }}>Supermercados e mercearias perto de você</div>
+                </div>
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={() => setTipoBusca("fuel")}
+                aria-label="Procurar postos de gasolina próximos"
+                variants={{ hidden: { opacity: 0, y: 10, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn btn-lg d-flex align-items-center justify-content-center"
+                style={{
+                   borderRadius: 16,
+                  padding: "1rem 1.5rem",
+                  minWidth: 240,
+                  background: "#fff",
+                  color: "#0d6efd",
+                  border: "2px solid #cfe0ff",
+                  boxShadow: "0 6px 18px rgba(13,110,253,.10)"
+                }}
+              >
+                <FontAwesomeIcon icon={faGasPump} size="lg" className="me-3" />
+                <div className="text-start">
+                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Postos de gasolina</div>
+                  <div className="text-muted" style={{ fontSize: ".9rem" }}>Encontre preços e distância rapidamente</div>
+                </div>
+              </motion.button>
             </div>
-          </motion.div>
+
+            <motion.p
+              className="mt-3 text-muted"
+              variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.2 } } }}
+              style={{ fontSize: ".9rem" }}
+            >
+            </motion.p>
+          </motion.section>
+
         ) : !modoBusca ? (
-          <motion.div
+          <motion.section
             key="choose-mode"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.25 }}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              show: {
+                opacity: 1,
+                y: 0,
+                transition: { duration: 0.25, when: "beforeChildren", staggerChildren: 0.06 }
+              }
+            }}
             className="text-center mt-5"
             style={{ zIndex: 2, paddingTop: 60 }}
+            role="region"
+            aria-labelledby="choose-mode-title"
+            tabIndex={0}
           >
-            <button className="btn btn-outline-secondary mb-4" onClick={() => setTipoBusca(null)}>
-              <FontAwesomeIcon icon={faArrowLeft} className="me-1" /> Voltar
-            </button>
-            <h3 className="fw-bold mb-3 text-primary">{tipoBusca === "market" ? "Vamos localizar mercados próximos!" : "Vamos localizar os melhores postos próximos!"}</h3>
+            <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+              <button
+                className="btn btn-outline-secondary mb-4"
+                onClick={() => setTipoBusca(null)}
+                aria-label="Voltar para a etapa anterior"
+              >
+                <FontAwesomeIcon icon={faArrowLeft} className="me-1" /> Voltar
+              </button>
+            </motion.div>
+
+            <motion.h3
+              id="choose-mode-title"
+              className="fw-bold mb-3"
+              style={{ color: "#0d6efd" }}
+              variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+            >
+              {tipoBusca === "market"
+                ? "Vamos localizar mercados próximos!"
+                : "Vamos localizar os melhores postos próximos!"}
+            </motion.h3>
+
             {tipoBusca === "fuel" && (
-              <div className="mb-3 d-flex justify-content-center align-items-center gap-2">
-                <span>Combustível:</span>
-                <select className="form-select w-auto" value={fuelFilter} onChange={(e) => setFuelFilter(e.target.value)}>
+              <motion.div
+                className="mb-3 d-flex justify-content-center align-items-center gap-2"
+                variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+              >
+                <span className="text-muted">Combustível:</span>
+
+                <div className="d-none d-md-inline-flex btn-group" role="group" aria-label="Escolher tipo de combustível">
+                  {["gasolina", "etanol", "diesel"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`btn btn-sm ${fuelFilter === t ? "btn-primary" : "btn-outline-primary"}`}
+                      onClick={() => setFuelFilter(t)}
+                    >
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                <select
+                  className="form-select w-auto d-md-none"
+                  value={fuelFilter}
+                  onChange={(e) => setFuelFilter(e.target.value)}
+                  aria-label="Selecionar combustível"
+                >
                   <option value="gasolina">Gasolina</option>
                   <option value="etanol">Etanol</option>
                   <option value="diesel">Diesel</option>
                 </select>
-              </div>
+              </motion.div>
             )}
-            <div className="d-flex justify-content-center gap-4 flex-wrap" style={{ maxWidth: 500, margin: "0 auto" }}>
-              <button type="button" className="btn btn-primary btn-lg d-flex align-items-center gap-3 px-5 shadow" style={{ borderRadius: 12 }} onClick={() => { setModoBusca("local"); handleBuscarLocalizacao(); }}>
-                <FontAwesomeIcon icon={faMapLocationDot} size="lg" />
-                Usar minha localização
-              </button>
-              <button type="button" className="btn btn-outline-primary btn-lg d-flex align-items-center gap-3 px-5 shadow-sm mb-3" style={{ borderRadius: 12, fontWeight: 600 }} onClick={() => setModoBusca("cep")}>
-                <FiMapPin size={24} />
-                Digitar CEP
-              </button>
+
+            <div className="d-flex justify-content-center gap-3 gap-md-4 flex-wrap" style={{ maxWidth: 520, margin: "0 auto" }}>
+              <motion.button
+                type="button"
+                onClick={() => { setModoBusca("local"); handleBuscarLocalizacao(); }}
+                aria-label="Usar minha localização atual"
+                variants={{ hidden: { opacity: 0, y: 12, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn btn-lg d-flex align-items-center justify-content-center shadow"
+                style={{
+                  borderRadius: 16,
+                  padding: "1rem 1.5rem",
+                  minWidth: 240,
+                  background: "linear-gradient(135deg,#0ea5e9,#2563eb)",
+                  color: "#fff",
+                  border: "none"
+                }}
+              >
+                <FontAwesomeIcon icon={faMapLocationDot} size="lg" className="me-3" />
+                <div className="text-start">
+                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Usar minha localização</div>
+                  <div className="opacity-90" style={{ fontSize: ".9rem" }}>Mais rápido e preciso</div>
+                </div>
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={() => setModoBusca("cep")}
+                aria-label="Digitar CEP manualmente"
+                variants={{ hidden: { opacity: 0, y: 12, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn btn-lg d-flex align-items-center justify-content-center"
+                style={{
+                  borderRadius: 16,
+                  padding: "1rem 1.5rem",
+                  minWidth: 240,
+                  background: "#fff",
+                  color: "#0d6efd",
+                  border: "2px solid #cfe0ff",
+                  boxShadow: "0 6px 18px rgba(13,110,253,.10)"
+                }}
+              >
+                <FiMapPin size={22} className="me-3" />
+                <div className="text-start">
+                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Digitar CEP</div>
+                  <div className="text-muted" style={{ fontSize: ".9rem" }}>Buscar por endereço</div>
+                </div>
+              </motion.button>
             </div>
-          </motion.div>
+
+            <motion.p
+              className="mt-3 text-muted"
+              variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.15 } } }}
+              style={{ fontSize: ".9rem" }}
+            >
+            </motion.p>
+          </motion.section>
+
         ) : (
           <motion.div
             key="results"
@@ -1145,7 +1530,7 @@ export default function BuscarMercadosOSM({ user }) {
                     </h6>
                     <div style={{ fontSize: "0.95rem" }}>
                       <strong>Endereço: </strong>
-                      {[localInfo.rua, localInfo.estado, localInfo.pais].filter(Boolean).join(", ")}
+                      {approxText}
                     </div>
                   </div>
                 )}
@@ -1184,31 +1569,37 @@ export default function BuscarMercadosOSM({ user }) {
 
             {!buscando && tipoBusca === "market" && mercados.length > 0 && (
               <motion.div layout className="row gy-4">
-                {mercados.map((m) => (
-                  <MarketCard
-                    key={`${m.type}-${m.id}`}
-                    market={m}
-                    user={user}
-                    onVisit={registrarVisitaEVerOfertas}
-                    onToggleFavorito={toggleFavorito}
-                    isFavorited={favoritos.has(m.id)}
-                  />
-                ))}
+                {mercados.map((m) => {
+                  const addr = addrCache[keyOf(m)];
+                  return (
+                    <MarketCard
+                      key={`${m.type}-${m.id}`}
+                      market={{ ...m, ...(addr || {}) }}
+                      user={user}
+                      onVisit={registrarVisitaEVerOfertas}
+                      onToggleFavorito={toggleFavorito}
+                      isFavorited={favoritos.has(m.id)}
+                    />
+                  );
+                })}
               </motion.div>
             )}
 
             {!buscando && tipoBusca === "fuel" && postos.length > 0 && (
               <>
-                <BestDealBanner postos={postos} focus={fuelFilter} />
+                <BestDealBanner postos={postos.map((p) => ({ ...p, ...(addrCache[keyOf(p)] || {}) }))} focus={fuelFilter} />
                 <motion.div layout className="row gy-4">
-                  {postos.map((p, idx) => (
-                    <FuelCard
-                      key={`${p.type}-${p.id}`}
-                      posto={p}
-                      onUpdatePrice={handleUpdatePrice}
-                      highlight={idx === 0 && p.prices && p.prices[fuelFilter] != null}
-                    />
-                  ))}
+                  {postos.map((p, idx) => {
+                    const addr = addrCache[keyOf(p)];
+                    return (
+                      <FuelCard
+                        key={`${p.type}-${p.id}`}
+                        posto={{ ...p, ...(addr || {}) }}
+                        onUpdatePrice={handleUpdatePrice}
+                        highlight={idx === 0 && p.prices && p.prices[fuelFilter] != null}
+                      />
+                    );
+                  })}
                 </motion.div>
               </>
             )}
