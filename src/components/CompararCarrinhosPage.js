@@ -18,15 +18,13 @@ function haversine(a, o, n, r) {
 }
 
 async function fetchNearbyMarkets(a, o, n = 4000, r = 15) {
-  const c = `
-    [out:json][timeout:25];
-    (
-      node["shop"~"supermarket|convenience|grocery"](around:${n},${a},${o});
-      way["shop"~"supermarket|convenience|grocery"](around:${n},${a},${o});
-      relation["shop"~"supermarket|convenience|grocery"](around:${n},${a},${o});
-    );
-    out center;
-  `;
+  const c = `[out:json][timeout:25];
+(
+  node["shop"~"supermarket|convenience|grocery"](around:${n},${a},${o});
+  way["shop"~"supermarket|convenience|grocery"](around:${n},${a},${o});
+  relation["shop"~"supermarket|convenience|grocery"](around:${n},${a},${o});
+);
+out center;`;
   const i = await fetch("https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(c));
   const d = await i.json();
   const s = d.elements || [];
@@ -75,13 +73,13 @@ function loadPixFromStorage() {
 function saveCardToStorage(card) {
   try {
     localStorage.setItem(CARD_STORAGE_KEY, JSON.stringify(card));
-  } catch {}
+  } catch { }
 }
 
 function savePixToStorage(pix) {
   try {
     localStorage.setItem(PIX_STORAGE_KEY, JSON.stringify(pix));
-  } catch {}
+  } catch { }
 }
 
 function sanitizeCardForDB(card) {
@@ -114,83 +112,84 @@ function detectBrand(digits) {
 async function askPayment(totalBRL = "", pixKeyPrefill = "") {
   const cachedCard = loadCardFromStorage();
   const cachedPix = loadPixFromStorage();
+  const initialBrand = detectBrand(String(cachedCard.number || "").replace(/\D/g, ""));
   const { value: data, isConfirmed } = await Swal.fire({
     title: "Pagamento",
     html: `
-      <style>
-        .pay-wrap{font-family:Inter,system-ui,Arial,sans-serif; text-align:left}
-        .pay-tabs{display:flex; gap:.5rem; margin-bottom:12px}
-        .pay-tab{flex:1; padding:.6rem 1rem; border:1px solid #e5e7eb; background:#fff; border-radius:12px; cursor:pointer; font-weight:600}
-        .pay-tab.active{background:linear-gradient(180deg,#0ea5e9,#0284c7); color:#fff; border-color:#0284c7}
-        .pay-note{font-size:.85rem; color:#64748b; margin-bottom:10px}
-        .card-preview{position:relative; width:100%; border-radius:16px; padding:18px; background:linear-gradient(135deg,#111827,#0b1e3a); color:#e5e7eb; box-shadow:0 12px 30px rgba(2,132,199,.25); margin-bottom:12px}
-        .card-chip{width:34px;height:24px;border-radius:6px;background:linear-gradient(135deg,#f1c40f,#f39c12)}
-        .card-row{display:flex; justify-content:space-between; align-items:center; margin-top:10px}
-        .card-num{letter-spacing:2px; font-size:1.1rem; font-weight:600}
-        .card-meta{display:flex; justify-content:space-between; gap:1rem; font-size:.9rem; color:#cbd5e1}
-        .pay-grid{display:grid; grid-template-columns:1fr 1fr; gap:.6rem}
-        .pay-grid-1{display:grid; grid-template-columns:1fr; gap:.6rem}
-        .pay-input{width:100%; border:1px solid #e5e7eb; border-radius:10px; padding:.7rem .9rem; font-size:1rem}
-        .pay-input:focus{outline:none; border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,.15)}
-        .pill-group{display:flex; flex-wrap:wrap; gap:.4rem; margin:.2rem 0 .6rem}
-        .pill{padding:.45rem .8rem; border:1px solid #e5e7eb; border-radius:999px; cursor:pointer; font-size:.9rem; background:#fff}
-        .pill.active{background:#ecfeff; border-color:#06b6d4; color:#0369a1}
-        .qr-box{border:1px dashed #cbd5e1; border-radius:12px; padding:12px; text-align:center; color:#475569; background:#f8fafc}
-        .save-row{display:flex; align-items:center; gap:.5rem; margin-top:.6rem}
-        .amount-tag{font-size:.9rem; font-weight:700; color:#0f172a; background:#e0f2fe; border:1px solid #bae6fd; padding:.25rem .5rem; border-radius:8px; display:inline-block}
-      </style>
-      <div class="pay-wrap">
-        <div class="pay-tabs">
-          <button type="button" class="pay-tab active" data-tab="card">Cartão</button>
-          <button type="button" class="pay-tab" data-tab="pix">PIX</button>
-        </div>
-        <div class="pay-note">Total ${totalBRL ? `<span class="amount-tag">${totalBRL}</span>` : ""}</div>
-        <div id="tab-card" class="tab-panel">
-          <div class="card-preview">
-            <div class="card-chip"></div>
-            <div class="card-row" style="margin-top:10px">
-              <div class="card-brand" style="font-weight:700">${detectBrand(String(cachedCard.number || "").replace(/\\D/g, ""))}</div>
-              <div class="card-num" id="cv-num">${formatCardNumber(cachedCard.number || "") || "•••• •••• •••• ••••"}</div>
-            </div>
-            <div class="card-meta" style="margin-top:14px">
-              <div><div style="opacity:.7; font-size:.75rem">TITULAR</div><div id="cv-holder" style="text-transform:uppercase">${cachedCard.holder || "NOME SOBRENOME"}</div></div>
-              <div><div style="opacity:.7; font-size:.75rem">VALIDADE</div><div id="cv-exp">${cachedCard.expiry || "MM/AA"}</div></div>
-            </div>
-          </div>
-          <input id="card_holder" class="pay-input" placeholder="Nome impresso no cartão" value="${cachedCard.holder || ""}" />
-          <div class="pay-grid">
-            <input id="card_number" class="pay-input" placeholder="Número do cartão" value="${formatCardNumber(cachedCard.number || "")}" inputmode="numeric" autocomplete="cc-number" />
-            <input id="card_expiry" class="pay-input" placeholder="Validade (MM/AA)" value="${cachedCard.expiry || ""}" inputmode="numeric" autocomplete="cc-exp" />
-          </div>
-          <div class="pay-grid-1" style="margin-top:.6rem">
-            <input id="card_cvv" class="pay-input" placeholder="CVV" value="${cachedCard.cvv || ""}" inputmode="numeric" type="password" autocomplete="cc-csc" />
-          </div>
-          <div class="save-row">
-            <input id="save_card" type="checkbox" ${cachedCard.number ? "checked" : ""}/>
-            <label for="save_card" style="font-size:.9rem;color:#334155">Salvar dados deste cartão neste dispositivo</label>
-          </div>
-        </div>
-        <div id="tab-pix" class="tab-panel" style="display:none">
-          <div class="pill-group" id="pix_types">
-            <span class="pill ${cachedPix.type === "cpf" ? "active" : ""}" data-type="cpf">CPF</span>
-            <span class="pill ${cachedPix.type === "cnpj" ? "active" : ""}" data-type="cnpj">CNPJ</span>
-            <span class="pill ${cachedPix.type === "email" ? "active" : ""}" data-type="email">E-mail</span>
-            <span class="pill ${cachedPix.type === "celular" ? "active" : ""}" data-type="celular">Celular</span>
-            <span class="pill ${cachedPix.type === "aleatoria" ? "active" : ""}" data-type="aleatoria">Aleatória</span>
-          </div>
-          <input id="pix_key" class="pay-input" placeholder="Chave PIX" value='${pixKeyPrefill || cachedPix.key || ""}' />
-          <div class="save-row">
-            <input id="save_pix" type="checkbox" ${cachedPix.key ? "checked" : ""}/>
-            <label for="save_pix" style="font-size:.9rem;color:#334155">Salvar chave PIX neste dispositivo</label>
-          </div>
-          <div class="qr-box" style="margin-top:10px">
-            <div style="font-weight:700; margin-bottom:6px">PIX Copia e Cola</div>
-            <div id="pix_copy" style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace; word-break:break-all; font-size:.85rem">${(pixKeyPrefill || cachedPix.key || "sua-chave-pix-aqui")} | valor=${totalBRL || ""}</div>
-            <button type="button" id="btn_copy_pix" class="swal2-confirm swal2-styled" style="margin-top:10px; padding:.45rem .8rem">Copiar chave</button>
-          </div>
-        </div>
-      </div>
-    `,
+<style>
+.pay-wrap{font-family:Inter,system-ui,Arial,sans-serif;text-align:left}
+.pay-tabs{display:flex;gap:.5rem;margin-bottom:12px}
+.pay-tab{flex:1;padding:.6rem 1rem;border:1px solid #e5e7eb;background:#fff;border-radius:12px;cursor:pointer;font-weight:600}
+.pay-tab.active{background:linear-gradient(180deg,#0ea5e9,#0284c7);color:#fff;border-color:#0284c7}
+.pay-note{font-size:.85rem;color:#64748b;margin-bottom:10px}
+.card-preview{position:relative;width:100%;border-radius:16px;padding:18px;background:linear-gradient(135deg,#111827,#0b1e3a);color:#e5e7eb;box-shadow:0 12px 30px rgba(2,132,199,.25);margin-bottom:12px}
+.card-chip{width:34px;height:24px;border-radius:6px;background:linear-gradient(135deg,#f1c40f,#f39c12)}
+.card-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.card-num{letter-spacing:2px;font-size:1.1rem;font-weight:600}
+.card-meta{display:flex;justify-content:space-between;gap:1rem;font-size:.9rem;color:#cbd5e1}
+.pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.pay-grid-1{display:grid;grid-template-columns:1fr;gap:.6rem}
+.pay-input{width:100%;border:1px solid #e5e7eb;border-radius:10px;padding:.7rem .9rem;font-size:1rem}
+.pay-input:focus{outline:none;border-color:#0284c7;box-shadow:0 0 0 3px rgba(2,132,199,.15)}
+.pill-group{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem}
+.pill{padding:.45rem .8rem;border:1px solid #e5e7eb;border-radius:999px;cursor:pointer;font-size:.9rem;background:#fff}
+.pill.active{background:#ecfeff;border-color:#06b6d4;color:#0369a1}
+.qr-box{border:1px dashed #cbd5e1;border-radius:12px;padding:12px;text-align:center;color:#475569;background:#f8fafc}
+.save-row{display:flex;align-items:center;gap:.5rem;margin-top:.6rem}
+.amount-tag{font-size:.9rem;font-weight:700;color:#0f172a;background:#e0f2fe;border:1px solid #bae6fd;padding:.25rem .5rem;border-radius:8px;display:inline-block}
+</style>
+<div class="pay-wrap">
+<div class="pay-tabs">
+<button type="button" class="pay-tab active" data-tab="card">Cartão</button>
+<button type="button" class="pay-tab" data-tab="pix">PIX</button>
+</div>
+<div class="pay-note">Total ${totalBRL ? `<span class="amount-tag">${totalBRL}</span>` : ""}</div>
+<div id="tab-card" class="tab-panel">
+<div class="card-preview">
+<div class="card-chip"></div>
+<div class="card-row" style="margin-top:10px">
+<div class="card-brand" style="font-weight:700">${initialBrand}</div>
+<div class="card-num" id="cv-num">${formatCardNumber(cachedCard.number || "") || "•••• •••• •••• ••••"}</div>
+</div>
+<div class="card-meta" style="margin-top:14px">
+<div><div style="opacity:.7;font-size:.75rem">TITULAR</div><div id="cv-holder" style="text-transform:uppercase">${cachedCard.holder || "NOME SOBRENOME"}</div></div>
+<div><div style="opacity:.7;font-size:.75rem">VALIDADE</div><div id="cv-exp">${cachedCard.expiry || "MM/AA"}</div></div>
+</div>
+</div>
+<input id="card_holder" class="pay-input" placeholder="Nome impresso no cartão" value="${cachedCard.holder || ""}" />
+<div class="pay-grid">
+<input id="card_number" class="pay-input" placeholder="Número do cartão" value="${formatCardNumber(cachedCard.number || "")}" inputmode="numeric" autocomplete="cc-number" />
+<input id="card_expiry" class="pay-input" placeholder="Validade (MM/AA)" value="${cachedCard.expiry || ""}" inputmode="numeric" autocomplete="cc-exp" />
+</div>
+<div class="pay-grid-1" style="margin-top:.6rem">
+<input id="card_cvv" class="pay-input" placeholder="CVV" value="${cachedCard.cvv || ""}" inputmode="numeric" type="password" autocomplete="cc-csc" />
+</div>
+<div class="save-row">
+<input id="save_card" type="checkbox" ${cachedCard.number ? "checked" : ""}/>
+<label for="save_card" style="font-size:.9rem;color:#334155">Salvar dados deste cartão neste dispositivo</label>
+</div>
+</div>
+<div id="tab-pix" class="tab-panel" style="display:none">
+<div class="pill-group" id="pix_types">
+<span class="pill ${cachedPix.type === "cpf" ? "active" : ""}" data-type="cpf">CPF</span>
+<span class="pill ${cachedPix.type === "cnpj" ? "active" : ""}" data-type="cnpj">CNPJ</span>
+<span class="pill ${cachedPix.type === "email" ? "active" : ""}" data-type="email">E-mail</span>
+<span class="pill ${cachedPix.type === "celular" ? "active" : ""}" data-type="celular">Celular</span>
+<span class="pill ${cachedPix.type === "aleatoria" ? "active" : ""}" data-type="aleatoria">Aleatória</span>
+</div>
+<input id="pix_key" class="pay-input" placeholder="Chave PIX" value='${pixKeyPrefill || cachedPix.key || ""}' />
+<div class="save-row">
+<input id="save_pix" type="checkbox" ${cachedPix.key ? "checked" : ""}/>
+<label for="save_pix" style="font-size:.9rem;color:#334155">Salvar chave PIX neste dispositivo</label>
+</div>
+<div class="qr-box" style="margin-top:10px">
+<div style="font-weight:700;margin-bottom:6px">PIX Copia e Cola</div>
+<div id="pix_copy" style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace;word-break:break-all;font-size:.85rem">${pixKeyPrefill || cachedPix.key || "sua-chave-pix-aqui"} | valor=${totalBRL || ""}</div>
+<button type="button" id="btn_copy_pix" class="swal2-confirm swal2-styled" style="margin-top:10px;padding:.45rem .8rem">Copiar chave</button>
+</div>
+</div>
+</div>
+`,
     focusConfirm: false,
     showCancelButton: true,
     confirmButtonText: "Pagar",
@@ -253,7 +252,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
           await navigator.clipboard.writeText(pixKey.value || pixCopy.textContent);
           btnCopy.textContent = "Copiado!";
           setTimeout(() => (btnCopy.textContent = "Copiar chave"), 1200);
-        } catch {}
+        } catch { }
       });
     },
     preConfirm: () => {
@@ -283,7 +282,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
           return;
         }
         if (save) saveCardToStorage({ holder, number: nd, expiry, cvv: "" });
-        return { method: "card", payload: { holder, number: nd, expiry, cvv} };
+        return { method: "card", payload: { holder, number: nd, expiry, cvv } };
       } else {
         const type = Swal.getHtmlContainer().querySelector("#pix_types .pill.active")?.dataset.type || "cpf";
         const key = Swal.getHtmlContainer().querySelector("#pix_key").value.trim();
@@ -300,7 +299,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
       try {
         const c = loadCardFromStorage();
         if (c && typeof c === "object") saveCardToStorage({ ...c, cvv: "" });
-      } catch {}
+      } catch { }
     },
   });
   if (!isConfirmed) return null;
@@ -310,13 +309,10 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
 export default function CompararCarrinhosPage({ user }) {
   const q = useQuery();
   const navigate = useNavigate();
-
   const carrinhoIds = q.get("ids")?.split(",") || [];
   const selectedIdQuery = q.get("selected") || "";
-
   const userId = user?.uid || null;
   const carrinhoIdsKey = carrinhoIds.join(",");
-
   const [ruaCompleta, setRuaCompleta] = useState("");
   const [cep, setCep] = useState("");
   const [numero, setNumero] = useState("");
@@ -352,16 +348,13 @@ export default function CompararCarrinhosPage({ user }) {
   const [userLon, setUserLon] = useState(null);
   const [selecionados, setSelecionados] = useState({});
   const [isMobile, setIsMobile] = useState(false);
-
+  const [stepIndex, setStepIndex] = useState(0);
+  const steps = ["Comparação de Carrinhos", "Comparar preços por mercado", "Comparativo de Preços", "Totais por Mercado", "Opções", "Pedido"];
   const refCarrinho = useRef(null);
   const refMercados = useRef(null);
   const refTabela = useRef(null);
   const refOpcoes = useRef(null);
   const refPedido = useRef(null);
-  const lastStepScrolled = useRef("");
-  const prevMercCount = useRef(0);
-
-  const scrollToRef = (r) => r?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const parseNum = (x) => {
     const n = parseFloat(String(x).replace(",", "."));
@@ -397,11 +390,11 @@ export default function CompararCarrinhosPage({ user }) {
         setUserLon(longitude);
         const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&accept-language=pt`);
         const d = await r.json();
-        const c = d.address.postcode;
+        const c = d.address?.postcode;
         if (c) setCep(c);
         const n = await fetchNearbyMarkets(latitude, longitude);
         setMercadosProximos(n);
-      } catch {}
+      } catch { }
     });
   }, []);
 
@@ -431,19 +424,6 @@ export default function CompararCarrinhosPage({ user }) {
       cancelled = true;
     };
   }, [userId, carrinhoIdsKey, selectedIdQuery]);
-
-  useEffect(() => {
-    if (!carrinhoSelecionadoId) return;
-    const p = new URLSearchParams(window.location.search);
-    if (p.get("selected") !== carrinhoSelecionadoId) {
-      p.set("selected", carrinhoSelecionadoId);
-      navigate(`${window.location.pathname}?${p.toString()}`, { replace: true });
-    }
-    if (lastStepScrolled.current !== "mercados") {
-      setTimeout(() => scrollToRef(refMercados), 80);
-      lastStepScrolled.current = "mercados";
-    }
-  }, [carrinhoSelecionadoId, navigate]);
 
   useEffect(() => {
     if (!carrinhoSelecionadoId || !mercadosSelecionados.length) return;
@@ -556,29 +536,6 @@ export default function CompararCarrinhosPage({ user }) {
     });
   }, [mercadosSelecionados]);
 
-  useEffect(() => {
-    if (mercadosSelecionados.length > 0 && prevMercCount.current === 0 && lastStepScrolled.current !== "tabela") {
-      setTimeout(() => scrollToRef(refTabela), 80);
-      lastStepScrolled.current = "tabela";
-    }
-    prevMercCount.current = mercadosSelecionados.length;
-  }, [mercadosSelecionados.length]);
-
-  useEffect(() => {
-    const ready = mercadosSelecionados.length > 0 && (Object.keys(precosFixos || {}).length > 0);
-    if (ready && lastStepScrolled.current !== "opcoes") {
-      setTimeout(() => scrollToRef(refOpcoes), 80);
-      lastStepScrolled.current = "opcoes";
-    }
-  }, [precosFixos, mercadosSelecionados.length]);
-
-  useEffect(() => {
-    if (mostrarPedido && lastStepScrolled.current !== "pedido") {
-      setTimeout(() => scrollToRef(refPedido), 80);
-      lastStepScrolled.current = "pedido";
-    }
-  }, [mostrarPedido]);
-
   const buscarEnderecoPorCEP = (c) => {
     const clean = c.replace(/\D/g, "");
     if (clean.length !== 8) return;
@@ -595,7 +552,6 @@ export default function CompararCarrinhosPage({ user }) {
 
   const carrinhoSelecionado = carrinhos.find((c) => c.id === carrinhoSelecionadoId) || { items: [] };
   const totalSelecionado = carrinhoSelecionado.items.reduce((s, i) => s + Number(i.price) * (i.qtd || i.quantidade || 1), 0);
-
   const menoresPrecosPorProduto = {};
   carrinhoSelecionado.items.forEach((item) => {
     let m = Infinity;
@@ -663,24 +619,19 @@ export default function CompararCarrinhosPage({ user }) {
   const economia = maxTotal - minTotal;
   const mercadoMaisBarato = mercadosSelecionados.find((id) => totalFinalPorMercado[id] === minTotal);
   const mercadoMaisCaro = mercadosSelecionados.find((id) => totalFinalPorMercado[id] === maxTotal);
-  const mercadoMaisPertoObj = mercadosSelecionados.reduce(
-    (acc, id) => {
-      const d = mercadosProximos.find((m) => m.id === id)?.distance ?? Infinity;
-      return d < acc.dist ? { id, dist: d } : acc;
-    },
-    { id: null, dist: Infinity }
-  );
+  const mercadoMaisPertoObj = mercadosSelecionados.reduce((acc, id) => {
+    const d = mercadosProximos.find((m) => m.id === id)?.distance ?? Infinity;
+    return d < acc.dist ? { id, dist: d } : acc;
+  }, { id: null, dist: Infinity });
   const mercadoMaisPerto = mercadoMaisPertoObj.id;
 
   const mercadoForaDoRaio = (m) => (m.distance || 0) / 1000 > parseNum(raioAtendimentoKm);
   const todosMarcados = mercadosProximos.length > 0 && mercadosSelecionados.length === mercadosProximos.length;
-
   const toggleSelecionarTodos = () => {
     if (todosMarcados) setMercadosSelecionados([]);
     else {
       const next = mercadosProximos.map((m) => m.id);
       setMercadosSelecionados(next);
-      setTimeout(() => scrollToRef(refTabela), 80);
     }
   };
 
@@ -705,7 +656,6 @@ export default function CompararCarrinhosPage({ user }) {
 
   const fmt = (n) => `R$ ${Number(n || 0).toFixed(2).replace(".", ",")}`;
   const kmFmt = (m) => (m / 1000).toFixed(2);
-
   function etaMinutos(km) {
     const v = 25;
     return Math.ceil((km / v) * 60);
@@ -720,36 +670,6 @@ export default function CompararCarrinhosPage({ user }) {
     await push(ref(db, `usuarios/${userId}/alerts`), { item: itemName, threshold: th, criadoEm: Date.now() });
     setAlertasAtivos((prev) => ({ ...prev, [itemName]: th }));
     Swal.fire("Alerta criado", `Alertaremos quando "${itemName}" estiver por até ${fmt(th)}.`, "success");
-  }
-
-  async function repetirCarrinho() {
-    const c = carrinhoSelecionado;
-    if (!c) return;
-    const novo = {
-      criadoEm: Date.now(),
-      items: c.items,
-      mercadoNome: c.mercadoNome || "",
-      mercadoRua: c.mercadoRua || "",
-      mercadoEstado: c.mercadoEstado || "",
-      mercadoPais: c.mercadoPais || "",
-    };
-    const res = await push(ref(db, `usuarios/${userId}/carts`), novo);
-    Swal.fire("Carrinho criado", "Repetimos seu carrinho com sucesso.", "success");
-    const ids = [...new Set([...carrinhoIds, res.key])].join(",");
-    navigate(`/comparar-carrinhos?ids=${encodeURIComponent(ids)}&selected=${res.key}`);
-  }
-
-  async function criarCarrinhoSugestoes() {
-    if (!sugestoesRecompra.length) {
-      Swal.fire("Sem sugestões", "Não encontramos histórico para sugerir.", "info");
-      return;
-    }
-    const items = sugestoesRecompra.map((s) => ({ name: s.name, price: s.price || 0, qtd: 1 }));
-    const novo = { criadoEm: Date.now(), items };
-    const res = await push(ref(db, `usuarios/${userId}/carts`), novo);
-    Swal.fire("Carrinho criado", "Criamos um carrinho rápido com suas compras frequentes.", "success");
-    const ids = [...new Set([...carrinhoIds, res.key])].join(",");
-    navigate(`/comparar-carrinhos?ids=${encodeURIComponent(ids)}&selected=${res.key}`);
   }
 
   function handleChoose(prod, marketId) {
@@ -851,19 +771,9 @@ export default function CompararCarrinhosPage({ user }) {
         mercadoNome: mercadosProximos.find((m) => m.id === plan.chosen[it.name].marketId)?.nome || plan.chosen[it.name].marketId,
       }));
     const mercadosNomes = plan.mercadosInfo.map((m) => m.nome);
-    const pagamento =
-      payment.method === "card"
-        ? { method: "card", card: sanitizeCardForDB(payment.payload) }
-        : { method: "pix", pix: { type: payment.payload.type, keyMasked: maskPixKey(payment.payload.key) } };
+    const pagamento = payment.method === "card" ? { method: "card", card: sanitizeCardForDB(payment.payload) } : { method: "pix", pix: { type: payment.payload.type, keyMasked: maskPixKey(payment.payload.key) } };
     try {
-      await Swal.fire({
-        title: "Processando pagamento...",
-        html: "Aguarde alguns segundos.",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-        timer: 2000,
-        timerProgressBar: true,
-      });
+      await Swal.fire({ title: "Processando pagamento...", html: "Aguarde alguns segundos.", allowOutsideClick: false, didOpen: () => Swal.showLoading(), timer: 2000, timerProgressBar: true });
       const pedido = {
         multiMercado: true,
         mercados: plan.mercadosInfo,
@@ -887,14 +797,7 @@ export default function CompararCarrinhosPage({ user }) {
       await push(pRef, pedido);
       const cRef = ref(db, `usuarios/${userId}/carts/${carrinhoSelecionadoId}`);
       await update(cRef, { pedidoFeito: true, mercadosPersonalizados: mercadosNomes });
-      Swal.fire({
-        title: "Pedido Enviado!",
-        text: "Seu pedido personalizado foi enviado com sucesso.",
-        icon: "success",
-        showCancelButton: true,
-        confirmButtonText: "Ir para Pedidos",
-        cancelButtonText: "Fechar",
-      }).then((r) => {
+      Swal.fire({ title: "Pedido Enviado!", text: "Seu pedido personalizado foi enviado com sucesso.", icon: "success", showCancelButton: true, confirmButtonText: "Ir para Pedidos", cancelButtonText: "Fechar" }).then((r) => {
         if (r.isConfirmed) navigate("/pedidos");
       });
     } catch {
@@ -932,23 +835,55 @@ export default function CompararCarrinhosPage({ user }) {
     return null;
   })();
 
-  const getNextStepRef = () => {
-    if (!carrinhoSelecionadoId) return refCarrinho;
-    if (!mercadosSelecionados.length) return refMercados;
-    if (!(bestSingleOption || customPlan)) return refTabela;
-    if (!mostrarPedido) return refOpcoes;
-    return refPedido;
-  };
+  function goNext() {
+    const can = canProceed(stepIndex);
+    if (!can.ok) {
+      Swal.fire("Ação necessária", can.msg, "warning");
+      return;
+    }
+    if (stepIndex === 4) {
+      setMostrarPedido(true);
+      setStepIndex(5);
+      return;
+    }
+    setStepIndex((s) => Math.min(s + 1, steps.length - 1));
+  }
 
-  const handleNextStep = () => {
-    const r = getNextStepRef();
-    if (r) scrollToRef(r);
-  };
+  function goBack() {
+    if (stepIndex === 5) {
+      setMostrarPedido(false);
+    }
+    setStepIndex((s) => Math.max(s - 1, 0));
+  }
+
+  function canProceed(step) {
+    if (step === 0) {
+      if (!carrinhoSelecionadoId) return { ok: false, msg: "Selecione um carrinho." };
+      return { ok: true };
+    }
+    if (step === 1) {
+      if (!mercadosSelecionados.length) return { ok: false, msg: "Selecione pelo menos um mercado." };
+      return { ok: true };
+    }
+    if (step === 2) {
+      if (!Object.keys(precosFixos || {}).length) return { ok: false, msg: "Aguarde a geração de preços para a tabela." };
+      return { ok: true };
+    }
+    if (step === 3) {
+      if (!mercadosSelecionados.length) return { ok: false, msg: "Selecione mercados para ver totais." };
+      return { ok: true };
+    }
+    if (step === 4) {
+      if (!(bestSingleOption || customPlan)) return { ok: false, msg: "Defina uma opção de compra." };
+      return { ok: true };
+    }
+    return { ok: true };
+  }
 
   if (loading) return <div className="container mt-5" style={{ paddingTop: "90px" }}>Carregando comparação...</div>;
 
   return (
-    <div className="container mt-5" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
+    <div className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
       <style>{`
         .steps{display:flex;gap:.75rem;list-style:none;margin:0;padding:0}
         .step{flex:1;display:flex;align-items:center;gap:.5rem;font-weight:600;border:1px solid #e5e7eb;padding:.5rem .75rem;border-radius:12px;justify-content:center;background:#fff}
@@ -960,26 +895,23 @@ export default function CompararCarrinhosPage({ user }) {
         .ghost-btn{border:1px dashed #cbd5e1;background:#fff}
         .mobile-cta{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e5e7eb;padding:.6rem .9rem;z-index:1030;box-shadow:0 -6px 16px rgba(0,0,0,.06)}
         .comp-hint{font-size:.85rem;color:#64748b}
-        .comp-table th:first-child, .comp-table td:first-child{position:sticky;left:0;background:#fff;z-index:1}
-        @media (max-width: 576px){
-          .step span:not(.dot){display:none}
-          .step{padding:.35rem .5rem}
-          .step .dot{width:22px;height:22px}
-        }
-        @media (max-width: 991.98px){
-          .sticky-summary{display:none}
-        }
+        .comp-table th:first-child,.comp-table td:first-child{position:sticky;left:0;background:#fff;z-index:1}
+        @media (max-width: 576px){.step span:not(.dot){display:none}.step{padding:.35rem .5rem}.step .dot{width:22px;height:22px}}
+        @media (max-width: 991.98px){.sticky-summary{display:none}}
       `}</style>
 
       <div className="sticky-top" style={{ top: 70, zIndex: 1020 }}>
         <div className="card border-0 shadow-sm mb-3">
           <div className="card-body py-2">
             <ul className="steps">
-              <li className={`step ${carrinhoSelecionadoId ? "done" : "active"}`}><span className="dot">1</span><span>Carrinho</span></li>
-              <li className={`step ${mercadosSelecionados.length ? "done" : (carrinhoSelecionadoId ? "active" : "")}`}><span className="dot">2</span><span>Mercados</span></li>
-              <li className={`step ${Object.keys(precosFixos||{}).length ? "done" : (mercadosSelecionados.length ? "active" : "")}`}><span className="dot">3</span><span>Tabela</span></li>
-              <li className={`step ${(bestSingleOption || customPlan) ? "done" : (Object.keys(precosFixos||{}).length ? "active" : "")}`}><span className="dot">4</span><span>Opções</span></li>
-              <li className={`step ${mostrarPedido ? "active" : ""}`}><span className="dot">5</span><span>Pedido</span></li>
+              {steps.map((label, idx) => {
+                const cls = idx < stepIndex ? "step done" : idx === stepIndex ? "step active" : "step";
+                return (
+                  <li key={label} className={cls} onClick={() => setStepIndex(idx)} style={{ cursor: "pointer" }}>
+                    <span className="dot">{idx + 1}</span><span>{label}</span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
@@ -987,196 +919,172 @@ export default function CompararCarrinhosPage({ user }) {
 
       <div className="row">
         <div className="col-lg-8">
-          <div ref={refCarrinho}></div>
-          <h4 className="mb-4">Comparação de Carrinhos</h4>
-          <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>&larr; Voltar</button>
-
-          <div className="d-flex flex-wrap gap-2 mb-2">
-            <button className="btn btn-outline-success" onClick={repetirCarrinho}>Repetir carrinho selecionado</button>
-            <button className="btn btn-outline-primary" onClick={criarCarrinhoSugestoes}>Compre de novo (sugestões)</button>
-          </div>
-
-          <div className="alert alert-info d-flex flex-wrap align-items-center justify-content-between">
-            <div>Programa de Indicação: seu código amigo é <strong>{referralCode || "..."}</strong></div>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(referralCode);
-                  Swal.fire("Copiado", "Código de indicação copiado para a área de transferência.", "success");
-                } catch {}
-              }}
-            >
-              Copiar código
-            </button>
-          </div>
-
-          {carrinhos.length > 0 && (
-            <div className="mb-4">
-              <label className="form-label">Escolha o carrinho para comparar:</label>
-              <select
-                className="form-select mb-2"
-                value={carrinhoSelecionadoId}
-                onChange={(e) => {
-                  setCarrinhoSelecionadoId(e.target.value);
-                  setMostrarItens(false);
-                  setPrecosFixos({});
-                  setSelecionados({});
-                  setMercadosSelecionados([]);
-                  setMercadoSelecionadoPedido("");
-                  lastStepScrolled.current = "";
-                }}
-              >
-                {carrinhos.map((c, i) => (
-                  <option key={c.id} value={c.id}>
-                    Carrinho #{i + 1} - {new Date(c.criadoEm).toLocaleString()}
-                    {c.pedidoFeito ? " (pedido já feito)" : ""}
-                  </option>
-                ))}
-              </select>
-              <div className="d-flex gap-2">
-                <button className="btn btn-outline-primary" onClick={() => setMostrarItens(!mostrarItens)}>{mostrarItens ? "Ocultar Itens" : "Exibir Itens"}</button>
-                <button className="btn btn-primary" onClick={() => scrollToRef(refMercados)}>Ir para mercados</button>
+          {stepIndex === 0 && (
+            <>
+              <h4 className="mb-4">Comparação de Carrinhos</h4>
+              <div className="alert alert-info d-flex flex-wrap align-items-center justify-content-between">
+                <div>Programa de Indicação: seu código amigo é <strong>{referralCode || "..."}</strong></div>
+                <button className="btn btn-sm btn-outline-secondary" onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(referralCode);
+                    Swal.fire("Copiado", "Código de indicação copiado para a área de transferência.", "success");
+                  } catch { }
+                }}>Copiar código</button>
               </div>
-            </div>
-          )}
 
-          {mostrarItens && carrinhoSelecionado && (
-            <div className="card mb-4">
-              <div className="card-body">
-                <h5 className="card-title">Itens do Carrinho Selecionado</h5>
-                <ul className="list-group">
-                  {carrinhoSelecionado.items.map((item, idx) => (
-                    <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
-                      <div className="me-2">
-                        {(item.qtd || item.quantidade || 1)}x {item.name}
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="form-control form-control-sm"
-                          style={{ width: 110 }}
-                          placeholder="Alerta R$"
-                          onBlur={(e) => {
-                            const v = e.target.value;
-                            if (v) criarAlerta(item.name, v);
-                          }}
-                        />
-                        <span className="badge bg-secondary">{fmt((item.price * (item.qtd || item.quantidade || 1)))}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <strong className="d-block mt-2">Total: {fmt(totalSelecionado)}</strong>
-              </div>
-            </div>
-          )}
-
-          <div ref={refMercados}></div>
-          <div className="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
-            {mercadoMaisPerto && (
-              <span><strong>Mais perto:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} ({kmFmt(mercadoMaisPertoObj.dist)} km)</span>
-            )}
-            {mercadoMaisBarato && (
-              <span><strong>Mais barato:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} ({fmt(minTotal)})</span>
-            )}
-          </div>
-
-          <div className="mb-4 p-4 bg-light rounded shadow-sm">
-            <h5 className="mb-3">Comparar preços por mercado</h5>
-
-            <div className="row g-2 mb-3">
-              <div className="col-6 col-md-3">
-                <input type="text" className="form-control" placeholder="Cupom" value={cupomCodigo} onChange={(e) => { setCupomCodigo(e.target.value); setSelecionados({}); }} />
-              </div>
-              <div className="col-6 col-md-3">
-                <select className="form-select" value={cupomTipo} onChange={(e) => { setCupomTipo(e.target.value); setSelecionados({}); }}>
-                  <option value="percentual">Percentual (%)</option>
-                  <option value="fixo">Valor fixo (R$)</option>
-                </select>
-              </div>
-              <div className="col-6 col-md-3">
-                <div className="input-group">
-                  <span className="input-group-text">{cupomTipo === "percentual" ? "%" : "R$"}</span>
-                  <input type="number" step="0.01" className="form-control" value={cupomValor} onChange={(e) => { setCupomValor(e.target.value); setSelecionados({}); }} />
-                </div>
-              </div>
-              <div className="col-6 col-md-3 d-flex align-items-center justify-content-end">
-                <button
-                  className="btn btn-success w-100 w-md-auto"
-                  onClick={async () => {
-                    if (userLat != null && userLon != null) {
-                      const n = await fetchNearbyMarkets(userLat, userLon);
-                      setMercadosProximos(n);
-                      setMercadosSelecionados([]);
+              {carrinhos.length > 0 && (
+                <div className="mb-4" ref={refCarrinho}>
+                  <label className="form-label">Escolha o carrinho para comparar:</label>
+                  <select
+                    className="form-select mb-2"
+                    value={carrinhoSelecionadoId}
+                    onChange={(e) => {
+                      setCarrinhoSelecionadoId(e.target.value);
+                      setMostrarItens(false);
                       setPrecosFixos({});
                       setSelecionados({});
-                      setTimeout(() => scrollToRef(refMercados), 80);
-                    }
-                  }}
-                >
-                  Atualizar Mercados Próximos
-                </button>
-              </div>
-            </div>
+                      setMercadosSelecionados([]);
+                      setMercadoSelecionadoPedido("");
+                    }}
+                  >
+                    {carrinhos.map((c, i) => (
+                      <option key={c.id} value={c.id}>
+                        {`Carrinho #${i + 1} - ${new Date(c.criadoEm).toLocaleString()}`} {c.pedidoFeito ? " (pedido já feito)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="d-flex gap-2">
+                    <button className="btn btn-outline-primary" onClick={() => setMostrarItens(!mostrarItens)}>{mostrarItens ? "Ocultar Itens" : "Exibir Itens"}</button>
+                  </div>
+                </div>
+              )}
 
-            <div className="row g-2 mb-3">
-              <div className="col-12 col-md-6">
-                <div className="btn-group w-100">
-                  <button className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`} onClick={() => setOrdenarPor("distancia")}>Ordenar por Distância</button>
-                  <button className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`} onClick={() => setOrdenarPor("preco")}>Ordenar por Preço Total</button>
+              {mostrarItens && carrinhoSelecionado && (
+                <div className="card mb-4">
+                  <div className="card-body">
+                    <h5 className="card-title">Itens do Carrinho Selecionado</h5>
+                    <ul className="list-group">
+                      {carrinhoSelecionado.items.map((item, idx) => (
+                        <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
+                          <div className="me-2">{(item.qtd || item.quantidade || 1)}x {item.name}</div>
+                          <div className="d-flex align-items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="form-control form-control-sm"
+                              style={{ width: 110 }}
+                              placeholder="Alerta R$"
+                              onBlur={(e) => {
+                                const v = e.target.value;
+                                if (v) criarAlerta(item.name, v);
+                              }}
+                            />
+                            <span className="badge bg-secondary">{fmt(item.price * (item.qtd || item.quantidade || 1))}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <strong className="d-block mt-2">Total: {fmt(totalSelecionado)}</strong>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {stepIndex === 1 && (
+            <div className="mb-4 p-4 bg-light rounded shadow-sm" ref={refMercados}>
+              <h5 className="mb-3">Comparar preços por mercado</h5>
+              <div className="row g-2 mb-3">
+                <div className="col-6 col-md-3 d-none">
+                  <input type="text" className="form-control" placeholder="Cupom" value={cupomCodigo} onChange={(e) => { setCupomCodigo(e.target.value); setSelecionados({}); }} />
+                </div>
+                <div className="col-6 col-md-3 d-none">
+                  <select className="form-select" value={cupomTipo} onChange={(e) => { setCupomTipo(e.target.value); setSelecionados({}); }}>
+                    <option value="percentual">Percentual (%)</option>
+                    <option value="fixo">Valor fixo (R$)</option>
+                  </select>
+                </div>
+                <div className="col-6 col-md-3 d-none">
+                  <div className="input-group">
+                    <span className="input-group-text">{cupomTipo === "percentual" ? "%" : "R$"}</span>
+                    <input type="number" step="0.01" className="form-control" value={cupomValor} onChange={(e) => { setCupomValor(e.target.value); setSelecionados({}); }} />
+                  </div>
+                </div>
+                <div className="col-6 col-md-3 d-flex align-items-center justify-content-end d-none">
+                  <button
+                    className="btn btn-success w-100 w-md-auto"
+                    onClick={async () => {
+                      if (userLat != null && userLon != null) {
+                        const n = await fetchNearbyMarkets(userLat, userLon);
+                        setMercadosProximos(n);
+                        setMercadosSelecionados([]);
+                        setPrecosFixos({});
+                        setSelecionados({});
+                      }
+                    }}
+                  >
+                    Atualizar Mercados Próximos
+                  </button>
                 </div>
               </div>
-              <div className="col-12 col-md-6 text-end">
-                <button className="btn btn-outline-dark w-100 w-md-auto" onClick={() => setSelecionados({})}>Limpar escolhas</button>
-              </div>
-            </div>
 
-            {mercadosProximos.length > 0 && (
-              <>
-                <div className="form-check mb-2">
-                  <input type="checkbox" className="form-check-input" id="check-todos" checked={todosMarcados} onChange={toggleSelecionarTodos} />
-                  <label className="form-check-label" htmlFor="check-todos">Selecionar todos</label>
+              <div className="row g-2 mb-3">
+                <div className="col-12 col-md-6">
+                  <div className="btn-group w-100">
+                    <button className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`} onClick={() => setOrdenarPor("distancia")}>Ordenar por Distância</button>
+                    <button className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`} onClick={() => setOrdenarPor("preco")}>Ordenar por Preço Total</button>
+                  </div>
                 </div>
+                <div className="col-12 col-md-6 text-end">
+                  <button className="btn btn-outline-dark w-100 w-md-auto" onClick={() => setSelecionados({})}>Limpar escolhas</button>
+                </div>
+              </div>
 
-                <p className="text-muted fw-semibold mb-2">Selecione os mercados para comparar:</p>
-                <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-                  {mercadosOrdenados.map((m) => {
-                    const fora = mercadoForaDoRaio(m);
-                    return (
-                      <div key={m.id} className="col">
-                        <div className={`form-check border rounded px-3 py-2 h-100 d-flex align-items-center ${fora ? "bg-warning-subtle" : ""}`} style={{ userSelect: "none" }}>
-                          <input
-                            className="form-check-input me-2"
-                            type="checkbox"
-                            id={`mercado-${m.id}`}
-                            checked={mercadosSelecionados.includes(m.id)}
-                            onChange={() => {
-                              setSelecionados({});
-                              setMercadosSelecionados((prev) => {
-                                const next = prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id];
-                                if (prev.length === 0 && next.length > 0) setTimeout(() => scrollToRef(refTabela), 80);
-                                return next;
-                              });
-                            }}
-                          />
-                          <label className="form-check-label mb-0 d-flex justify-content-between w-100" htmlFor={`mercado-${m.id}`}>
-                            <span>{m.nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
-                            <small className="text-muted ms-2">{kmFmt(m.distance)} km</small>
-                          </label>
+              <div className="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
+                <span><strong>Mais perto:</strong> {mercadoMaisPerto ? `${mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} (${kmFmt(mercadoMaisPertoObj.dist)} km)` : "-"}</span>
+                <span><strong>Mais barato:</strong> {mercadoMaisBarato ? `${mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} (${fmt(minTotal)})` : "-"}</span>
+              </div>
+
+              {mercadosProximos.length > 0 && (
+                <>
+                  <div className="form-check mb-2">
+                    <input type="checkbox" className="form-check-input" id="check-todos" checked={todosMarcados} onChange={toggleSelecionarTodos} />
+                    <label className="form-check-label" htmlFor="check-todos">Selecionar todos</label>
+                  </div>
+                  <p className="text-muted fw-semibold mb-2">Selecione os mercados para comparar:</p>
+                  <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                    {mercadosOrdenados.map((m) => {
+                      const fora = mercadoForaDoRaio(m);
+                      return (
+                        <div key={m.id} className="col">
+                          <div className={`form-check border rounded px-3 py-2 h-100 d-flex align-items-center ${fora ? "bg-warning-subtle" : ""}`} style={{ userSelect: "none" }}>
+                            <input
+                              className="form-check-input me-2"
+                              type="checkbox"
+                              id={`mercado-${m.id}`}
+                              checked={mercadosSelecionados.includes(m.id)}
+                              onChange={() => {
+                                setSelecionados({});
+                                setMercadosSelecionados((prev) => prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id]);
+                              }}
+                            />
+                            <label className="form-check-label mb-0 d-flex justify-content-between w-100" htmlFor={`mercado-${m.id}`}>
+                              <span>{m.nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
+                              <small className="text-muted ms-2">{kmFmt(m.distance)} km</small>
+                            </label>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
-          {mercadosSelecionados.length > 0 && (
-            <div className="mt-5" ref={refTabela}>
+          {stepIndex === 2 && (
+            <div className="mt-2" ref={refTabela}>
               <h5 className="mb-2">Comparativo de Preços</h5>
               <div className="comp-hint mb-2">Dica: no celular, arraste a tabela lateralmente.</div>
               <div className="table-responsive">
@@ -1219,277 +1127,261 @@ export default function CompararCarrinhosPage({ user }) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
 
-              <div ref={refOpcoes}></div>
-              <div className="mt-4">
-                <h6>Totais por Mercado (1 mercado):</h6>
-                <ul className="list-group mb-3">
-                  {mercadosSelecionadosOrdenados.map((id) => {
-                    const m = mercadosProximos.find((x) => x.id === id);
-                    const fora = m ? mercadoForaDoRaio(m) : false;
-                    const nome = m?.nome || id;
-                    const sub = totalPorMercado[id] || 0;
-                    const desc = descontoPorMercado[id] || 0;
-                    const frete = fretePorMercado[id] || 0;
-                    const total = totalFinalPorMercado[id] || 0;
-                    const low = id === mercadoMaisBarato;
-                    const high = id === mercadoMaisCaro;
-                    const near = id === mercadoMaisPerto;
-                    return (
-                      <li key={id} className={`list-group-item d-flex justify-content-between align-items-center ${low ? "list-group-item-success" : ""} ${high ? "list-group-item-danger" : ""}`}>
-                        <span>{nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
-                        <span className="text-end">
-                          <div><small>Subtotal: {fmt(sub)}</small></div>
-                          <div><small>Desconto: -{fmt(desc)}</small></div>
-                          {incluirFrete && <div><small>Frete: +{fmt(frete)}</small></div>}
-                          <strong>Total: {fmt(total)}</strong>
-                          {low && <span className="badge bg-success ms-2">Mais barato</span>}
-                          {high && <span className="badge bg-danger ms-2">Mais caro</span>}
-                          {near && <span className="badge bg-info ms-2">Mais perto</span>}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+          {stepIndex === 3 && (
+            <div className="mt-4">
+              <h6>Totais por Mercado (1 mercado):</h6>
+              <ul className="list-group mb-3">
+                {mercadosSelecionadosOrdenados.map((id) => {
+                  const m = mercadosProximos.find((x) => x.id === id);
+                  const fora = m ? mercadoForaDoRaio(m) : false;
+                  const nome = m?.nome || id;
+                  const sub = totalPorMercado[id] || 0;
+                  const desc = descontoPorMercado[id] || 0;
+                  const frete = fretePorMercado[id] || 0;
+                  const total = totalFinalPorMercado[id] || 0;
+                  const low = id === mercadoMaisBarato;
+                  const high = id === mercadoMaisCaro;
+                  const near = id === mercadoMaisPerto;
+                  return (
+                    <li key={id} className={`list-group-item d-flex justify-content-between align-items-center ${low ? "list-group-item-success" : ""} ${high ? "list-group-item-danger" : ""}`}>
+                      <span>{nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
+                      <span className="text-end">
+                        <div><small>Subtotal: {fmt(sub)}</small></div>
+                        <div><small>Desconto: -{fmt(desc)}</small></div>
+                        {incluirFrete && <div><small>Frete: +{fmt(frete)}</small></div>}
+                        <strong>Total: {fmt(total)}</strong>
+                        {low && <span className="badge bg-success ms-2">Mais barato</span>}
+                        {high && <span className="badge bg-danger ms-2">Mais caro</span>}
+                        {near && <span className="badge bg-info ms-2">Mais perto</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
-                <div className="row g-3 mb-4">
-                  <div className="col-md-6">
-                    <div className={`card h-100 border-0 shadow-sm ${recommended === "normal" ? "border border-success" : ""}`}>
-                      <div className="card-body">
-                        <h6 className="mb-2">Opção 1 — Compra normal (1 mercado)</h6>
-                        {bestSingleOption ? (
-                          <>
-                            <div className="mb-1"><strong>Mercado:</strong> {bestSingleOption.nome}</div>
-                            <div className="mb-1"><small>Subtotal: {fmt(bestSingleOption.sub)}</small></div>
-                            <div className="mb-1"><small>Desconto: -{fmt(bestSingleOption.desc)}</small></div>
-                            {incluirFrete && <div className="mb-1"><small>Frete: +{fmt(bestSingleOption.frete)}</small></div>}
-                            <div className="fs-5"><strong>Total:</strong> {fmt(bestSingleOption.tot)}</div>
-                            <button
-                              className="btn btn-primary mt-2"
-                              onClick={() => {
-                                setMercadoSelecionadoPedido(bestSingleOption.id);
-                                setMostrarPedido(true);
-                                setTimeout(() => scrollToRef(refPedido), 80);
-                              }}
-                            >
-                              Continuar compra normal
-                            </button>
-                          </>
-                        ) : (
-                          <div>Selecione mercados para calcular.</div>
-                        )}
-                      </div>
+          {stepIndex === 4 && (
+            <div className="mt-2" ref={refOpcoes}>
+              <div className="row g-3 mb-4">
+                <div className="col-md-6">
+                  <div className={`card h-100 border-0 shadow-sm ${recommended === "normal" ? "border border-success" : ""}`}>
+                    <div className="card-body">
+                      <h6 className="mb-2">Opção 1 — Compra normal (1 mercado)</h6>
+                      {bestSingleOption ? (
+                        <>
+                          <div className="mb-1"><strong>Mercado:</strong> {bestSingleOption.nome}</div>
+                          <div className="mb-1"><small>Subtotal: {fmt(bestSingleOption.sub)}</small></div>
+                          <div className="mb-1"><small>Desconto: -{fmt(bestSingleOption.desc)}</small></div>
+                          {incluirFrete && <div className="mb-1"><small>Frete: +{fmt(bestSingleOption.frete)}</small></div>}
+                          <div className="fs-5"><strong>Total:</strong> {fmt(bestSingleOption.tot)}</div>
+                          <button
+                            className="btn btn-primary mt-2"
+                            onClick={() => {
+                              setMercadoSelecionadoPedido(bestSingleOption.id);
+                              setMostrarPedido(true);
+                              setStepIndex(5);
+                            }}
+                          >
+                            Continuar compra normal
+                          </button>
+                        </>
+                      ) : (
+                        <div>Selecione mercados para calcular.</div>
+                      )}
                     </div>
                   </div>
-                  <div className="col-md-6">
-                    <div className={`card h-100 border-0 shadow-sm ${recommended === "personalizado" ? "border border-success" : ""}`}>
-                      <div className="card-body">
-                        <h6 className="mb-2">Opção 2 — Pedido personalizado (multi-mercados)</h6>
-                        {customPlan ? (
-                          <>
-                            <div className="mb-1"><strong>Mercados:</strong> {customPlan.mercadosInfo.map((m) => m.nome).join(" → ")}</div>
-                            <div className="mb-1"><small>Distância da rota: {customPlan.routeKm.toFixed(2)} km</small></div>
-                            <div className="mb-1"><small>Paradas: {Math.max(0, customPlan.markets.length - 1)} (+{((customPlan.multiStopFactor - 1) * 100).toFixed(0)}% no frete)</small></div>
-                            <div className="mb-1"><small>Subtotal: {fmt(customPlan.subtotal)}</small></div>
-                            <div className="mb-1"><small>Desconto: -{fmt(customPlan.desconto)}</small></div>
-                            {incluirFrete && <div className="mb-1"><small>Frete da rota: +{fmt(customPlan.freteRota)}</small></div>}
-                            <div className="fs-5"><strong>Total:</strong> {fmt(customPlan.total)}</div>
-                            {bestSingleOption && <div className="mt-1"><small>Economia vs normal: <strong className={customPlan.total < bestSingleOption.tot ? "text-success" : "text-danger"}>{fmt(bestSingleOption.tot - customPlan.total)}</strong></small></div>}
-                            <div className="mt-3">
-                              <label className="form-label">Janela de entrega</label>
-                              <select className="form-select mb-2" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
-                                <option value="">Selecionar horário</option>
-                                {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
-                              </select>
-                              <div className="row g-2">
-                                <div className="col-12 col-md-4"><input type="text" className="form-control" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} /></div>
-                                <div className="col-12 col-md-5"><input type="text" className="form-control" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} /></div>
-                                <div className="col-12 col-md-3"><input type="text" className="form-control" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} /></div>
-                              </div>
-                              <button className="btn btn-warning fw-bold mt-2" onClick={() => confirmarPersonalizado(customPlan)}>Confirmar pedido personalizado</button>
+                </div>
+                <div className="col-md-6">
+                  <div className={`card h-100 border-0 shadow-sm ${recommended === "personalizado" ? "border border-success" : ""}`}>
+                    <div className="card-body">
+                      <h6 className="mb-2">Opção 2 — Pedido personalizado (multi-mercados)</h6>
+                      {customPlan ? (
+                        <>
+                          <div className="mb-1"><strong>Mercados:</strong> {customPlan.mercadosInfo.map((m) => m.nome).join(" → ")}</div>
+                          <div className="mb-1"><small>Distância da rota: {customPlan.routeKm.toFixed(2)} km</small></div>
+                          <div className="mb-1"><small>Paradas: {Math.max(0, customPlan.markets.length - 1)} (+{((customPlan.multiStopFactor - 1) * 100).toFixed(0)}% no frete)</small></div>
+                          <div className="mb-1"><small>Subtotal: {fmt(customPlan.subtotal)}</small></div>
+                          <div className="mb-1"><small>Desconto: -{fmt(customPlan.desconto)}</small></div>
+                          {incluirFrete && <div className="mb-1"><small>Frete da rota: +{fmt(customPlan.freteRota)}</small></div>}
+                          <div className="fs-5"><strong>Total:</strong> {fmt(customPlan.total)}</div>
+                          {bestSingleOption && <div className="mt-1"><small>Economia vs normal: <strong className={customPlan.total < bestSingleOption.tot ? "text-success" : "text-danger"}>{fmt(bestSingleOption.tot - customPlan.total)}</strong></small></div>}
+                          <div className="mt-3">
+                            <label className="form-label">Janela de entrega</label>
+                            <select className="form-select mb-2" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
+                              <option value="">Selecionar horário</option>
+                              {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            <div className="row g-2">
+                              <div className="col-12 col-md-4"><input type="text" className="form-control" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} /></div>
+                              <div className="col-12 col-md-5"><input type="text" className="form-control" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} /></div>
+                              <div className="col-12 col-md-3"><input type="text" className="form-control" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} /></div>
                             </div>
-                          </>
-                        ) : (
-                          <div>Escolha mercados e clique nas células da tabela para montar seu pedido por produto.</div>
-                        )}
-                      </div>
+                            <button className="btn btn-warning fw-bold mt-2" onClick={() => confirmarPersonalizado(customPlan)}>Confirmar pedido personalizado</button>
+                          </div>
+                        </>
+                      ) : (
+                        <div>Escolha mercados e clique nas células da tabela para montar seu pedido por produto.</div>
+                      )}
                     </div>
                   </div>
                 </div>
-
-                <div className="d-flex gap-2">
-                  <button className="btn btn-primary mt-3 mb-3" onClick={() => { setMostrarPedido(true); setTimeout(() => scrollToRef(refPedido), 80); }}>Fazer Pedido (normal)</button>
-                  <button className="btn ghost-btn mt-3 mb-3" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Voltar ao topo</button>
-                </div>
-
-                {mostrarPedido && (
-                  <div className="mt-3" ref={refPedido}>
-                    <div className="row g-2">
-                      <div className="col-12 col-md-4">
-                        <div className="form-check form-switch mb-3">
-                          <input className="form-check-input" type="checkbox" id="retiradaSwitch" checked={retirarNaLoja} onChange={() => setRetirarNaLoja(!retirarNaLoja)} />
-                          <label className="form-check-label" htmlFor="retiradaSwitch">Retirar na loja</label>
-                        </div>
-                      </div>
-                      <div className="col-12 col-md-4">
-                        <label className="form-label">Janela de entrega</label>
-                        <select className="form-select" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
-                          <option value="">Selecionar horário</option>
-                          {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div className="col-12 col-md-4 d-flex align-items-end">
-                        <span className="text-muted">
-                          {mercadoSelecionadoPedido && (() => {
-                            const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
-                            const km = (mSel?.distance || 0) / 1000;
-                            const eta = etaMinutos(km);
-                            return janelaEntrega ? `ETA após o início da janela: ~${eta} min` : "";
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {!retirarNaLoja && (
-                      <>
-                        <label className="form-label">Endereço para entrega:</label>
-                        <input type="text" className="form-control mb-2" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} />
-                        <input type="text" className="form-control mb-3" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} />
-                        <input type="text" className="form-control mb-3" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
-                      </>
-                    )}
-
-                    <label className="form-label mb-3">Escolha o Mercado:</label>
-                    <select className="form-select mb-2" value={mercadoSelecionadoPedido} onChange={(e) => setMercadoSelecionadoPedido(e.target.value)}>
-                      <option value="">Selecione...</option>
-                      {mercadosSelecionadosOrdenados.slice(0, 15).map((id) => {
-                        const m = mercadosProximos.find((x) => x.id === id);
-                        const nome = m?.nome || id;
-                        const sub = totalPorMercado[id] || 0;
-                        const descBase = calcDesconto(sub, retirarNaLoja);
-                        const km = (m?.distance || 0) / 1000;
-                        const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
-                        const tot = Math.max(0, sub - descBase) + fretePedido;
-                        const diff = tot - Math.min(...mercadosSelecionados.map((mid) => {
-                          const mm = mercadosProximos.find((x) => x.id === mid);
-                          const ssub = totalPorMercado[mid] || 0;
-                          const sdesc = calcDesconto(ssub, retirarNaLoja);
-                          const skm = (mm?.distance || 0) / 1000;
-                          const sfrete = retirarNaLoja ? 0 : calcFrete(skm);
-                          return Math.max(0, ssub - sdesc) + sfrete;
-                        }));
-                        const fora = m ? mercadoForaDoRaio(m) : false;
-                        const txt = diff === 0 ? `→ Mais barato (economize até ${fmt(economia)})` : `(+ ${fmt(diff)})`;
-                        return (
-                          <option key={id} value={id} disabled={fora && !retirarNaLoja}>
-                            {nome} - {fmt(tot)} {fora && !retirarNaLoja ? "(fora do raio)" : txt}
-                          </option>
-                        );
-                      })}
-                    </select>
-
-                    {enderecoLoja && (
-                      <p className="text-muted mb-3"><small><strong>Endereço da loja:</strong> {enderecoLoja}</small></p>
-                    )}
-
-                    <button
-                      className="btn btn-success mt-3 mb-4"
-                      onClick={async () => {
-                        if (!retirarNaLoja && (!cep || !ruaCompleta || !numero)) {
-                          Swal.fire("Campos obrigatórios", "Preencha o endereço completo antes de fazer o pedido.", "warning");
-                          return;
-                        }
-                        if (!mercadoSelecionadoPedido) {
-                          Swal.fire("Escolha o mercado", "Selecione o mercado para finalizar.", "warning");
-                          return;
-                        }
-                        if (!janelaEntrega) {
-                          Swal.fire("Horário de entrega", "Escolha a janela de entrega.", "warning");
-                          return;
-                        }
-                        const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
-                        if (mSel && mercadoForaDoRaio(mSel) && !retirarNaLoja) {
-                          Swal.fire("Fora do raio", "Este mercado está fora do raio de atendimento.", "warning");
-                          return;
-                        }
-                        const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
-                        const desc = calcDesconto(sub, retirarNaLoja);
-                        const km = (mSel?.distance || 0) / 1000;
-                        const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
-                        const tot = Math.max(0, sub - desc) + fretePedido;
-                        const totalBRL = fmt(tot);
-                        const payment = await askPayment(totalBRL, "");
-                        if (!payment) return;
-                        if (payment?.method === "card" && payment.payload) payment.payload.cvv = "";
-                        const nome = mSel?.nome || mercadoSelecionadoPedido;
-                        const itens = carrinhoSelecionado.items.map((item) => ({
-                          nome: item.name,
-                          preco: precosFixos[item.name]?.[mercadoSelecionadoPedido] || item.price,
-                          qtd: item.qtd || item.quantidade || 1,
-                        }));
-                        const paymentForDB =
-                          payment.method === "card"
-                            ? { method: "card", card: sanitizeCardForDB(payment.payload) }
-                            : { method: "pix", pix: { type: payment.payload.type, keyMasked: maskPixKey(payment.payload.key) } };
-                        try {
-                          await Swal.fire({
-                            title: "Processando pagamento...",
-                            html: "Aguarde alguns segundos.",
-                            allowOutsideClick: false,
-                            didOpen: () => Swal.showLoading(),
-                            timer: 2000,
-                            timerProgressBar: true,
-                          });
-                          const pedido = {
-                            mercadoId: mercadoSelecionadoPedido,
-                            mercadoNome: nome,
-                            total: tot,
-                            descontoCupom: desc,
-                            cupom: cupomCodigo || null,
-                            frete: fretePedido,
-                            janelaEntrega,
-                            etaMin: etaMinutos(km),
-                            dataHora: new Date().toISOString(),
-                            carrinhoId: carrinhoSelecionadoId,
-                            retiradaEmLoja: retirarNaLoja,
-                            endereco: retirarNaLoja ? null : { cep, rua: ruaCompleta, numero },
-                            lojaEndereco: enderecoLoja,
-                            itens,
-                            pagamento: paymentForDB,
-                          };
-                          const pRef = ref(db, `usuarios/${userId}/pedidos`);
-                          await push(pRef, pedido);
-                          const cRef = ref(db, `usuarios/${userId}/carts/${carrinhoSelecionadoId}`);
-                          await update(cRef, { pedidoFeito: true });
-                          Swal.fire({
-                            title: "Pedido Enviado!",
-                            text: `Seu pedido para o mercado ${nome} foi enviado com sucesso.`,
-                            icon: "success",
-                            showCancelButton: true,
-                            confirmButtonText: "Ir para Pedidos",
-                            cancelButtonText: "Fechar",
-                          }).then((r) => {
-                            if (r.isConfirmed) navigate("/pedidos");
-                          });
-                        } catch {
-                          Swal.fire("Erro", "Não foi possível salvar o pedido.", "error");
-                        }
-                      }}
-                    >
-                      Confirmar Pedido
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
-          {sugestoesRecompra.length > 0 && (
+          {stepIndex === 5 && mostrarPedido && (
+            <div className="mt-3" ref={refPedido}>
+              <div className="row g-2">
+                <div className="col-12 col-md-4">
+                  <div className="form-check form-switch mb-3">
+                    <input className="form-check-input" type="checkbox" id="retiradaSwitch" checked={retirarNaLoja} onChange={() => setRetirarNaLoja(!retirarNaLoja)} />
+                    <label className="form-check-label" htmlFor="retiradaSwitch">Retirar na loja</label>
+                  </div>
+                </div>
+                <div className="col-12 col-md-4">
+                  <label className="form-label">Janela de entrega</label>
+                  <select className="form-select" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
+                    <option value="">Selecionar horário</option>
+                    {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="col-12 col-md-4 d-flex align-items-end">
+                  <span className="text-muted">
+                    {mercadoSelecionadoPedido && (() => {
+                      const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
+                      const km = (mSel?.distance || 0) / 1000;
+                      const eta = etaMinutos(km);
+                      return janelaEntrega ? `ETA após o início da janela: ~${eta} min` : "";
+                    })()}
+                  </span>
+                </div>
+              </div>
+
+              {!retirarNaLoja && (
+                <>
+                  <label className="form-label">Endereço para entrega:</label>
+                  <input type="text" className="form-control mb-2" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} />
+                  <input type="text" className="form-control mb-3" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} />
+                  <input type="text" className="form-control mb-3" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
+                </>
+              )}
+
+              <label className="form-label mb-3">Escolha o Mercado:</label>
+              <select className="form-select mb-2" value={mercadoSelecionadoPedido} onChange={(e) => setMercadoSelecionadoPedido(e.target.value)}>
+                <option value="">Selecione...</option>
+                {mercadosSelecionadosOrdenados.slice(0, 15).map((id) => {
+                  const m = mercadosProximos.find((x) => x.id === id);
+                  const nome = m?.nome || id;
+                  const sub = totalPorMercado[id] || 0;
+                  const descBase = calcDesconto(sub, retirarNaLoja);
+                  const km = (m?.distance || 0) / 1000;
+                  const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
+                  const tot = Math.max(0, sub - descBase) + fretePedido;
+                  const diff = tot - Math.min(...mercadosSelecionados.map((mid) => {
+                    const mm = mercadosProximos.find((x) => x.id === mid);
+                    const ssub = totalPorMercado[mid] || 0;
+                    const sdesc = calcDesconto(ssub, retirarNaLoja);
+                    const skm = (mm?.distance || 0) / 1000;
+                    const sfrete = retirarNaLoja ? 0 : calcFrete(skm);
+                    return Math.max(0, ssub - sdesc) + sfrete;
+                  }));
+                  const fora = m ? mercadoForaDoRaio(m) : false;
+                  const txt = diff === 0 ? `→ Mais barato (economize até ${fmt(economia)})` : `(+ ${fmt(diff)})`;
+                  return (
+                    <option key={id} value={id} disabled={fora && !retirarNaLoja}>
+                      {nome} - {fmt(tot)} {fora && !retirarNaLoja ? "(fora do raio)" : txt}
+                    </option>
+                  );
+                })}
+              </select>
+
+              {enderecoLoja && <p className="text-muted mb-3"><small><strong>Endereço da loja:</strong> {enderecoLoja}</small></p>}
+
+              <button
+                className="btn btn-success mt-3 mb-4"
+                onClick={async () => {
+                  if (!retirarNaLoja && (!cep || !ruaCompleta || !numero)) {
+                    Swal.fire("Campos obrigatórios", "Preencha o endereço completo antes de fazer o pedido.", "warning");
+                    return;
+                  }
+                  if (!mercadoSelecionadoPedido) {
+                    Swal.fire("Escolha o mercado", "Selecione o mercado para finalizar.", "warning");
+                    return;
+                  }
+                  if (!janelaEntrega) {
+                    Swal.fire("Horário de entrega", "Escolha a janela de entrega.", "warning");
+                    return;
+                  }
+                  const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
+                  if (mSel && mercadoForaDoRaio(mSel) && !retirarNaLoja) {
+                    Swal.fire("Fora do raio", "Este mercado está fora do raio de atendimento.", "warning");
+                    return;
+                  }
+                  const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
+                  const desc = calcDesconto(sub, retirarNaLoja);
+                  const km = (mSel?.distance || 0) / 1000;
+                  const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
+                  const tot = Math.max(0, sub - desc) + fretePedido;
+                  const totalBRL = fmt(tot);
+                  const payment = await askPayment(totalBRL, "");
+                  if (!payment) return;
+                  if (payment?.method === "card" && payment.payload) payment.payload.cvv = "";
+                  const nome = mSel?.nome || mercadoSelecionadoPedido;
+                  const itens = carrinhoSelecionado.items.map((item) => ({
+                    nome: item.name,
+                    preco: precosFixos[item.name]?.[mercadoSelecionadoPedido] || item.price,
+                    qtd: item.qtd || item.quantidade || 1,
+                  }));
+                  const paymentForDB = payment.method === "card" ? { method: "card", card: sanitizeCardForDB(payment.payload) } : { method: "pix", pix: { type: payment.payload.type, keyMasked: maskPixKey(payment.payload.key) } };
+                  try {
+                    await Swal.fire({ title: "Processando pagamento...", html: "Aguarde alguns segundos.", allowOutsideClick: false, didOpen: () => Swal.showLoading(), timer: 2000, timerProgressBar: true });
+                    const pedido = {
+                      mercadoId: mercadoSelecionadoPedido,
+                      mercadoNome: nome,
+                      total: tot,
+                      descontoCupom: desc,
+                      cupom: cupomCodigo || null,
+                      frete: fretePedido,
+                      janelaEntrega,
+                      etaMin: etaMinutos(km),
+                      dataHora: new Date().toISOString(),
+                      carrinhoId: carrinhoSelecionadoId,
+                      retiradaEmLoja: retirarNaLoja,
+                      endereco: retirarNaLoja ? null : { cep, rua: ruaCompleta, numero },
+                      lojaEndereco: enderecoLoja,
+                      itens,
+                      pagamento: paymentForDB,
+                    };
+                    const pRef = ref(db, `usuarios/${userId}/pedidos`);
+                    await push(pRef, pedido);
+                    const cRef = ref(db, `usuarios/${userId}/carts/${carrinhoSelecionadoId}`);
+                    await update(cRef, { pedidoFeito: true });
+                    Swal.fire({ title: "Pedido Enviado!", text: `Seu pedido para o mercado ${nome} foi enviado com sucesso.`, icon: "success", showCancelButton: true, confirmButtonText: "Ir para Pedidos", cancelButtonText: "Fechar" }).then((r) => {
+                      if (r.isConfirmed) navigate("/pedidos");
+                    });
+                  } catch {
+                    Swal.fire("Erro", "Não foi possível salvar o pedido.", "error");
+                  }
+                }}
+              >
+                Confirmar Pedido
+              </button>
+            </div>
+          )}
+
+          {sugestoesRecompra.length > 0 && stepIndex === 0 && (
             <div className="mt-4 mb-4">
               <h5 className="mb-2">Sugestões para comprar de novo</h5>
-              <div className="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">
+              <div
+                className="d-flex gap-2 overflow-auto pb-2"
+                style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollBehavior: "smooth" }}
+              >
                 {sugestoesRecompra.map((s) => (
-                  <div key={s.name} className="col">
+                  <div key={s.name} className="flex-shrink-0" style={{ width: 240, scrollSnapAlign: "start" }}>
                     <div className="border rounded p-2 d-flex flex-column h-100">
                       <div className="fw-semibold">{s.name}</div>
                       <div className="text-muted">Preço recente: {fmt(s.price)}</div>
@@ -1497,10 +1389,7 @@ export default function CompararCarrinhosPage({ user }) {
                         <button
                           className="btn btn-sm btn-outline-primary w-100"
                           onClick={async () => {
-                            const novo = {
-                              criadoEm: Date.now(),
-                              items: [{ name: s.name, price: s.price || 0, qtd: 1 }],
-                            };
+                            const novo = { criadoEm: Date.now(), items: [{ name: s.name, price: s.price || 0, qtd: 1 }] };
                             await push(ref(db, `usuarios/${userId}/carts`), novo);
                             Swal.fire("Adicionado", "Criamos um carrinho com este item.", "success");
                           }}
@@ -1514,6 +1403,12 @@ export default function CompararCarrinhosPage({ user }) {
               </div>
             </div>
           )}
+
+          <div className="d-none d-lg-flex gap-2 my-3">
+            <button className="btn btn-outline-secondary" disabled={stepIndex === 0} onClick={goBack}>Voltar</button>
+            <button className="btn btn-primary" disabled={stepIndex >= steps.length - 1} onClick={goNext}>Próximo</button>
+          </div>
+
         </div>
 
         <div className="col-lg-4">
@@ -1521,17 +1416,19 @@ export default function CompararCarrinhosPage({ user }) {
             <div className="card border-0 shadow-sm">
               <div className="card-body">
                 <h6 className="mb-3">Resumo</h6>
-                <div className="d-flex justify-content-between"><span>Carrinho:</span><strong>{carrinhoSelecionadoId ? "#" + (carrinhos.findIndex(c=>c.id===carrinhoSelecionadoId)+1) : "-"}</strong></div>
+                <div className="d-flex justify-content-between"><span>Passo:</span><strong>{steps[stepIndex]}</strong></div>
+                <div className="d-flex justify-content-between"><span>Carrinho:</span><strong>{carrinhoSelecionadoId ? "#" + (carrinhos.findIndex(c => c.id === carrinhoSelecionadoId) + 1) : "-"}</strong></div>
                 <div className="d-flex justify-content-between"><span>Itens:</span><strong>{carrinhoSelecionado.items.length}</strong></div>
                 <div className="d-flex justify-content-between"><span>Mercados sel.:</span><strong>{mercadosSelecionados.length}</strong></div>
                 {bestSingleOption && <div className="d-flex justify-content-between"><span>Normal:</span><strong>{fmt(bestSingleOption.tot)}</strong></div>}
                 {customPlan && <div className="d-flex justify-content-between"><span>Personalizado:</span><strong>{fmt(customPlan.total)}</strong></div>}
                 {economia > 0 && <div className="d-flex justify-content-between"><span>Economia potencial:</span><strong className="text-success">{fmt(economia)}</strong></div>}
                 <div className="mt-3 d-grid gap-2">
-                  {!mercadosSelecionados.length && <button className="btn btn-primary" onClick={() => scrollToRef(refMercados)}>Selecionar mercados</button>}
-                  {mercadosSelecionados.length > 0 && !(bestSingleOption || customPlan) && <button className="btn btn-primary" onClick={() => scrollToRef(refTabela)}>Ver tabela</button>}
-                  {(bestSingleOption || customPlan) && !mostrarPedido && <button className="btn btn-success" onClick={() => { setMostrarPedido(true); setTimeout(() => scrollToRef(refPedido), 80); }}>Ir para pedido</button>}
-                  {mostrarPedido && <button className="btn btn-outline-secondary" onClick={() => scrollToRef(refPedido)}>Ir para pagamento</button>}
+                  <button className="btn btn-outline-secondary" onClick={() => setStepIndex(0)}>Carrinho</button>
+                  <button className="btn btn-outline-secondary" onClick={() => setStepIndex(1)}>Mercados</button>
+                  <button className="btn btn-outline-secondary" onClick={() => setStepIndex(2)}>Tabela</button>
+                  <button className="btn btn-outline-secondary" onClick={() => setStepIndex(3)}>Totais</button>
+                  <button className="btn btn-success" onClick={() => setStepIndex(4)}>Opções</button>
                 </div>
               </div>
             </div>
@@ -1544,35 +1441,53 @@ export default function CompararCarrinhosPage({ user }) {
                   <label className="form-check-label" htmlFor="checkFrete">Incluir frete</label>
                 </div>
                 <div className="row g-2">
-                  <div className="col-6"><input type="number" className="form-control" placeholder="R$/km" value={fretePorKmBase} onChange={(e)=>setFretePorKmBase(e.target.value)} /></div>
-                  <div className="col-6"><input type="number" className="form-control" placeholder="Raio (km)" value={raioAtendimentoKm} onChange={(e)=>setRaioAtendimentoKm(e.target.value)} /></div>
-                  <div className="col-4"><input type="number" className="form-control" placeholder="Faixa1 máx" value={freteFaixa1Max} onChange={(e)=>setFreteFaixa1Max(e.target.value)} /></div>
-                  <div className="col-4"><input type="number" className="form-control" placeholder="Faixa2 máx" value={freteFaixa2Max} onChange={(e)=>setFreteFaixa2Max(e.target.value)} /></div>
-                  <div className="col-4"><input type="number" className="form-control" placeholder="Desc Retirada (%)" value={descontoRetiradaPercent} onChange={(e)=>setDescontoRetiradaPercent(e.target.value)} /></div>
-                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F1 (R$)" value={freteExtraFaixa1} onChange={(e)=>setFreteExtraFaixa1(e.target.value)} /></div>
-                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F2 (R$)" value={freteExtraFaixa2} onChange={(e)=>setFreteExtraFaixa2(e.target.value)} /></div>
-                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F3 (R$)" value={freteExtraFaixa3} onChange={(e)=>setFreteExtraFaixa3(e.target.value)} /></div>
+                  <div className="col-6"><input type="number" className="form-control" placeholder="R$/km" value={fretePorKmBase} onChange={(e) => setFretePorKmBase(e.target.value)} /></div>
+                  <div className="col-6"><input type="number" className="form-control" placeholder="Raio (km)" value={raioAtendimentoKm} onChange={(e) => setRaioAtendimentoKm(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="Faixa1 máx" value={freteFaixa1Max} onChange={(e) => setFreteFaixa1Max(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="Faixa2 máx" value={freteFaixa2Max} onChange={(e) => setFreteFaixa2Max(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="Desc Retirada (%)" value={descontoRetiradaPercent} onChange={(e) => setDescontoRetiradaPercent(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F1 (R$)" value={freteExtraFaixa1} onChange={(e) => setFreteExtraFaixa1(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F2 (R$)" value={freteExtraFaixa2} onChange={(e) => setFreteExtraFaixa2(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F3 (R$)" value={freteExtraFaixa3} onChange={(e) => setFreteExtraFaixa3(e.target.value)} /></div>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
       {isMobile && (
         <div className="mobile-cta">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <div className="fw-semibold small">Melhor total</div>
-              <div className="fs-6">
-                {recommended === "personalizado" && customPlan ? fmt(customPlan.total) :
-                 bestSingleOption ? fmt(bestSingleOption.tot) : "—"}
+          <div className="d-flex flex-column gap-2 w-100">
+            <div className="d-flex gap-3">
+              <div className="flex-fill" style={{ minWidth: 0 }}>
+                <div className="fw-semibold small d-flex align-items-center gap-1">
+                  Normal {recommended === "normal" && <span className="badge bg-success">melhor</span>}
+                </div>
+                <div className={`fs-6 ${recommended === "normal" ? "fw-bold" : ""}`}>
+                  {bestSingleOption ? fmt(bestSingleOption.tot) : "—"}
+                </div>
+                <div className="small text-muted">
+                  {bestSingleOption ? `com frete: ${fmt(bestSingleOption.frete)}` : ""}
+                </div>
+              </div>
+
+              <div className="flex-fill" style={{ minWidth: 0 }}>
+                <div className="fw-semibold small d-flex align-items-center gap-1">
+                  Personalizado {recommended === "personalizado" && <span className="badge bg-success">melhor</span>}
+                </div>
+                <div className={`fs-6 ${recommended === "personalizado" ? "fw-bold" : ""}`}>
+                  {customPlan ? fmt(customPlan.total) : "—"}
+                </div>
+                <div className="small text-muted">
+                  {customPlan ? `com frete: ${fmt(customPlan.freteRota)}` : ""}
+                </div>
               </div>
             </div>
-            <div className="d-flex gap-2">
-              <button className="btn btn-outline-secondary btn-sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Topo</button>
-              <button className="btn btn-primary" onClick={handleNextStep}>Próximo</button>
+
+            <div className="d-flex justify-content-between">
+              <button className="btn btn-outline-secondary btn-sm" onClick={goBack} disabled={stepIndex === 0}>Voltar</button>
+              <button className="btn btn-primary btn-sm" onClick={goNext} disabled={stepIndex >= steps.length - 1}>Próximo</button>
             </div>
           </div>
         </div>
