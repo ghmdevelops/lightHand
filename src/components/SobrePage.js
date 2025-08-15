@@ -28,7 +28,7 @@ export default function SobrePage() {
           Savvy
         </h1>
         <p className="fs-5 fw-light">
-          Conectando pessoas e mercados com leveza e tecnologia
+          Conectando pessoas e mercados ou postos com leveza e tecnologia
         </p>
         <small className="fst-italic">São Paulo, SP • 30 maio 2025</small>
       </div>
@@ -77,7 +77,7 @@ export default function SobrePage() {
           <div className="col-12 col-md-6">
             <p style={{ lineHeight: 1.6, fontSize: "1rem" }}>
               A ideia surgiu de amigos apaixonados por tecnologia, que queriam
-              facilitar a rotina de quem faz compras no mercado. Cada um trouxe
+              facilitar a rotina de quem faz compras no mercado e postos. Cada um trouxe
               suas habilidades design, desenvolvimento, marketing e logística
               para criar uma plataforma simples e intuitiva. Desde o primeiro
               protótipo, percebemos que nosso foco seria a experiência do
@@ -135,7 +135,7 @@ export default function SobrePage() {
                   className="card-text"
                   style={{ fontSize: "0.95rem", lineHeight: 1.5 }}
                 >
-                  Ser a plataforma de referência que conecta pessoas e mercados
+                  Ser a plataforma de referência que conecta pessoas e mercados ou postos
                   de forma inovadora e leve.
                 </p>
               </div>
@@ -180,7 +180,7 @@ export default function SobrePage() {
         </h4>
 
         <div className="row row-cols-1 row-cols-md-2 gy-4">
-          {["Gehaime Barros", "Robinson Silva", "Fabiana"].map((nome) => (
+          {["Gehaime Barros", "Robinson Silva", "Fabiana Mozaner"].map((nome) => (
             <div key={nome} className="col">
               <div
                 className="card h-100 border-0 shadow-sm d-flex flex-row align-items-center px-4 py-3"

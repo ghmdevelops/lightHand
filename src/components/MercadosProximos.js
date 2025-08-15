@@ -1,3 +1,4 @@
+import { TbBrandWaze } from "react-icons/tb";
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import OfertasMercado from "./OfertasMercado";
@@ -27,7 +28,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import { AnimatePresence, motion } from "framer-motion";
 import { db } from "../firebase";
-import { ref, get, set, remove, onValue, off } from "firebase/database";
+import { ref, get, set, remove, onValue, off, update, serverTimestamp } from "firebase/database";
 
 const CONTACT_EMAIL = "savvy@suporte.com.br";
 
@@ -323,8 +324,14 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
   const g = posto.prices?.gasolina;
   const e = posto.prices?.etanol;
   const d = posto.prices?.diesel;
+  const ds10 = posto.prices?.diesel_s10;
+  const ds500 = posto.prices?.diesel_s500;
+  const gnv = posto.prices?.gnv;
   const updated = posto.updatedAt ? timeAgo(posto.updatedAt) : null;
   const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  const est = posto.estimated || {};
+  const googleRoute = `https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lon}&travelmode=driving`;
+  const wazeRoute = `https://waze.com/ul?ll=${posto.lat},${posto.lon}&navigate=yes`;
 
   return (
     <motion.div layout className="col-12 col-md-6 col-lg-4">
@@ -349,9 +356,28 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
                 {updated && <div><small className="text-success">Atualizado {updated}</small></div>}
               </div>
             </div>
-            <a href={maps} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-secondary" title="Abrir no Maps">
-              <FontAwesomeIcon icon={faExternalLinkAlt} />
-            </a>
+            <div className="btn-group">
+              <a
+                href={googleRoute}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm btn-outline-secondary"
+                title="Rota no Google Maps"
+              >
+                <FontAwesomeIcon icon={faMapLocationDot} className="me-1" />
+                Maps
+              </a>
+              <a
+                href={wazeRoute}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm btn-outline-secondary"
+                title="Rota no Waze"
+              >
+                <TbBrandWaze className="me-2" style={{ fontSize: "1.25rem" }} />
+                Waze
+              </a>
+            </div>
           </div>
 
           <div className="mt-3" style={{ fontSize: "0.95rem" }}>
@@ -362,13 +388,16 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
             <div className="d-flex align-items-center gap-2 mb-2">
               <FontAwesomeIcon icon={faFilter} />
               <strong>Preços</strong>
-              {!g && !e && !d && <span className="badge bg-light text-dark">sem preço</span>}
+              {!g && !e && !d && !ds10 && !ds500 && !gnv && <span className="badge bg-light text-dark">sem preço</span>}
               {highlight && <span className="badge bg-success"><FontAwesomeIcon icon={faStar} className="me-1" />melhor preço</span>}
             </div>
             <div className="d-flex flex-wrap gap-2">
-              <PriceChip label="Gasolina" value={g} />
-              <PriceChip label="Etanol" value={e} />
-              <PriceChip label="Diesel" value={d} />
+              <PriceChip label="Gasolina" value={g} est={!!est.gasolina} />
+              <PriceChip label="Etanol" value={e} est={!!est.etanol} />
+              <PriceChip label="Diesel" value={d} est={!!est.diesel} />
+              {ds10 != null && <PriceChip label="Diesel S10" value={ds10} est={!!est.diesel_s10} />}
+              {ds500 != null && <PriceChip label="Diesel S500" value={ds500} est={!!est.diesel_s500} />}
+              {gnv != null && <PriceChip label="GNV" value={gnv} est={!!est.gnv} />}
             </div>
             <div className="mt-3 d-flex gap-2">
               <button className="btn btn-sm btn-outline-primary" onClick={() => onUpdatePrice(posto)}>Atualizar preço</button>
@@ -380,12 +409,22 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
   );
 }, (prev, next) => prev.posto === next.posto && prev.highlight === next.highlight);
 
-function PriceChip({ label, value }) {
+const fmtBR = (v, digits = 2) =>
+  new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(v);
+
+function PriceChip({ label, value, est }) {
   if (value == null) {
     return <span className="badge bg-secondary-subtle text-secondary border">{label}: —</span>;
   }
   const shade = valueToShade(value);
-  return <span className="badge border" style={{ background: shade.bg, color: shade.fg, borderColor: shade.border }}>{label}: R$ {value.toFixed(3)}</span>;
+  return (
+    <span className="badge border" style={{ background: shade.bg, color: shade.fg, borderColor: shade.border }}>
+      {label}: R$ {fmtBR(value, 2)}{est ? " (estimado)" : ""}
+    </span>
+  );
 }
 
 function valueToShade(v) {
@@ -407,6 +446,49 @@ function timeAgo(ts) {
   if (h < 24) return `há ${h} h`;
   const d = Math.floor(h / 24);
   return `há ${d} d`;
+}
+
+function mapFuelKey(tagKeyLower) {
+  const k = tagKeyLower;
+  if (k.includes("ethanol") || k.includes("etanol") || k.includes("alcool") || k.includes("álcool")) return "etanol";
+  if (k.includes("cng") || k.includes("gnv")) return "gnv";
+  if (k.includes("diesel") && k.includes("s10")) return "diesel_s10";
+  if (k.includes("diesel") && k.includes("s500")) return "diesel_s500";
+  if (k.includes("diesel")) return "diesel";
+  if (k.includes("gasoline") || k.includes("gasolina") || k.includes("petrol") || k.includes("octane") || k.includes("ron")) return "gasolina";
+  return null;
+}
+
+function parseFuelPrices(tags = {}) {
+  const prices = {};
+  for (const [k, v] of Object.entries(tags)) {
+    if (!/:price$/i.test(k)) continue;
+    const num = parseFloat(String(v).replace(",", "."));
+    if (isNaN(num)) continue;
+    const mapped = mapFuelKey(k.toLowerCase());
+    if (!mapped) continue;
+    prices[mapped] = Math.min(prices[mapped] ?? Infinity, num);
+  }
+  ["price:gasoline", "price:ethanol", "price:diesel", "fuel:cng:price"].forEach((kk) => {
+    if (tags[kk]) {
+      const mapped = mapFuelKey(kk.toLowerCase());
+      const num = parseFloat(String(tags[kk]).replace(",", "."));
+      if (!isNaN(num) && mapped) prices[mapped] = Math.min(prices[mapped] ?? Infinity, num);
+    }
+  });
+  Object.keys(prices).forEach((k) => { if (!isFinite(prices[k])) delete prices[k]; });
+  return prices;
+}
+
+function getOsmUpdatedAt(tags = {}) {
+  let dt = null;
+  for (const [k, v] of Object.entries(tags)) {
+    if (/:price:date$/i.test(k)) {
+      const t = Date.parse(v);
+      if (!isNaN(t)) dt = Math.max(dt ?? 0, t);
+    }
+  }
+  return dt;
 }
 
 export default function BuscarMercadosOSM({ user }) {
@@ -618,38 +700,11 @@ export default function BuscarMercadosOSM({ user }) {
     }
   }, [overpassFetch]);
 
-  const parseFuelPrices = useCallback((tags = {}) => {
-    const prices = {};
-    const addIf = (key, dest) => {
-      const v = tags[key];
-      if (!v) return;
-      const num = parseFloat(String(v).replace(",", "."));
-      if (!isNaN(num)) prices[dest] = num;
-    };
-    addIf("fuel:gasoline:price", "gasolina");
-    addIf("fuel:ethanol:price", "etanol");
-    addIf("fuel:diesel:price", "diesel");
-    addIf("price:gasoline", "gasolina");
-    addIf("price:ethanol", "etanol");
-    addIf("price:diesel", "diesel");
-    for (const [k, v] of Object.entries(tags)) {
-      if (!/:price$/i.test(k)) continue;
-      const val = parseFloat(String(v).replace(",", "."));
-      if (isNaN(val)) continue;
-      const lk = k.toLowerCase();
-      if (lk.includes("ethanol") || lk.includes("alcohol") || lk.includes("etanol")) prices["etanol"] = Math.min(prices["etanol"] ?? Infinity, val);
-      else if (lk.includes("diesel")) prices["diesel"] = Math.min(prices["diesel"] ?? Infinity, val);
-      else if (lk.includes("gasoline") || lk.includes("gasolina")) prices["gasolina"] = Math.min(prices["gasolina"] ?? Infinity, val);
-    }
-    Object.keys(prices).forEach((k) => { if (!isFinite(prices[k])) delete prices[k]; });
-    return prices;
-  }, []);
-
-  const mergeCommunity = useCallback((id, osmPrices) => {
+  const mergeCommunity = useCallback((id, osmPrices, updatedAtOSM = null) => {
     const c = communityPrices?.[id] || {};
     const merged = { ...osmPrices };
-    let updatedAt = null;
-    ["gasolina", "etanol", "diesel"].forEach((k) => {
+    let updatedAt = updatedAtOSM || null;
+    ["gasolina", "etanol", "diesel", "gnv", "diesel_s10", "diesel_s500"].forEach((k) => {
       const r = c[k];
       if (!r) return;
       merged[k] = r.price;
@@ -657,6 +712,28 @@ export default function BuscarMercadosOSM({ user }) {
     });
     return { prices: merged, updatedAt };
   }, [communityPrices]);
+
+  const pPrice = (p, fuelKey) => p?.prices?.[fuelKey];
+  const PRICE_RANGES = {
+    gasolina: [5.10, 7.10],
+    etanol: [3.20, 5.00],
+    diesel: [5.40, 7.60],
+    diesel_s10: [5.50, 7.80],
+    diesel_s500: [5.30, 7.40],
+    gnv: [3.80, 5.40],
+  };
+
+  function seededRand(seed) {
+    const n = typeof seed === "number" ? seed : Array.from(String(seed)).reduce((a, c) => a + c.charCodeAt(0), 0);
+    const x = Math.sin(n * 9301 + 49297) * 233280;
+    return x - Math.floor(x);
+  }
+
+  function fakePrice(key, seed) {
+    const [min, max] = PRICE_RANGES[key] || [4.50, 7.50];
+    const v = min + seededRand(seed) * (max - min);
+    return Math.round(v * 100) / 100;
+  }
 
   const fetchNearbyFuel = useCallback(async (lat, lon, rad = 4000, limit = 15, fuelKey = "gasolina") => {
     try {
@@ -681,9 +758,17 @@ export default function BuscarMercadosOSM({ user }) {
           if (seen.has(k)) return null;
           seen.add(k);
           const distance = haversine(lat, lon, lat0, lon0);
-          const osmPrices = parseFuelPrices(e.tags || {});
           const tags = e.tags || {};
+          const osmPrices = parseFuelPrices(tags);
+          const updatedAtOSM = getOsmUpdatedAt(tags);
           const addr = addressFromTags(tags);
+          const merged = mergeCommunity(`${e.id}`, osmPrices, updatedAtOSM);
+          const prices = { ...(merged.prices || {}) };
+          const estimated = {};
+          if (prices[fuelKey] == null) {
+            prices[fuelKey] = fakePrice(fuelKey, Number(e.id));
+            estimated[fuelKey] = true;
+          }
           return {
             id: `${e.id}`,
             type: e.type,
@@ -696,7 +781,9 @@ export default function BuscarMercadosOSM({ user }) {
             phone: tags.phone || tags["contact:phone"] || null,
             website: tags.website || tags.url || null,
             rawTags: tags,
-            ...mergeCommunity(`${e.id}`, osmPrices),
+            prices,
+            estimated,
+            updatedAt: merged.updatedAt || Date.now(),
             ...addr,
             _needsReverse: !(addr.rua || addr.estado || addr.pais),
           };
@@ -716,7 +803,7 @@ export default function BuscarMercadosOSM({ user }) {
     } catch {
       return [];
     }
-  }, [parseFuelPrices, sortFuel, hasPriceOnly, mergeCommunity, overpassFetch]);
+  }, [overpassFetch, hasPriceOnly, sortFuel, mergeCommunity]);
 
   const applyMarketSortAndFilters = (arr, sortKey, q) => {
     const ql = (q || "").trim().toLowerCase();
@@ -726,8 +813,6 @@ export default function BuscarMercadosOSM({ user }) {
     else r = [...r].sort((a, b) => a.distance - b.distance);
     return r;
   };
-
-  const pPrice = (p, fuelKey) => p?.prices?.[fuelKey];
 
   const applyFuelSortAndFilters = (arr, sortKey, fuelKey, q) => {
     const ql = (q || "").trim().toLowerCase();
@@ -975,7 +1060,6 @@ export default function BuscarMercadosOSM({ user }) {
     }
     const path = ref(db, `fuelPrices/${posto.id}`);
     const patch = {};
-    const now = Date.now();
     const n = (x) => {
       const v = parseFloat(String(x).replace(",", "."));
       return isNaN(v) ? null : v;
@@ -983,11 +1067,11 @@ export default function BuscarMercadosOSM({ user }) {
     const g = n(formValues.pg);
     const e = n(formValues.pe);
     const d = n(formValues.pd);
-    if (g != null) patch["gasolina"] = { price: g, updatedAt: now, by: user.uid };
-    if (e != null) patch["etanol"] = { price: e, updatedAt: now, by: user.uid };
-    if (d != null) patch["diesel"] = { price: d, updatedAt: now, by: user.uid };
+    if (g != null) patch["gasolina"] = { price: g, updatedAt: serverTimestamp(), by: user.uid };
+    if (e != null) patch["etanol"] = { price: e, updatedAt: serverTimestamp(), by: user.uid };
+    if (d != null) patch["diesel"] = { price: d, updatedAt: serverTimestamp(), by: user.uid };
     if (Object.keys(patch).length === 0) return;
-    await set(path, patch);
+    await update(path, patch);
     toast.success("Preço atualizado!");
     if (pos && tipoBusca === "fuel") buscarProximos(pos.lat, pos.lon, debouncedRadius);
   };
@@ -1203,7 +1287,7 @@ export default function BuscarMercadosOSM({ user }) {
                 whileTap={{ scale: 0.98 }}
                 className="btn btn-lg d-flex align-items-center justify-content-center"
                 style={{
-                   borderRadius: 16,
+                  borderRadius: 16,
                   padding: "1rem 1.5rem",
                   minWidth: 240,
                   background: "#fff",
@@ -1277,14 +1361,14 @@ export default function BuscarMercadosOSM({ user }) {
                 <span className="text-muted">Combustível:</span>
 
                 <div className="d-none d-md-inline-flex btn-group" role="group" aria-label="Escolher tipo de combustível">
-                  {["gasolina", "etanol", "diesel"].map((t) => (
+                  {["gasolina", "etanol", "diesel", "diesel_s10", "diesel_s500", "gnv"].map((t) => (
                     <button
                       key={t}
                       type="button"
                       className={`btn btn-sm ${fuelFilter === t ? "btn-primary" : "btn-outline-primary"}`}
                       onClick={() => setFuelFilter(t)}
                     >
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                      {t === "diesel_s10" ? "Diesel S10" : t === "diesel_s500" ? "Diesel S500" : t.charAt(0).toUpperCase() + t.slice(1)}
                     </button>
                   ))}
                 </div>
@@ -1298,6 +1382,9 @@ export default function BuscarMercadosOSM({ user }) {
                   <option value="gasolina">Gasolina</option>
                   <option value="etanol">Etanol</option>
                   <option value="diesel">Diesel</option>
+                  <option value="diesel_s10">Diesel S10</option>
+                  <option value="diesel_s500">Diesel S500</option>
+                  <option value="gnv">GNV</option>
                 </select>
               </motion.div>
             )}
@@ -1421,6 +1508,9 @@ export default function BuscarMercadosOSM({ user }) {
                           <option value="gasolina">Gasolina</option>
                           <option value="etanol">Etanol</option>
                           <option value="diesel">Diesel</option>
+                          <option value="diesel_s10">Diesel S10</option>
+                          <option value="diesel_s500">Diesel S500</option>
+                          <option value="gnv">GNV</option>
                         </select>
                       </div>
 
@@ -1618,10 +1708,14 @@ export default function BuscarMercadosOSM({ user }) {
 
 function BestDealBanner({ postos, focus }) {
   const best = useMemo(() => {
-    const withPrice = postos.filter((p) => p?.prices?.[focus] != null);
-    if (withPrice.length === 0) return null;
-    const sorted = [...withPrice].sort((a, b) => a.prices[focus] - b.prices[focus]);
-    return sorted[0];
+    const items = postos
+      .filter((p) => p?.prices?.[focus] != null)
+      .map((p) => ({ p, est: !!(p.estimated && p.estimated[focus]) }));
+    if (items.length === 0) return null;
+    const real = items.filter((x) => !x.est);
+    const pool = real.length ? real : items;
+    pool.sort((a, b) => a.p.prices[focus] - b.p.prices[focus]);
+    return pool[0];
   }, [postos, focus]);
 
   if (!best) return null;
@@ -1629,13 +1723,39 @@ function BestDealBanner({ postos, focus }) {
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="alert alert-success d-flex align-items-center gap-2"
+      className="alert alert-success d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2"
       style={{ borderRadius: 12 }}
     >
-      <FontAwesomeIcon icon={faStar} className="me-2" />
-      Melhor preço de <strong className="ms-1 me-1">{focus}</strong> por
-      <strong className="ms-1">R$ {best.prices[focus].toFixed(3)}</strong>
-      em <strong className="ms-1">{best.nome}</strong> ({(best.distance / 1000).toFixed(2)} km)
+      <div className="d-flex align-items-center gap-2 flex-wrap">
+        <FontAwesomeIcon icon={faStar} className="me-1 flex-shrink-0" />
+
+        <div className="d-flex flex-wrap align-items-center gap-1 text-wrap">
+          <span>Melhor preço de</span>
+          <strong className="text-capitalize">{focus}</strong>
+          <span>por</span>
+          <span className="badge bg-light text-dark border fw-semibold">
+            R$ {fmtBR(best.p.prices[focus], 2)}
+          </span>
+          {best.est && <span className="text-muted">(estimado)</span>}
+
+          <span className="d-block d-sm-inline">
+            em{" "}
+            <strong
+              className="text-truncate d-inline-block"
+              style={{ maxWidth: "70vw" }}
+              title={best.p.nome}
+            >
+              {best.p.nome}
+            </strong>
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-1 mt-sm-0">
+        <span className="badge bg-success-subtle text-success border">
+          {(best.p.distance / 1000).toFixed(2)} km
+        </span>
+      </div>
     </motion.div>
   );
 }

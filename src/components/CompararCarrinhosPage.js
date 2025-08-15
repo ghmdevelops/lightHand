@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { ref, get, push, update } from "firebase/database";
@@ -125,7 +125,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
         .pay-note{font-size:.85rem; color:#64748b; margin-bottom:10px}
         .card-preview{position:relative; width:100%; border-radius:16px; padding:18px; background:linear-gradient(135deg,#111827,#0b1e3a); color:#e5e7eb; box-shadow:0 12px 30px rgba(2,132,199,.25); margin-bottom:12px}
         .card-chip{width:34px;height:24px;border-radius:6px;background:linear-gradient(135deg,#f1c40f,#f39c12)}
-        .card-row{display:flex; justify-content:space-between; align-items:center; margin-top:12px}
+        .card-row{display:flex; justify-content:space-between; align-items:center; margin-top:10px}
         .card-num{letter-spacing:2px; font-size:1.1rem; font-weight:600}
         .card-meta{display:flex; justify-content:space-between; gap:1rem; font-size:.9rem; color:#cbd5e1}
         .pay-grid{display:grid; grid-template-columns:1fr 1fr; gap:.6rem}
@@ -351,6 +351,17 @@ export default function CompararCarrinhosPage({ user }) {
   const [userLat, setUserLat] = useState(null);
   const [userLon, setUserLon] = useState(null);
   const [selecionados, setSelecionados] = useState({});
+  const [isMobile, setIsMobile] = useState(false);
+
+  const refCarrinho = useRef(null);
+  const refMercados = useRef(null);
+  const refTabela = useRef(null);
+  const refOpcoes = useRef(null);
+  const refPedido = useRef(null);
+  const lastStepScrolled = useRef("");
+  const prevMercCount = useRef(0);
+
+  const scrollToRef = (r) => r?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const parseNum = (x) => {
     const n = parseFloat(String(x).replace(",", "."));
@@ -368,6 +379,13 @@ export default function CompararCarrinhosPage({ user }) {
       slots.push(`${hh}:${mm}`);
     }
     return slots;
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 992);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -420,6 +438,10 @@ export default function CompararCarrinhosPage({ user }) {
     if (p.get("selected") !== carrinhoSelecionadoId) {
       p.set("selected", carrinhoSelecionadoId);
       navigate(`${window.location.pathname}?${p.toString()}`, { replace: true });
+    }
+    if (lastStepScrolled.current !== "mercados") {
+      setTimeout(() => scrollToRef(refMercados), 80);
+      lastStepScrolled.current = "mercados";
     }
   }, [carrinhoSelecionadoId, navigate]);
 
@@ -534,6 +556,29 @@ export default function CompararCarrinhosPage({ user }) {
     });
   }, [mercadosSelecionados]);
 
+  useEffect(() => {
+    if (mercadosSelecionados.length > 0 && prevMercCount.current === 0 && lastStepScrolled.current !== "tabela") {
+      setTimeout(() => scrollToRef(refTabela), 80);
+      lastStepScrolled.current = "tabela";
+    }
+    prevMercCount.current = mercadosSelecionados.length;
+  }, [mercadosSelecionados.length]);
+
+  useEffect(() => {
+    const ready = mercadosSelecionados.length > 0 && (Object.keys(precosFixos || {}).length > 0);
+    if (ready && lastStepScrolled.current !== "opcoes") {
+      setTimeout(() => scrollToRef(refOpcoes), 80);
+      lastStepScrolled.current = "opcoes";
+    }
+  }, [precosFixos, mercadosSelecionados.length]);
+
+  useEffect(() => {
+    if (mostrarPedido && lastStepScrolled.current !== "pedido") {
+      setTimeout(() => scrollToRef(refPedido), 80);
+      lastStepScrolled.current = "pedido";
+    }
+  }, [mostrarPedido]);
+
   const buscarEnderecoPorCEP = (c) => {
     const clean = c.replace(/\D/g, "");
     if (clean.length !== 8) return;
@@ -628,12 +673,15 @@ export default function CompararCarrinhosPage({ user }) {
   const mercadoMaisPerto = mercadoMaisPertoObj.id;
 
   const mercadoForaDoRaio = (m) => (m.distance || 0) / 1000 > parseNum(raioAtendimentoKm);
-
   const todosMarcados = mercadosProximos.length > 0 && mercadosSelecionados.length === mercadosProximos.length;
 
   const toggleSelecionarTodos = () => {
     if (todosMarcados) setMercadosSelecionados([]);
-    else setMercadosSelecionados(mercadosProximos.map((m) => m.id));
+    else {
+      const next = mercadosProximos.map((m) => m.id);
+      setMercadosSelecionados(next);
+      setTimeout(() => scrollToRef(refTabela), 80);
+    }
   };
 
   const ordenarPorDist = (a, o) => a.distance - o.distance;
@@ -877,507 +925,655 @@ export default function CompararCarrinhosPage({ user }) {
 
   const customPlan = useMemo(() => computeCustomPlan(), [selecionados, mercadosSelecionados, precosFixos, carrinhoSelecionado, userLat, userLon, incluirFrete, fretePorKmBase, freteFaixa1Max, freteFaixa2Max, freteExtraFaixa1, freteExtraFaixa2, freteExtraFaixa3, cupomCodigo, cupomTipo, cupomValor]);
 
+  const recommended = (() => {
+    if (bestSingleOption && customPlan) return customPlan.total < bestSingleOption.tot ? "personalizado" : "normal";
+    if (bestSingleOption) return "normal";
+    if (customPlan) return "personalizado";
+    return null;
+  })();
+
+  const getNextStepRef = () => {
+    if (!carrinhoSelecionadoId) return refCarrinho;
+    if (!mercadosSelecionados.length) return refMercados;
+    if (!(bestSingleOption || customPlan)) return refTabela;
+    if (!mostrarPedido) return refOpcoes;
+    return refPedido;
+  };
+
+  const handleNextStep = () => {
+    const r = getNextStepRef();
+    if (r) scrollToRef(r);
+  };
+
   if (loading) return <div className="container mt-5" style={{ paddingTop: "90px" }}>Carregando comparação...</div>;
 
   return (
-    <div className="container mt-5" style={{ paddingTop: "90px" }}>
-      <h4 className="mb-4">Comparação de Carrinhos</h4>
-      <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>&larr; Voltar</button>
+    <div className="container mt-5" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
+      <style>{`
+        .steps{display:flex;gap:.75rem;list-style:none;margin:0;padding:0}
+        .step{flex:1;display:flex;align-items:center;gap:.5rem;font-weight:600;border:1px solid #e5e7eb;padding:.5rem .75rem;border-radius:12px;justify-content:center;background:#fff}
+        .step .dot{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:2px solid #94a3b8;font-weight:700}
+        .step.active{border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,.15)}
+        .step.active .dot{border-color:#0ea5e9}
+        .step.done{background:linear-gradient(180deg,#ecfeff,#fff)}
+        .sticky-summary{position:sticky;top:90px}
+        .ghost-btn{border:1px dashed #cbd5e1;background:#fff}
+        .mobile-cta{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e5e7eb;padding:.6rem .9rem;z-index:1030;box-shadow:0 -6px 16px rgba(0,0,0,.06)}
+        .comp-hint{font-size:.85rem;color:#64748b}
+        .comp-table th:first-child, .comp-table td:first-child{position:sticky;left:0;background:#fff;z-index:1}
+        @media (max-width: 576px){
+          .step span:not(.dot){display:none}
+          .step{padding:.35rem .5rem}
+          .step .dot{width:22px;height:22px}
+        }
+        @media (max-width: 991.98px){
+          .sticky-summary{display:none}
+        }
+      `}</style>
 
-      <div className="d-flex flex-wrap gap-2 mb-2">
-        <button className="btn btn-outline-success" onClick={repetirCarrinho}>Repetir carrinho selecionado</button>
-        <button className="btn btn-outline-primary" onClick={criarCarrinhoSugestoes}>Compre de novo (sugestões)</button>
-      </div>
-
-      <div className="alert alert-info d-flex flex-wrap align-items-center justify-content-between">
-        <div>Programa de Indicação: seu código amigo é <strong>{referralCode || "..."}</strong></div>
-        <button
-          className="btn btn-sm btn-outline-secondary"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(referralCode);
-              Swal.fire("Copiado", "Código de indicação copiado para a área de transferência.", "success");
-            } catch {}
-          }}
-        >
-          Copiar código
-        </button>
-      </div>
-
-      {carrinhos.length > 0 && (
-        <div className="mb-4">
-          <label className="form-label">Escolha o carrinho para comparar:</label>
-          <select
-            className="form-select mb-2"
-            value={carrinhoSelecionadoId}
-            onChange={(e) => {
-              setCarrinhoSelecionadoId(e.target.value);
-              setMostrarItens(false);
-              setPrecosFixos({});
-              setSelecionados({});
-            }}
-          >
-            {carrinhos.map((c, i) => (
-              <option key={c.id} value={c.id}>
-                Carrinho #{i + 1} - {new Date(c.criadoEm).toLocaleString()}
-                {c.pedidoFeito ? " (pedido já feito)" : ""}
-              </option>
-            ))}
-          </select>
-          <div className="d-flex gap-2">
-            <button className="btn btn-outline-primary" onClick={() => setMostrarItens(!mostrarItens)}>{mostrarItens ? "Ocultar Itens" : "Exibir Itens"}</button>
-          </div>
-        </div>
-      )}
-
-      {mostrarItens && carrinhoSelecionado && (
-        <div className="card mb-4">
-          <div className="card-body">
-            <h5 className="card-title">Itens do Carrinho Selecionado</h5>
-            <ul className="list-group">
-              {carrinhoSelecionado.items.map((item, idx) => (
-                <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
-                  <div className="me-2">
-                    {(item.qtd || item.quantidade || 1)}x {item.name}
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="form-control form-control-sm"
-                      style={{ width: 110 }}
-                      placeholder="Alerta R$"
-                      onBlur={(e) => {
-                        const v = e.target.value;
-                        if (v) criarAlerta(item.name, v);
-                      }}
-                    />
-                    <span className="badge bg-secondary">{fmt((item.price * (item.qtd || item.quantidade || 1)))}</span>
-                  </div>
-                </li>
-              ))}
+      <div className="sticky-top" style={{ top: 70, zIndex: 1020 }}>
+        <div className="card border-0 shadow-sm mb-3">
+          <div className="card-body py-2">
+            <ul className="steps">
+              <li className={`step ${carrinhoSelecionadoId ? "done" : "active"}`}><span className="dot">1</span><span>Carrinho</span></li>
+              <li className={`step ${mercadosSelecionados.length ? "done" : (carrinhoSelecionadoId ? "active" : "")}`}><span className="dot">2</span><span>Mercados</span></li>
+              <li className={`step ${Object.keys(precosFixos||{}).length ? "done" : (mercadosSelecionados.length ? "active" : "")}`}><span className="dot">3</span><span>Tabela</span></li>
+              <li className={`step ${(bestSingleOption || customPlan) ? "done" : (Object.keys(precosFixos||{}).length ? "active" : "")}`}><span className="dot">4</span><span>Opções</span></li>
+              <li className={`step ${mostrarPedido ? "active" : ""}`}><span className="dot">5</span><span>Pedido</span></li>
             </ul>
-            <strong className="d-block mt-2">Total: {fmt(totalSelecionado)}</strong>
           </div>
         </div>
-      )}
-
-      <div className="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
-        {mercadoMaisPerto && (
-          <span><strong>Mais perto:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} ({kmFmt(mercadoMaisPertoObj.dist)} km)</span>
-        )}
-        {mercadoMaisBarato && (
-          <span><strong>Mais barato:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} ({fmt(minTotal)})</span>
-        )}
       </div>
 
-      <div className="mb-4 p-4 bg-light rounded shadow-sm">
-        <h5 className="mb-3">Comparar preços por mercado</h5>
+      <div className="row">
+        <div className="col-lg-8">
+          <div ref={refCarrinho}></div>
+          <h4 className="mb-4">Comparação de Carrinhos</h4>
+          <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>&larr; Voltar</button>
 
-        <div className="row g-2 mb-3">
-          <div className="col-md-3">
-            <input type="text" className="form-control" placeholder="Cupom" value={cupomCodigo} onChange={(e) => { setCupomCodigo(e.target.value); setSelecionados({}); }} />
+          <div className="d-flex flex-wrap gap-2 mb-2">
+            <button className="btn btn-outline-success" onClick={repetirCarrinho}>Repetir carrinho selecionado</button>
+            <button className="btn btn-outline-primary" onClick={criarCarrinhoSugestoes}>Compre de novo (sugestões)</button>
           </div>
-          <div className="col-md-3">
-            <select className="form-select" value={cupomTipo} onChange={(e) => { setCupomTipo(e.target.value); setSelecionados({}); }}>
-              <option value="percentual">Percentual (%)</option>
-              <option value="fixo">Valor fixo (R$)</option>
-            </select>
-          </div>
-          <div className="col-md-3">
-            <div className="input-group">
-              <span className="input-group-text">{cupomTipo === "percentual" ? "%" : "R$"}</span>
-              <input type="number" step="0.01" className="form-control" value={cupomValor} onChange={(e) => { setCupomValor(e.target.value); setSelecionados({}); }} />
-            </div>
-          </div>
-          <div className="col-md-3 d-flex align-items-center justify-content-end">
-            <button className="btn btn-success" onClick={() => { setMercadosSelecionados([]); setPrecosFixos({}); setSelecionados({}); }}>Atualizar Mercados Próximos</button>
-          </div>
-        </div>
 
-        <div className="row g-2 mb-3">
-          <div className="col-md-6">
-            <div className="btn-group w-100">
-              <button className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`} onClick={() => setOrdenarPor("distancia")}>Ordenar por Distância</button>
-              <button className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`} onClick={() => setOrdenarPor("preco")}>Ordenar por Preço Total</button>
-            </div>
+          <div className="alert alert-info d-flex flex-wrap align-items-center justify-content-between">
+            <div>Programa de Indicação: seu código amigo é <strong>{referralCode || "..."}</strong></div>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(referralCode);
+                  Swal.fire("Copiado", "Código de indicação copiado para a área de transferência.", "success");
+                } catch {}
+              }}
+            >
+              Copiar código
+            </button>
           </div>
-          <div className="col-md-6 text-end">
-            <button className="btn btn-outline-dark" onClick={() => setSelecionados({})}>Limpar escolhas</button>
-          </div>
-        </div>
 
-        {mercadosProximos.length > 0 && (
-          <>
-            <div className="form-check mb-2">
-              <input type="checkbox" className="form-check-input" id="check-todos" checked={todosMarcados} onChange={toggleSelecionarTodos} />
-              <label className="form-check-label" htmlFor="check-todos">Selecionar todos</label>
-            </div>
-
-            <p className="text-muted fw-semibold mb-2">Selecione os mercados para comparar:</p>
-            <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-              {mercadosOrdenados.map((m) => {
-                const fora = mercadoForaDoRaio(m);
-                return (
-                  <div key={m.id} className="col">
-                    <div className={`form-check border rounded px-3 py-2 h-100 d-flex align-items-center ${fora ? "bg-warning-subtle" : ""}`} style={{ userSelect: "none" }}>
-                      <input
-                        className="form-check-input me-2"
-                        type="checkbox"
-                        id={`mercado-${m.id}`}
-                        checked={mercadosSelecionados.includes(m.id)}
-                        onChange={() => {
-                          setSelecionados({});
-                          setMercadosSelecionados((prev) => (prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id]));
-                        }}
-                      />
-                      <label className="form-check-label mb-0 d-flex justify-content-between w-100" htmlFor={`mercado-${m.id}`}>
-                        <span>{m.nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
-                        <small className="text-muted ms-2">{kmFmt(m.distance)} km</small>
-                      </label>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-
-      {mercadosSelecionados.length > 0 && (
-        <div className="mt-5">
-          <h5 className="mb-3">Comparativo de Preços nos Mercados Selecionados</h5>
-          <div className="table-responsive">
-            <table className="table table-bordered table-sm align-middle">
-              <thead className="table-light">
-                <tr>
-                  <th>Produto</th>
-                  {mercadosSelecionadosOrdenados.map((id) => {
-                    const p = mercadosProximos.find((m) => m.id === id)?.nome;
-                    return <th key={id}>{p}</th>;
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {carrinhoSelecionado.items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.name}</td>
-                    {mercadosSelecionadosOrdenados.map((id) => {
-                      const p = precosFixos[item.name]?.[id];
-                      const min = menoresPrecosPorProduto[item.name];
-                      const chosen = selecionados[item.name] === id;
-                      let cls = "text-center";
-                      if (p && Number(p) === min) cls += " table-success";
-                      if (chosen) cls += " fw-bold";
-                      return (
-                        <td
-                          key={id}
-                          className={cls}
-                          style={{ cursor: p ? "pointer" : "not-allowed" }}
-                          onClick={() => p && handleChoose(item.name, id)}
-                          title={p ? "Clique para escolher este mercado para o item" : "Sem preço"}
-                        >
-                          {p ? `R$ ${Number(p).toFixed(2).replace(".", ",")}` : "-"}
-                          {chosen && <div><small className="badge bg-primary">Selecionado</small></div>}
-                        </td>
-                      );
-                    })}
-                  </tr>
+          {carrinhos.length > 0 && (
+            <div className="mb-4">
+              <label className="form-label">Escolha o carrinho para comparar:</label>
+              <select
+                className="form-select mb-2"
+                value={carrinhoSelecionadoId}
+                onChange={(e) => {
+                  setCarrinhoSelecionadoId(e.target.value);
+                  setMostrarItens(false);
+                  setPrecosFixos({});
+                  setSelecionados({});
+                  setMercadosSelecionados([]);
+                  setMercadoSelecionadoPedido("");
+                  lastStepScrolled.current = "";
+                }}
+              >
+                {carrinhos.map((c, i) => (
+                  <option key={c.id} value={c.id}>
+                    Carrinho #{i + 1} - {new Date(c.criadoEm).toLocaleString()}
+                    {c.pedidoFeito ? " (pedido já feito)" : ""}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+              <div className="d-flex gap-2">
+                <button className="btn btn-outline-primary" onClick={() => setMostrarItens(!mostrarItens)}>{mostrarItens ? "Ocultar Itens" : "Exibir Itens"}</button>
+                <button className="btn btn-primary" onClick={() => scrollToRef(refMercados)}>Ir para mercados</button>
+              </div>
+            </div>
+          )}
+
+          {mostrarItens && carrinhoSelecionado && (
+            <div className="card mb-4">
+              <div className="card-body">
+                <h5 className="card-title">Itens do Carrinho Selecionado</h5>
+                <ul className="list-group">
+                  {carrinhoSelecionado.items.map((item, idx) => (
+                    <li key={idx} className="list-group-item d-flex justify-content-between align-items-center">
+                      <div className="me-2">
+                        {(item.qtd || item.quantidade || 1)}x {item.name}
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="form-control form-control-sm"
+                          style={{ width: 110 }}
+                          placeholder="Alerta R$"
+                          onBlur={(e) => {
+                            const v = e.target.value;
+                            if (v) criarAlerta(item.name, v);
+                          }}
+                        />
+                        <span className="badge bg-secondary">{fmt((item.price * (item.qtd || item.quantidade || 1)))}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <strong className="d-block mt-2">Total: {fmt(totalSelecionado)}</strong>
+              </div>
+            </div>
+          )}
+
+          <div ref={refMercados}></div>
+          <div className="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
+            {mercadoMaisPerto && (
+              <span><strong>Mais perto:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} ({kmFmt(mercadoMaisPertoObj.dist)} km)</span>
+            )}
+            {mercadoMaisBarato && (
+              <span><strong>Mais barato:</strong> {mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} ({fmt(minTotal)})</span>
+            )}
           </div>
 
-          <div className="mt-4">
-            <h6>Totais por Mercado (1 mercado):</h6>
-            <ul className="list-group mb-3">
-              {mercadosSelecionadosOrdenados.map((id) => {
-                const m = mercadosProximos.find((x) => x.id === id);
-                const fora = m ? mercadoForaDoRaio(m) : false;
-                const nome = m?.nome || id;
-                const sub = totalPorMercado[id] || 0;
-                const desc = descontoPorMercado[id] || 0;
-                const frete = fretePorMercado[id] || 0;
-                const total = totalFinalPorMercado[id] || 0;
-                const low = id === mercadoMaisBarato;
-                const high = id === mercadoMaisCaro;
-                const near = id === mercadoMaisPerto;
-                return (
-                  <li key={id} className={`list-group-item d-flex justify-content-between align-items-center ${low ? "list-group-item-success" : ""} ${high ? "list-group-item-danger" : ""}`}>
-                    <span>{nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
-                    <span className="text-end">
-                      <div><small>Subtotal: {fmt(sub)}</small></div>
-                      <div><small>Desconto: -{fmt(desc)}</small></div>
-                      {incluirFrete && <div><small>Frete: +{fmt(frete)}</small></div>}
-                      <strong>Total: {fmt(total)}</strong>
-                      {low && <span className="badge bg-success ms-2">Mais barato</span>}
-                      {high && <span className="badge bg-danger ms-2">Mais caro</span>}
-                      {near && <span className="badge bg-info ms-2">Mais perto</span>}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+          <div className="mb-4 p-4 bg-light rounded shadow-sm">
+            <h5 className="mb-3">Comparar preços por mercado</h5>
 
-            <div className="row g-3 mb-4">
-              <div className="col-md-6">
-                <div className="card h-100 border-0 shadow-sm">
-                  <div className="card-body">
-                    <h6 className="mb-2">Opção 1 — Compra normal (1 mercado)</h6>
-                    {bestSingleOption ? (
-                      <>
-                        <div className="mb-1"><strong>Mercado:</strong> {bestSingleOption.nome}</div>
-                        <div className="mb-1"><small>Subtotal: {fmt(bestSingleOption.sub)}</small></div>
-                        <div className="mb-1"><small>Desconto: -{fmt(bestSingleOption.desc)}</small></div>
-                        {incluirFrete && <div className="mb-1"><small>Frete: +{fmt(bestSingleOption.frete)}</small></div>}
-                        <div className="fs-5"><strong>Total:</strong> {fmt(bestSingleOption.tot)}</div>
-                        <button
-                          className="btn btn-primary mt-2"
-                          onClick={() => {
-                            setMercadoSelecionadoPedido(bestSingleOption.id);
-                            setMostrarPedido(true);
-                            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-                          }}
-                        >
-                          Continuar compra normal
-                        </button>
-                      </>
-                    ) : (
-                      <div>Selecione mercados para calcular.</div>
-                    )}
-                  </div>
-                </div>
+            <div className="row g-2 mb-3">
+              <div className="col-6 col-md-3">
+                <input type="text" className="form-control" placeholder="Cupom" value={cupomCodigo} onChange={(e) => { setCupomCodigo(e.target.value); setSelecionados({}); }} />
               </div>
-              <div className="col-md-6">
-                <div className="card h-100 border-0 shadow-sm">
-                  <div className="card-body">
-                    <h6 className="mb-2">Opção 2 — Pedido personalizado (multi-mercados)</h6>
-                    {customPlan ? (
-                      <>
-                        <div className="mb-1"><strong>Mercados:</strong> {customPlan.mercadosInfo.map((m) => m.nome).join(" → ")}</div>
-                        <div className="mb-1"><small>Distância da rota: {customPlan.routeKm.toFixed(2)} km</small></div>
-                        <div className="mb-1"><small>Paradas: {Math.max(0, customPlan.markets.length - 1)} (+{((customPlan.multiStopFactor - 1) * 100).toFixed(0)}% no frete)</small></div>
-                        <div className="mb-1"><small>Subtotal: {fmt(customPlan.subtotal)}</small></div>
-                        <div className="mb-1"><small>Desconto: -{fmt(customPlan.desconto)}</small></div>
-                        {incluirFrete && <div className="mb-1"><small>Frete da rota: +{fmt(customPlan.freteRota)}</small></div>}
-                        <div className="fs-5"><strong>Total:</strong> {fmt(customPlan.total)}</div>
-                        {bestSingleOption && <div className="mt-1"><small>Economia vs normal: <strong className={customPlan.total < bestSingleOption.tot ? "text-success" : "text-danger"}>{fmt(bestSingleOption.tot - customPlan.total)}</strong></small></div>}
-                        <div className="mt-3">
-                          <label className="form-label">Janela de entrega</label>
-                          <select className="form-select mb-2" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
-                            <option value="">Selecionar horário</option>
-                            {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                          <div className="row g-2">
-                            <div className="col-md-4"><input type="text" className="form-control" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} /></div>
-                            <div className="col-md-5"><input type="text" className="form-control" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} /></div>
-                            <div className="col-md-3"><input type="text" className="form-control" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} /></div>
-                          </div>
-                          <button className="btn btn-warning fw-bold mt-2" onClick={() => confirmarPersonalizado(customPlan)}>Confirmar pedido personalizado</button>
-                        </div>
-                      </>
-                    ) : (
-                      <div>Escolha mercados e clique nas células da tabela para montar seu pedido por produto.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary mt-3 mb-3" onClick={() => setMostrarPedido(true)}>Fazer Pedido (normal)</button>
-            </div>
-
-            {mostrarPedido && (
-              <div className="mt-3">
-                <div className="row g-2">
-                  <div className="col-md-4">
-                    <div className="form-check form-switch mb-3">
-                      <input className="form-check-input" type="checkbox" id="retiradaSwitch" checked={retirarNaLoja} onChange={() => setRetirarNaLoja(!retirarNaLoja)} />
-                      <label className="form-check-label" htmlFor="retiradaSwitch">Retirar na loja</label>
-                    </div>
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Janela de entrega</label>
-                    <select className="form-select" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
-                      <option value="">Selecionar horário</option>
-                      {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="col-md-4 d-flex align-items-end">
-                    <span className="text-muted">
-                      {mercadoSelecionadoPedido && (() => {
-                        const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
-                        const km = (mSel?.distance || 0) / 1000;
-                        const eta = etaMinutos(km);
-                        return janelaEntrega ? `ETA após o início da janela: ~${eta} min` : "";
-                      })()}
-                    </span>
-                  </div>
-                </div>
-
-                {!retirarNaLoja && (
-                  <>
-                    <label className="form-label">Endereço para entrega:</label>
-                    <input type="text" className="form-control mb-2" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} />
-                    <input type="text" className="form-control mb-3" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} />
-                    <input type="text" className="form-control mb-3" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
-                  </>
-                )}
-
-                <label className="form-label mb-3">Escolha o Mercado:</label>
-                <select className="form-select mb-2" value={mercadoSelecionadoPedido} onChange={(e) => setMercadoSelecionadoPedido(e.target.value)}>
-                  <option value="">Selecione...</option>
-                  {mercadosSelecionadosOrdenados.slice(0, 15).map((id) => {
-                    const m = mercadosProximos.find((x) => x.id === id);
-                    const nome = m?.nome || id;
-                    const sub = totalPorMercado[id] || 0;
-                    const descBase = calcDesconto(sub, retirarNaLoja);
-                    const km = (m?.distance || 0) / 1000;
-                    const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
-                    const tot = Math.max(0, sub - descBase) + fretePedido;
-                    const diff = tot - Math.min(...mercadosSelecionados.map((mid) => {
-                      const mm = mercadosProximos.find((x) => x.id === mid);
-                      const ssub = totalPorMercado[mid] || 0;
-                      const sdesc = calcDesconto(ssub, retirarNaLoja);
-                      const skm = (mm?.distance || 0) / 1000;
-                      const sfrete = retirarNaLoja ? 0 : calcFrete(skm);
-                      return Math.max(0, ssub - sdesc) + sfrete;
-                    }));
-                    const fora = m ? mercadoForaDoRaio(m) : false;
-                    const txt = diff === 0 ? `→ Mais barato (economize até ${fmt(economia)})` : `(+ ${fmt(diff)})`;
-                    return (
-                      <option key={id} value={id} disabled={fora && !retirarNaLoja}>
-                        {nome} - {fmt(tot)} {fora && !retirarNaLoja ? "(fora do raio)" : txt}
-                      </option>
-                    );
-                  })}
+              <div className="col-6 col-md-3">
+                <select className="form-select" value={cupomTipo} onChange={(e) => { setCupomTipo(e.target.value); setSelecionados({}); }}>
+                  <option value="percentual">Percentual (%)</option>
+                  <option value="fixo">Valor fixo (R$)</option>
                 </select>
-
-                {enderecoLoja && (
-                  <p className="text-muted mb-3"><small><strong>Endereço da loja:</strong> {enderecoLoja}</small></p>
-                )}
-
+              </div>
+              <div className="col-6 col-md-3">
+                <div className="input-group">
+                  <span className="input-group-text">{cupomTipo === "percentual" ? "%" : "R$"}</span>
+                  <input type="number" step="0.01" className="form-control" value={cupomValor} onChange={(e) => { setCupomValor(e.target.value); setSelecionados({}); }} />
+                </div>
+              </div>
+              <div className="col-6 col-md-3 d-flex align-items-center justify-content-end">
                 <button
-                  className="btn btn-success mt-3 mb-4"
+                  className="btn btn-success w-100 w-md-auto"
                   onClick={async () => {
-                    if (!retirarNaLoja && (!cep || !ruaCompleta || !numero)) {
-                      Swal.fire("Campos obrigatórios", "Preencha o endereço completo antes de fazer o pedido.", "warning");
-                      return;
-                    }
-                    if (!mercadoSelecionadoPedido) {
-                      Swal.fire("Escolha o mercado", "Selecione o mercado para finalizar.", "warning");
-                      return;
-                    }
-                    if (!janelaEntrega) {
-                      Swal.fire("Horário de entrega", "Escolha a janela de entrega.", "warning");
-                      return;
-                    }
-                    const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
-                    if (mSel && mercadoForaDoRaio(mSel) && !retirarNaLoja) {
-                      Swal.fire("Fora do raio", "Este mercado está fora do raio de atendimento.", "warning");
-                      return;
-                    }
-                    const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
-                    const desc = calcDesconto(sub, retirarNaLoja);
-                    const km = (mSel?.distance || 0) / 1000;
-                    const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
-                    const tot = Math.max(0, sub - desc) + fretePedido;
-                    const totalBRL = fmt(tot);
-                    const payment = await askPayment(totalBRL, "");
-                    if (!payment) return;
-                    if (payment?.method === "card" && payment.payload) payment.payload.cvv = "";
-                    const nome = mSel?.nome || mercadoSelecionadoPedido;
-                    const itens = carrinhoSelecionado.items.map((item) => ({
-                      nome: item.name,
-                      preco: precosFixos[item.name]?.[mercadoSelecionadoPedido] || item.price,
-                      qtd: item.qtd || item.quantidade || 1,
-                    }));
-                    const paymentForDB =
-                      payment.method === "card"
-                        ? { method: "card", card: sanitizeCardForDB(payment.payload) }
-                        : { method: "pix", pix: { type: payment.payload.type, keyMasked: maskPixKey(payment.payload.key) } };
-                    try {
-                      await Swal.fire({
-                        title: "Processando pagamento...",
-                        html: "Aguarde alguns segundos.",
-                        allowOutsideClick: false,
-                        didOpen: () => Swal.showLoading(),
-                        timer: 2000,
-                        timerProgressBar: true,
-                      });
-                      const pedido = {
-                        mercadoId: mercadoSelecionadoPedido,
-                        mercadoNome: nome,
-                        total: tot,
-                        descontoCupom: desc,
-                        cupom: cupomCodigo || null,
-                        frete: fretePedido,
-                        janelaEntrega,
-                        etaMin: etaMinutos(km),
-                        dataHora: new Date().toISOString(),
-                        carrinhoId: carrinhoSelecionadoId,
-                        retiradaEmLoja: retirarNaLoja,
-                        endereco: retirarNaLoja ? null : { cep, rua: ruaCompleta, numero },
-                        lojaEndereco: enderecoLoja,
-                        itens,
-                        pagamento: paymentForDB,
-                      };
-                      const pRef = ref(db, `usuarios/${userId}/pedidos`);
-                      await push(pRef, pedido);
-                      const cRef = ref(db, `usuarios/${userId}/carts/${carrinhoSelecionadoId}`);
-                      await update(cRef, { pedidoFeito: true });
-                      Swal.fire({
-                        title: "Pedido Enviado!",
-                        text: `Seu pedido para o mercado ${nome} foi enviado com sucesso.`,
-                        icon: "success",
-                        showCancelButton: true,
-                        confirmButtonText: "Ir para Pedidos",
-                        cancelButtonText: "Fechar",
-                      }).then((r) => {
-                        if (r.isConfirmed) navigate("/pedidos");
-                      });
-                    } catch {
-                      Swal.fire("Erro", "Não foi possível salvar o pedido.", "error");
+                    if (userLat != null && userLon != null) {
+                      const n = await fetchNearbyMarkets(userLat, userLon);
+                      setMercadosProximos(n);
+                      setMercadosSelecionados([]);
+                      setPrecosFixos({});
+                      setSelecionados({});
+                      setTimeout(() => scrollToRef(refMercados), 80);
                     }
                   }}
                 >
-                  Confirmar Pedido
+                  Atualizar Mercados Próximos
                 </button>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
 
-      {sugestoesRecompra.length > 0 && (
-        <div className="mt-4 mb-4">
-          <h5 className="mb-2">Sugestões para comprar de novo</h5>
-          <div className="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">
-            {sugestoesRecompra.map((s) => (
-              <div key={s.name} className="col">
-                <div className="border rounded p-2 d-flex flex-column h-100">
-                  <div className="fw-semibold">{s.name}</div>
-                  <div className="text-muted">Preço recente: {fmt(s.price)}</div>
-                  <div className="mt-auto d-flex gap-2">
-                    <button
-                      className="btn btn-sm btn-outline-primary w-100"
-                      onClick={async () => {
-                        const novo = {
-                          criadoEm: Date.now(),
-                          items: [{ name: s.name, price: s.price || 0, qtd: 1 }],
-                        };
-                        await push(ref(db, `usuarios/${userId}/carts`), novo);
-                        Swal.fire("Adicionado", "Criamos um carrinho com este item.", "success");
-                      }}
-                    >
-                      Comprar
-                    </button>
-                  </div>
+            <div className="row g-2 mb-3">
+              <div className="col-12 col-md-6">
+                <div className="btn-group w-100">
+                  <button className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`} onClick={() => setOrdenarPor("distancia")}>Ordenar por Distância</button>
+                  <button className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`} onClick={() => setOrdenarPor("preco")}>Ordenar por Preço Total</button>
                 </div>
               </div>
-            ))}
+              <div className="col-12 col-md-6 text-end">
+                <button className="btn btn-outline-dark w-100 w-md-auto" onClick={() => setSelecionados({})}>Limpar escolhas</button>
+              </div>
+            </div>
+
+            {mercadosProximos.length > 0 && (
+              <>
+                <div className="form-check mb-2">
+                  <input type="checkbox" className="form-check-input" id="check-todos" checked={todosMarcados} onChange={toggleSelecionarTodos} />
+                  <label className="form-check-label" htmlFor="check-todos">Selecionar todos</label>
+                </div>
+
+                <p className="text-muted fw-semibold mb-2">Selecione os mercados para comparar:</p>
+                <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+                  {mercadosOrdenados.map((m) => {
+                    const fora = mercadoForaDoRaio(m);
+                    return (
+                      <div key={m.id} className="col">
+                        <div className={`form-check border rounded px-3 py-2 h-100 d-flex align-items-center ${fora ? "bg-warning-subtle" : ""}`} style={{ userSelect: "none" }}>
+                          <input
+                            className="form-check-input me-2"
+                            type="checkbox"
+                            id={`mercado-${m.id}`}
+                            checked={mercadosSelecionados.includes(m.id)}
+                            onChange={() => {
+                              setSelecionados({});
+                              setMercadosSelecionados((prev) => {
+                                const next = prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id];
+                                if (prev.length === 0 && next.length > 0) setTimeout(() => scrollToRef(refTabela), 80);
+                                return next;
+                              });
+                            }}
+                          />
+                          <label className="form-check-label mb-0 d-flex justify-content-between w-100" htmlFor={`mercado-${m.id}`}>
+                            <span>{m.nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
+                            <small className="text-muted ms-2">{kmFmt(m.distance)} km</small>
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
+          {mercadosSelecionados.length > 0 && (
+            <div className="mt-5" ref={refTabela}>
+              <h5 className="mb-2">Comparativo de Preços</h5>
+              <div className="comp-hint mb-2">Dica: no celular, arraste a tabela lateralmente.</div>
+              <div className="table-responsive">
+                <table className="table table-bordered table-sm align-middle comp-table">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Produto</th>
+                      {mercadosSelecionadosOrdenados.map((id) => {
+                        const p = mercadosProximos.find((m) => m.id === id)?.nome;
+                        return <th key={id}>{p}</th>;
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {carrinhoSelecionado.items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>{item.name}</td>
+                        {mercadosSelecionadosOrdenados.map((id) => {
+                          const p = precosFixos[item.name]?.[id];
+                          const min = menoresPrecosPorProduto[item.name];
+                          const chosen = selecionados[item.name] === id;
+                          let cls = "text-center";
+                          if (p && Number(p) === min) cls += " table-success";
+                          if (chosen) cls += " fw-bold";
+                          return (
+                            <td
+                              key={id}
+                              className={cls}
+                              style={{ cursor: p ? "pointer" : "not-allowed" }}
+                              onClick={() => p && handleChoose(item.name, id)}
+                              title={p ? "Clique para escolher este mercado para o item" : "Sem preço"}
+                            >
+                              {p ? `R$ ${Number(p).toFixed(2).replace(".", ",")}` : "-"}
+                              {chosen && <div><small className="badge bg-primary">Selecionado</small></div>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div ref={refOpcoes}></div>
+              <div className="mt-4">
+                <h6>Totais por Mercado (1 mercado):</h6>
+                <ul className="list-group mb-3">
+                  {mercadosSelecionadosOrdenados.map((id) => {
+                    const m = mercadosProximos.find((x) => x.id === id);
+                    const fora = m ? mercadoForaDoRaio(m) : false;
+                    const nome = m?.nome || id;
+                    const sub = totalPorMercado[id] || 0;
+                    const desc = descontoPorMercado[id] || 0;
+                    const frete = fretePorMercado[id] || 0;
+                    const total = totalFinalPorMercado[id] || 0;
+                    const low = id === mercadoMaisBarato;
+                    const high = id === mercadoMaisCaro;
+                    const near = id === mercadoMaisPerto;
+                    return (
+                      <li key={id} className={`list-group-item d-flex justify-content-between align-items-center ${low ? "list-group-item-success" : ""} ${high ? "list-group-item-danger" : ""}`}>
+                        <span>{nome} {fora && <span className="badge bg-warning text-dark ms-2">Fora do raio</span>}</span>
+                        <span className="text-end">
+                          <div><small>Subtotal: {fmt(sub)}</small></div>
+                          <div><small>Desconto: -{fmt(desc)}</small></div>
+                          {incluirFrete && <div><small>Frete: +{fmt(frete)}</small></div>}
+                          <strong>Total: {fmt(total)}</strong>
+                          {low && <span className="badge bg-success ms-2">Mais barato</span>}
+                          {high && <span className="badge bg-danger ms-2">Mais caro</span>}
+                          {near && <span className="badge bg-info ms-2">Mais perto</span>}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="row g-3 mb-4">
+                  <div className="col-md-6">
+                    <div className={`card h-100 border-0 shadow-sm ${recommended === "normal" ? "border border-success" : ""}`}>
+                      <div className="card-body">
+                        <h6 className="mb-2">Opção 1 — Compra normal (1 mercado)</h6>
+                        {bestSingleOption ? (
+                          <>
+                            <div className="mb-1"><strong>Mercado:</strong> {bestSingleOption.nome}</div>
+                            <div className="mb-1"><small>Subtotal: {fmt(bestSingleOption.sub)}</small></div>
+                            <div className="mb-1"><small>Desconto: -{fmt(bestSingleOption.desc)}</small></div>
+                            {incluirFrete && <div className="mb-1"><small>Frete: +{fmt(bestSingleOption.frete)}</small></div>}
+                            <div className="fs-5"><strong>Total:</strong> {fmt(bestSingleOption.tot)}</div>
+                            <button
+                              className="btn btn-primary mt-2"
+                              onClick={() => {
+                                setMercadoSelecionadoPedido(bestSingleOption.id);
+                                setMostrarPedido(true);
+                                setTimeout(() => scrollToRef(refPedido), 80);
+                              }}
+                            >
+                              Continuar compra normal
+                            </button>
+                          </>
+                        ) : (
+                          <div>Selecione mercados para calcular.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className={`card h-100 border-0 shadow-sm ${recommended === "personalizado" ? "border border-success" : ""}`}>
+                      <div className="card-body">
+                        <h6 className="mb-2">Opção 2 — Pedido personalizado (multi-mercados)</h6>
+                        {customPlan ? (
+                          <>
+                            <div className="mb-1"><strong>Mercados:</strong> {customPlan.mercadosInfo.map((m) => m.nome).join(" → ")}</div>
+                            <div className="mb-1"><small>Distância da rota: {customPlan.routeKm.toFixed(2)} km</small></div>
+                            <div className="mb-1"><small>Paradas: {Math.max(0, customPlan.markets.length - 1)} (+{((customPlan.multiStopFactor - 1) * 100).toFixed(0)}% no frete)</small></div>
+                            <div className="mb-1"><small>Subtotal: {fmt(customPlan.subtotal)}</small></div>
+                            <div className="mb-1"><small>Desconto: -{fmt(customPlan.desconto)}</small></div>
+                            {incluirFrete && <div className="mb-1"><small>Frete da rota: +{fmt(customPlan.freteRota)}</small></div>}
+                            <div className="fs-5"><strong>Total:</strong> {fmt(customPlan.total)}</div>
+                            {bestSingleOption && <div className="mt-1"><small>Economia vs normal: <strong className={customPlan.total < bestSingleOption.tot ? "text-success" : "text-danger"}>{fmt(bestSingleOption.tot - customPlan.total)}</strong></small></div>}
+                            <div className="mt-3">
+                              <label className="form-label">Janela de entrega</label>
+                              <select className="form-select mb-2" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
+                                <option value="">Selecionar horário</option>
+                                {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                              <div className="row g-2">
+                                <div className="col-12 col-md-4"><input type="text" className="form-control" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} /></div>
+                                <div className="col-12 col-md-5"><input type="text" className="form-control" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} /></div>
+                                <div className="col-12 col-md-3"><input type="text" className="form-control" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} /></div>
+                              </div>
+                              <button className="btn btn-warning fw-bold mt-2" onClick={() => confirmarPersonalizado(customPlan)}>Confirmar pedido personalizado</button>
+                            </div>
+                          </>
+                        ) : (
+                          <div>Escolha mercados e clique nas células da tabela para montar seu pedido por produto.</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="d-flex gap-2">
+                  <button className="btn btn-primary mt-3 mb-3" onClick={() => { setMostrarPedido(true); setTimeout(() => scrollToRef(refPedido), 80); }}>Fazer Pedido (normal)</button>
+                  <button className="btn ghost-btn mt-3 mb-3" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Voltar ao topo</button>
+                </div>
+
+                {mostrarPedido && (
+                  <div className="mt-3" ref={refPedido}>
+                    <div className="row g-2">
+                      <div className="col-12 col-md-4">
+                        <div className="form-check form-switch mb-3">
+                          <input className="form-check-input" type="checkbox" id="retiradaSwitch" checked={retirarNaLoja} onChange={() => setRetirarNaLoja(!retirarNaLoja)} />
+                          <label className="form-check-label" htmlFor="retiradaSwitch">Retirar na loja</label>
+                        </div>
+                      </div>
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Janela de entrega</label>
+                        <select className="form-select" value={janelaEntrega} onChange={(e) => setJanelaEntrega(e.target.value)}>
+                          <option value="">Selecionar horário</option>
+                          {slotsEntrega.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-4 d-flex align-items-end">
+                        <span className="text-muted">
+                          {mercadoSelecionadoPedido && (() => {
+                            const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
+                            const km = (mSel?.distance || 0) / 1000;
+                            const eta = etaMinutos(km);
+                            return janelaEntrega ? `ETA após o início da janela: ~${eta} min` : "";
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {!retirarNaLoja && (
+                      <>
+                        <label className="form-label">Endereço para entrega:</label>
+                        <input type="text" className="form-control mb-2" placeholder="CEP" value={cep} onChange={(e) => setCep(e.target.value)} />
+                        <input type="text" className="form-control mb-3" placeholder="Rua, Bairro, Cidade - Estado" value={ruaCompleta} onChange={(e) => setRuaCompleta(e.target.value)} />
+                        <input type="text" className="form-control mb-3" placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} />
+                      </>
+                    )}
+
+                    <label className="form-label mb-3">Escolha o Mercado:</label>
+                    <select className="form-select mb-2" value={mercadoSelecionadoPedido} onChange={(e) => setMercadoSelecionadoPedido(e.target.value)}>
+                      <option value="">Selecione...</option>
+                      {mercadosSelecionadosOrdenados.slice(0, 15).map((id) => {
+                        const m = mercadosProximos.find((x) => x.id === id);
+                        const nome = m?.nome || id;
+                        const sub = totalPorMercado[id] || 0;
+                        const descBase = calcDesconto(sub, retirarNaLoja);
+                        const km = (m?.distance || 0) / 1000;
+                        const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
+                        const tot = Math.max(0, sub - descBase) + fretePedido;
+                        const diff = tot - Math.min(...mercadosSelecionados.map((mid) => {
+                          const mm = mercadosProximos.find((x) => x.id === mid);
+                          const ssub = totalPorMercado[mid] || 0;
+                          const sdesc = calcDesconto(ssub, retirarNaLoja);
+                          const skm = (mm?.distance || 0) / 1000;
+                          const sfrete = retirarNaLoja ? 0 : calcFrete(skm);
+                          return Math.max(0, ssub - sdesc) + sfrete;
+                        }));
+                        const fora = m ? mercadoForaDoRaio(m) : false;
+                        const txt = diff === 0 ? `→ Mais barato (economize até ${fmt(economia)})` : `(+ ${fmt(diff)})`;
+                        return (
+                          <option key={id} value={id} disabled={fora && !retirarNaLoja}>
+                            {nome} - {fmt(tot)} {fora && !retirarNaLoja ? "(fora do raio)" : txt}
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    {enderecoLoja && (
+                      <p className="text-muted mb-3"><small><strong>Endereço da loja:</strong> {enderecoLoja}</small></p>
+                    )}
+
+                    <button
+                      className="btn btn-success mt-3 mb-4"
+                      onClick={async () => {
+                        if (!retirarNaLoja && (!cep || !ruaCompleta || !numero)) {
+                          Swal.fire("Campos obrigatórios", "Preencha o endereço completo antes de fazer o pedido.", "warning");
+                          return;
+                        }
+                        if (!mercadoSelecionadoPedido) {
+                          Swal.fire("Escolha o mercado", "Selecione o mercado para finalizar.", "warning");
+                          return;
+                        }
+                        if (!janelaEntrega) {
+                          Swal.fire("Horário de entrega", "Escolha a janela de entrega.", "warning");
+                          return;
+                        }
+                        const mSel = mercadosProximos.find((m) => m.id === mercadoSelecionadoPedido);
+                        if (mSel && mercadoForaDoRaio(mSel) && !retirarNaLoja) {
+                          Swal.fire("Fora do raio", "Este mercado está fora do raio de atendimento.", "warning");
+                          return;
+                        }
+                        const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
+                        const desc = calcDesconto(sub, retirarNaLoja);
+                        const km = (mSel?.distance || 0) / 1000;
+                        const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
+                        const tot = Math.max(0, sub - desc) + fretePedido;
+                        const totalBRL = fmt(tot);
+                        const payment = await askPayment(totalBRL, "");
+                        if (!payment) return;
+                        if (payment?.method === "card" && payment.payload) payment.payload.cvv = "";
+                        const nome = mSel?.nome || mercadoSelecionadoPedido;
+                        const itens = carrinhoSelecionado.items.map((item) => ({
+                          nome: item.name,
+                          preco: precosFixos[item.name]?.[mercadoSelecionadoPedido] || item.price,
+                          qtd: item.qtd || item.quantidade || 1,
+                        }));
+                        const paymentForDB =
+                          payment.method === "card"
+                            ? { method: "card", card: sanitizeCardForDB(payment.payload) }
+                            : { method: "pix", pix: { type: payment.payload.type, keyMasked: maskPixKey(payment.payload.key) } };
+                        try {
+                          await Swal.fire({
+                            title: "Processando pagamento...",
+                            html: "Aguarde alguns segundos.",
+                            allowOutsideClick: false,
+                            didOpen: () => Swal.showLoading(),
+                            timer: 2000,
+                            timerProgressBar: true,
+                          });
+                          const pedido = {
+                            mercadoId: mercadoSelecionadoPedido,
+                            mercadoNome: nome,
+                            total: tot,
+                            descontoCupom: desc,
+                            cupom: cupomCodigo || null,
+                            frete: fretePedido,
+                            janelaEntrega,
+                            etaMin: etaMinutos(km),
+                            dataHora: new Date().toISOString(),
+                            carrinhoId: carrinhoSelecionadoId,
+                            retiradaEmLoja: retirarNaLoja,
+                            endereco: retirarNaLoja ? null : { cep, rua: ruaCompleta, numero },
+                            lojaEndereco: enderecoLoja,
+                            itens,
+                            pagamento: paymentForDB,
+                          };
+                          const pRef = ref(db, `usuarios/${userId}/pedidos`);
+                          await push(pRef, pedido);
+                          const cRef = ref(db, `usuarios/${userId}/carts/${carrinhoSelecionadoId}`);
+                          await update(cRef, { pedidoFeito: true });
+                          Swal.fire({
+                            title: "Pedido Enviado!",
+                            text: `Seu pedido para o mercado ${nome} foi enviado com sucesso.`,
+                            icon: "success",
+                            showCancelButton: true,
+                            confirmButtonText: "Ir para Pedidos",
+                            cancelButtonText: "Fechar",
+                          }).then((r) => {
+                            if (r.isConfirmed) navigate("/pedidos");
+                          });
+                        } catch {
+                          Swal.fire("Erro", "Não foi possível salvar o pedido.", "error");
+                        }
+                      }}
+                    >
+                      Confirmar Pedido
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {sugestoesRecompra.length > 0 && (
+            <div className="mt-4 mb-4">
+              <h5 className="mb-2">Sugestões para comprar de novo</h5>
+              <div className="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">
+                {sugestoesRecompra.map((s) => (
+                  <div key={s.name} className="col">
+                    <div className="border rounded p-2 d-flex flex-column h-100">
+                      <div className="fw-semibold">{s.name}</div>
+                      <div className="text-muted">Preço recente: {fmt(s.price)}</div>
+                      <div className="mt-auto d-flex gap-2">
+                        <button
+                          className="btn btn-sm btn-outline-primary w-100"
+                          onClick={async () => {
+                            const novo = {
+                              criadoEm: Date.now(),
+                              items: [{ name: s.name, price: s.price || 0, qtd: 1 }],
+                            };
+                            await push(ref(db, `usuarios/${userId}/carts`), novo);
+                            Swal.fire("Adicionado", "Criamos um carrinho com este item.", "success");
+                          }}
+                        >
+                          Comprar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="col-lg-4">
+          <div className="sticky-summary">
+            <div className="card border-0 shadow-sm">
+              <div className="card-body">
+                <h6 className="mb-3">Resumo</h6>
+                <div className="d-flex justify-content-between"><span>Carrinho:</span><strong>{carrinhoSelecionadoId ? "#" + (carrinhos.findIndex(c=>c.id===carrinhoSelecionadoId)+1) : "-"}</strong></div>
+                <div className="d-flex justify-content-between"><span>Itens:</span><strong>{carrinhoSelecionado.items.length}</strong></div>
+                <div className="d-flex justify-content-between"><span>Mercados sel.:</span><strong>{mercadosSelecionados.length}</strong></div>
+                {bestSingleOption && <div className="d-flex justify-content-between"><span>Normal:</span><strong>{fmt(bestSingleOption.tot)}</strong></div>}
+                {customPlan && <div className="d-flex justify-content-between"><span>Personalizado:</span><strong>{fmt(customPlan.total)}</strong></div>}
+                {economia > 0 && <div className="d-flex justify-content-between"><span>Economia potencial:</span><strong className="text-success">{fmt(economia)}</strong></div>}
+                <div className="mt-3 d-grid gap-2">
+                  {!mercadosSelecionados.length && <button className="btn btn-primary" onClick={() => scrollToRef(refMercados)}>Selecionar mercados</button>}
+                  {mercadosSelecionados.length > 0 && !(bestSingleOption || customPlan) && <button className="btn btn-primary" onClick={() => scrollToRef(refTabela)}>Ver tabela</button>}
+                  {(bestSingleOption || customPlan) && !mostrarPedido && <button className="btn btn-success" onClick={() => { setMostrarPedido(true); setTimeout(() => scrollToRef(refPedido), 80); }}>Ir para pedido</button>}
+                  {mostrarPedido && <button className="btn btn-outline-secondary" onClick={() => scrollToRef(refPedido)}>Ir para pagamento</button>}
+                </div>
+              </div>
+            </div>
+
+            <div className="card border-0 shadow-sm mt-3">
+              <div className="card-body">
+                <h6 className="mb-2">Parâmetros de frete</h6>
+                <div className="form-check form-switch mb-2">
+                  <input className="form-check-input" type="checkbox" checked={incluirFrete} onChange={() => setIncluirFrete(!incluirFrete)} id="checkFrete" />
+                  <label className="form-check-label" htmlFor="checkFrete">Incluir frete</label>
+                </div>
+                <div className="row g-2">
+                  <div className="col-6"><input type="number" className="form-control" placeholder="R$/km" value={fretePorKmBase} onChange={(e)=>setFretePorKmBase(e.target.value)} /></div>
+                  <div className="col-6"><input type="number" className="form-control" placeholder="Raio (km)" value={raioAtendimentoKm} onChange={(e)=>setRaioAtendimentoKm(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="Faixa1 máx" value={freteFaixa1Max} onChange={(e)=>setFreteFaixa1Max(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="Faixa2 máx" value={freteFaixa2Max} onChange={(e)=>setFreteFaixa2Max(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="Desc Retirada (%)" value={descontoRetiradaPercent} onChange={(e)=>setDescontoRetiradaPercent(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F1 (R$)" value={freteExtraFaixa1} onChange={(e)=>setFreteExtraFaixa1(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F2 (R$)" value={freteExtraFaixa2} onChange={(e)=>setFreteExtraFaixa2(e.target.value)} /></div>
+                  <div className="col-4"><input type="number" className="form-control" placeholder="+ F3 (R$)" value={freteExtraFaixa3} onChange={(e)=>setFreteExtraFaixa3(e.target.value)} /></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {isMobile && (
+        <div className="mobile-cta">
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <div className="fw-semibold small">Melhor total</div>
+              <div className="fs-6">
+                {recommended === "personalizado" && customPlan ? fmt(customPlan.total) :
+                 bestSingleOption ? fmt(bestSingleOption.tot) : "—"}
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn btn-outline-secondary btn-sm" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Topo</button>
+              <button className="btn btn-primary" onClick={handleNextStep}>Próximo</button>
+            </div>
           </div>
         </div>
       )}

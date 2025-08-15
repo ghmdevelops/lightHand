@@ -1,44 +1,20 @@
 {
   "short_name": "Savvy",
   "name": "Savvy",
-  "description": "Savvy — comparador de mercados, ofertas e pedidos rápidos.",
-  "start_url": ".",
+  "description": "Savvy — comparador de mercados e postos, ofertas e pedidos rápidos.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#0d6efd",
   "background_color": "#0d6efd",
-  "icons": [
-    {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "logo512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "logo192-maskable.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "logo512-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
+"icons": [
+  { "src": "logo192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+  { "src": "logo512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+
+  { "src": "logo192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+  { "src": "logo512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+],
   "categories": ["shopping", "food"],
   "prefer_related_applications": false
 }

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 export default function Login({ onAuth, showRegister }) {
   const [email, setEmail] = useState("");
@@ -20,6 +21,66 @@ export default function Login({ onAuth, showRegister }) {
       setErro("E-mail ou senha inválidos.");
     }
   };
+
+  const deferredPromptRef = useRef(null);
+
+  useEffect(() => {
+    const isStandalone =
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      window.navigator.standalone === true;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (!isMobile || isStandalone) return;                        
+
+    const dismissed = localStorage.getItem("pwa_prompt_dismissed") === "1";
+    const installed = localStorage.getItem("pwa_installed") === "1";
+    if (dismissed || installed) return;                        
+
+    const onBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      deferredPromptRef.current = e;
+      showInstallSwal("android");
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIos) setTimeout(() => showInstallSwal("ios"), 1000);
+
+    const onInstalled = () => {
+      localStorage.setItem("pwa_installed", "1");
+      Swal.close();
+    };
+    window.addEventListener("appinstalled", onInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  async function showInstallSwal(platform) {
+    const isIos = platform === "ios";
+    const { isConfirmed, dismiss } = await Swal.fire({
+      title: "Instalar o Savvy?",
+      html: isIos
+        ? `No iPhone/iPad: toque em <b>Compartilhar</b> e depois em <b>Adicionar à Tela de Início</b>.`
+        : `Instale o app para abrir mais rápido e usar offline.`,
+      imageUrl: "/logo192.png",
+      imageHeight: 72,
+      showCancelButton: true,
+      confirmButtonText: isIos ? "OK" : "Instalar",
+      cancelButtonText: "Agora não",
+    });
+
+    if (dismiss) localStorage.setItem("pwa_prompt_dismissed", "1");
+
+    if (!isIos && isConfirmed && deferredPromptRef.current) {
+      deferredPromptRef.current.prompt();
+      const { outcome } = await deferredPromptRef.current.userChoice;
+      if (outcome === "accepted") localStorage.setItem("pwa_installed", "1");
+      deferredPromptRef.current = null;
+    }
+  }
 
   return (
     <div

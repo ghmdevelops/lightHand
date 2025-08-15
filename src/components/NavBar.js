@@ -389,7 +389,7 @@ export default function NavBar({
               >
                 <span className="savvy-title">Savvy</span>
                 <span className="savvy-subtitle">
-                  Escolhas inteligentes no mercado
+                  Escolhas inteligentes
                 </span>
               </div>
             </div>

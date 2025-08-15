@@ -25,6 +25,7 @@ import CompararCarrinhosPage from "./components/CompararCarrinhosPage";
 import Pedidos from "./components/Pedidos";
 import Carrinho from "./components/Carrinho";
 import useIsMobile from "./hooks/useIsMobile";
+import ScrollTopButton from "./components/ScrollTopButton";
 
 export default function App() {
   const [tela, setTela] = useState("landing");
@@ -308,6 +309,7 @@ export default function App() {
             />
           </Routes>
         </div>
+        <ScrollTopButton threshold={320} />
         <div className="d-none d-md-block">
           <Footer dark={false} />
         </div>

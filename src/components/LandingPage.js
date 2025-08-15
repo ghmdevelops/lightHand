@@ -290,7 +290,7 @@ export default function LandingPage({ onLogin, onRegister }) {
                   Bem-vindo ao <span>Savvy</span>
                 </h1>
                 <p className="sub-headline">
-                  Encontre mercados próximos de você em segundos.
+                  Encontre mercados e postos próximos de você em segundos.
                 </p>
                 <p className="description">
                   <strong>Não perca tempo!</strong> Cadastre-se ou faça login agora para desbloquear ofertas exclusivas e economizar junto.
@@ -331,7 +331,7 @@ export default function LandingPage({ onLogin, onRegister }) {
               <div className="info-card">
                 <div className="info-card-icon"><FaBolt /></div>
                 <h5>Rapidez</h5>
-                <p>Encontre mercados próximos em segundos e veja ofertas em tempo real.</p>
+                <p>Encontre mercados e postos próximos em segundos e veja ofertas em tempo real.</p>
               </div>
               <div className="info-card">
                 <div className="info-card-icon"><FaUsers /></div>
@@ -358,13 +358,13 @@ export default function LandingPage({ onLogin, onRegister }) {
               </div>
               <div className="info-card">
                 <div className="step-icon-wrapper"><FaMagnifyingGlass /></div>
-                <h6>2. Busque mercados</h6>
+                <h6>2. Busque mercados e postos</h6>
                 <p>Toque em “Buscar” e veja uma lista das lojas em sua região.</p>
               </div>
               <div className="info-card">
                 <div className="step-icon-wrapper"><FaCartShopping /></div>
                 <h6>3. Confira ofertas</h6>
-                <p>Selecione um mercado para ver ofertas, salvar favoritos ou montar seu carrinho.</p>
+                <p>Selecione um mercado ou posto para ver ofertas, salvar favoritos ou montar seu carrinho.</p>
               </div>
             </div>
           </section>

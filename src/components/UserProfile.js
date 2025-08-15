@@ -55,17 +55,13 @@ const AVATAR_OPTIONS = [
 ];
 
 const SkeletonBox = ({ width = "100%", height = 16, style = {} }) => (
-  <div aria-hidden="true" style={{ width, height, background: "#e3e3e3", borderRadius: 4, marginBottom: 8, ...style, position: "relative", overflow: "hidden" }}>
+  <div aria-hidden="true" style={{ width, height, background: "#e3e3e3", borderRadius: 8, marginBottom: 8, ...style, position: "relative", overflow: "hidden" }}>
     <div style={{ position: "absolute", top: 0, left: "-100%", height: "100%", width: "100%", background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%)", animation: "shimmer 1.5s infinite" }} />
     <style>{`@keyframes shimmer{0%{transform:translateX(0)}100%{transform:translateX(200%)}}`}</style>
   </div>
 );
 
-function dataUrlFromCanvas(canvas, quality = 0.9) {
-  return canvas.toDataURL("image/jpeg", quality);
-}
-
-async function squareCompress(file, size = 512, quality = 0.88) {
+async function squareCompress(file, size = 512, quality = 0.9) {
   const blob = file instanceof Blob ? file : new Blob([file]);
   const url = URL.createObjectURL(blob);
   const img = await new Promise((res, rej) => {
@@ -92,8 +88,8 @@ function identicon(userId, size = 120) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
   const hue = Math.abs(hash) % 360;
-  const bg = `hsl(${hue},70%,18%)`;
-  const fg = `hsl(${(hue + 180) % 360},75%,60%)`;
+  const bg = `hsl(${hue},70%,16%)`;
+  const fg = `hsl(${(hue + 180) % 360},80%,60%)`;
   const cells = 5;
   const cell = size / cells;
   const grid = [];
@@ -158,7 +154,7 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
       await update(dbRef(db, `usuarios/${userId}`), { avatar: url });
       onChangeAvatar(url);
       toast.success("Avatar atualizado!");
-    } catch (err) {
+    } catch {
       setUploadError("Falha ao enviar foto.");
       toast.error("Erro no upload do avatar.");
     } finally {
@@ -181,7 +177,7 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
       await update(dbRef(db, `usuarios/${userId}`), { avatar: null });
       onChangeAvatar(null);
       toast.info("Avatar removido.");
-    } catch (err) {
+    } catch {
       toast.error("Não foi possível remover o avatar.");
       onChangeAvatar(null);
     }
@@ -209,8 +205,14 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
   return (
     <div className="mb-4">
       <div
-        className="text-center rounded-circle border overflow-hidden position-relative mx-auto mb-2"
-        style={{ width: 120, height: 120, outline: drag ? "3px solid #0d6efd" : "none", transition: "outline .2s" }}
+        className="text-center rounded-circle border overflow-hidden position-relative mx-auto mb-2 shadow-sm"
+        style={{
+          width: 128,
+          height: 128,
+          outline: drag ? "3px solid #0d6efd" : "none",
+          transition: "outline .2s, transform .2s",
+          animation: "pulse 3s infinite"
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDrag(true);
@@ -226,10 +228,11 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
         <label
           htmlFor="avatarPhoto"
           className="position-absolute d-flex align-items-center justify-content-center"
-          style={{ bottom: 0, right: 0, background: "#198754", borderRadius: "50%", width: 36, height: 36, cursor: "pointer" }}
+          style={{ bottom: 6, right: 6, background: "linear-gradient(135deg,#4caf50,#2e7d32)", borderRadius: "50%", width: 40, height: 40, cursor: "pointer", boxShadow: "0 6px 14px rgba(76,175,80,.4)" }}
           title="Selecionar Foto"
+          data-bs-toggle="tooltip"
         >
-          <i className="bi bi-camera-fill text-white" aria-hidden="true"></i>
+          <i className="bi bi-camera-fill text-white"></i>
         </label>
         <input type="file" id="avatarPhoto" accept="image/*" onChange={handleInput} style={{ display: "none" }} aria-label="Upload de avatar" />
         {uploading && (
@@ -246,72 +249,50 @@ function AvatarPicker({ userId, avatarURL, onChangeAvatar }) {
 
       <div className="d-flex justify-content-center gap-2 mb-2">
         {avatarURL && (
-          <button className="btn btn-outline-danger btn-sm" onClick={handleRemove} type="button" aria-label="Remover avatar">
+          <button className="btn btn-outline-danger btn-sm btn-glow" onClick={handleRemove} type="button" aria-label="Remover avatar" data-bs-toggle="tooltip" title="Remover avatar">
             <i className="bi bi-trash me-1"></i> Remover
           </button>
         )}
-        <button className="btn btn-outline-primary btn-sm" type="button" onClick={() => handlePreset(generated)}>
+        <button className="btn btn-success btn-sm text-white btn-glow" type="button" onClick={() => handlePreset(generated)} data-bs-toggle="tooltip" title="Gerar identicon">
           <i className="bi bi-stars me-1"></i> Gerar avatar
         </button>
-      </div>
-
-      <div className="d-flex align-items-center justify-content-center gap-2 mt-3 mb-2">
-        <h6 className="mb-0">Avatares sugeridos</h6>
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => setShowPresets((v) => !v)}
-          aria-expanded={showPresets}
-          aria-controls="avatarPresetPanel"
-        >
-          {showPresets ? "Esconder" : "Mostrar"}
+        <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setShowPresets((v) => !v)} aria-expanded={showPresets} aria-controls="avatarPresetPanel">
+          {showPresets ? "Esconder opções" : "Ver opções"}
         </button>
-        <small className="text-muted">{AVATAR_OPTIONS.length} opções</small>
       </div>
 
       <div
         id="avatarPresetPanel"
-        tabIndex={0}
-        style={{
-          maxHeight: showPresets ? 240 : 0,
-          overflowY: showPresets ? "auto" : "hidden",
-          overflowX: "hidden",
-          transition: "max-height .25s ease",
-          paddingRight: 4
-        }}
+        className={`collapse ${showPresets ? "show" : ""}`}
+        style={{ maxHeight: 260, overflowY: "auto", overflowX: "hidden" }}
       >
-        <div
-          className="d-flex gap-2 flex-wrap justify-content-center"
-          style={{ paddingBottom: 4 }}
-        >
+        <div className="d-flex gap-2 flex-wrap justify-content-center pb-2">
           {AVATAR_OPTIONS.map((url) => (
             <button
               key={url}
               type="button"
-              className="border rounded-circle overflow-hidden"
-              style={{
-                width: 50,
-                height: 50,
-                cursor: "pointer",
-                padding: 2,
-                background: avatarURL === url ? "#e9fdd8" : "transparent",
-                boxShadow: avatarURL === url ? "0 0 0 3px rgba(40,167,69,0.6)" : "none",
-                transition: "transform .15s ease, boxShadow .15s ease",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              className="border rounded-circle overflow-hidden card-hover"
+              style={{ width: 56, height: 56, cursor: "pointer", padding: 2, background: avatarURL === url ? "#e9fdd8" : "transparent", boxShadow: avatarURL === url ? "0 0 0 3px rgba(40,167,69,0.6)" : "none" }}
               onClick={() => handlePreset(url)}
               title="Selecionar"
               aria-label="Selecionar avatar preset"
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+              data-bs-toggle="tooltip"
             >
               <img src={url} alt="Avatar opção" className="w-100 h-100" style={{ objectFit: "cover", borderRadius: "50%" }} loading="lazy" />
             </button>
           ))}
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+        .card-hover{transition:transform .15s ease, box-shadow .2s ease}
+        .card-hover:hover{transform:translateY(-2px); box-shadow:0 10px 24px rgba(0,0,0,.08)}
+        .btn-glow{transition:box-shadow .2s ease, transform .05s}
+        .btn-glow:hover{box-shadow:0 8px 24px rgba(13,110,253,.25)}
+        .fade-in-up{animation:fadeInUp .35s ease both}
+        @keyframes fadeInUp{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:translateY(0)}}
+      `}</style>
     </div>
   );
 }
@@ -397,7 +378,7 @@ function ProfileForm({ user, defaultValues, onSaved }) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Formulário de perfil">
+    <form onSubmit={handleSubmit(onSubmit)} noValidate aria-label="Formulário de perfil" className="fade-in-up">
       <div className="row">
         <div className="col-md-6 mb-3">
           <label htmlFor="nome" className="form-label">Nome</label>
@@ -488,7 +469,7 @@ function ProfileForm({ user, defaultValues, onSaved }) {
       </div>
 
       <div className="d-flex justify-content-end">
-        <button type="submit" className="btn btn-primary mb-2" disabled={!isDirty || isSubmitting} aria-label="Salvar dados" style={{ minWidth: 160, borderRadius: 10 }}>
+        <button type="submit" className="btn btn-primary mb-2 btn-glow" disabled={!isDirty || isSubmitting} aria-label="Salvar dados" style={{ minWidth: 160, borderRadius: 10 }}>
           {isSubmitting ? "Salvando..." : "Salvar Dados"}
         </button>
       </div>
@@ -580,8 +561,8 @@ function CartList({ userId, carts, onDelete, onCompare }) {
   }
 
   return (
-    <>
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+    <div className="fade-in-up">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div className="input-group" style={{ maxWidth: 360 }}>
           <span className="input-group-text"><i className="bi bi-search" /></span>
           <input className="form-control" placeholder="Buscar por mercado ou item" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -591,7 +572,7 @@ function CartList({ userId, carts, onDelete, onCompare }) {
             <option value="date">Mais recentes</option>
             <option value="total">Maior total</option>
           </select>
-          <button className="btn btn-outline-secondary btn-sm" onClick={() => exportCartsCSV(selected.length ? carts.filter((c) => selected.includes(c.id)) : filtered)}>
+          <button className="btn btn-outline-secondary btn-sm btn-glow" onClick={() => exportCartsCSV(selected.length ? carts.filter((c) => selected.includes(c.id)) : filtered)}>
             Exportar CSV
           </button>
         </div>
@@ -610,7 +591,7 @@ function CartList({ userId, carts, onDelete, onCompare }) {
           const total = (cart.items || []).reduce((sum, it) => sum + Number(it.price || 0) * (it.qtd || it.quantidade || 1), 0);
           const checked = selected.includes(cart.id);
           return (
-            <li key={cart.id} className="list-group-item d-flex justify-content-between align-items-start flex-wrap" aria-label={`Carrinho de ${cart.mercadoNome || "mercado desconhecido"}`}>
+            <li key={cart.id} className="list-group-item d-flex justify-content-between align-items-start flex-wrap card-hover" aria-label={`Carrinho de ${cart.mercadoNome || "mercado desconhecido"}`}>
               <div className="form-check me-3 mt-1">
                 <input className="form-check-input" type="checkbox" checked={checked} onChange={() => setSelected((prev) => (checked ? prev.filter((id) => id !== cart.id) : [...prev, cart.id]))} />
               </div>
@@ -640,7 +621,7 @@ function CartList({ userId, carts, onDelete, onCompare }) {
                 </div>
               </div>
               <div className="d-flex gap-2 mt-2">
-                <button className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(cart)} aria-label="Excluir carrinho">
+                <button className="btn btn-outline-danger btn-sm btn-glow" onClick={() => handleDelete(cart)} aria-label="Excluir carrinho" data-bs-toggle="tooltip" title="Excluir carrinho">
                   <i className="bi bi-trash me-1"></i> Excluir
                 </button>
               </div>
@@ -650,16 +631,16 @@ function CartList({ userId, carts, onDelete, onCompare }) {
       </ul>
       <div className="text-end">
         <button
-          className="btn btn-success px-4 py-2 mb-2"
+          className="btn btn-success px-4 py-2 mb-2 btn-glow"
           onClick={() => onCompare(selected.length ? selected : undefined)}
-          style={{ borderRadius: "30px", fontWeight: "600", fontSize: "1rem", background: "linear-gradient(135deg, #28a745, #218838)", boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)", border: "none", color: "#fff" }}
+          style={{ borderRadius: "30px", fontWeight: 600, fontSize: "1rem", background: "linear-gradient(135deg, #28a745, #218838)", border: "none" }}
           aria-label="Comparar carrinhos"
         >
-          <i className="bi bi-scales me-2" aria-hidden="true"></i>
+          <i className="bi bi-scales me-2"></i>
           Comparar {selected.length ? `(${selected.length})` : "Carrinhos"}
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -670,6 +651,7 @@ export default function UserProfile({ user, onVoltar }) {
   const [cartsLoading, setCartsLoading] = useState(true);
   const [showUserData, setShowUserData] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [activeTab, setActiveTab] = useState("perfil");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -715,6 +697,14 @@ export default function UserProfile({ user, onVoltar }) {
     };
   }, [user]);
 
+  useEffect(() => {
+    const w = window;
+    if (w && w.bootstrap) {
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.forEach((el) => new w.bootstrap.Tooltip(el));
+    }
+  }, [loadingProfile, cartsLoading, activeTab]);
+
   const handleSave = () => {
     toast.success("Perfil atualizado com sucesso!", { autoClose: 2000 });
   };
@@ -736,52 +726,99 @@ export default function UserProfile({ user, onVoltar }) {
 
   return (
     <div className="container" style={{ zIndex: 2, paddingTop: "84px" }}>
-      <button className="btn btn-outline-secondary mt-3" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
+      <button className="btn btn-outline-secondary mt-3 btn-glow" onClick={onVoltar ? onVoltar : () => navigate(-1)}>
         <i className="bi bi-arrow-left me-1"></i> Voltar
       </button>
-      <ToastContainer position="top-right mb-4" pauseOnHover />
-      <div className="position-sticky bg-light pt-2 pb-2 mb-3" style={{ top: 56, zIndex: 3, borderBottom: "1px solid #eee" }}>
-        <div className="d-flex align-items-center justify-content-between">
-          <h4 className="mb-0">Meu Perfil</h4>
-          <div style={{ width: 120 }} />
+
+      <ToastContainer position="top-right" pauseOnHover className="mt-3" />
+
+      <div className="rounded-4 p-3 p-md-4 my-3 shadow-sm" style={{ background: "linear-gradient(135deg,#f8f9fa,#eef6ff)" }}>
+        <div className="d-flex flex-wrap align-items-center justify-content-between">
+          <h3 className="mb-0 d-flex align-items-center gap-2">
+            <i className="bi bi-person-badge"></i>
+            Meu Perfil
+          </h3>
+          <ul className="nav nav-pills">
+            <li className="nav-item">
+              <button className={`nav-link ${activeTab === "perfil" ? "active" : ""}`} onClick={() => setActiveTab("perfil")}>
+                Perfil
+              </button>
+            </li>
+            <li className="nav-item">
+              <button className={`nav-link ${activeTab === "carrinhos" ? "active" : ""}`} onClick={() => setActiveTab("carrinhos")}>
+                Carrinhos Salvos
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
 
-      <div className="row g-4">
-        <div className="col-lg-4">
-          <div className="card shadow-sm border-0" style={{ borderRadius: 14 }}>
-            <div className="card-body">
-              {loadingProfile ? (
-                <>
-                  <SkeletonBox width={120} height={120} style={{ borderRadius: "50%", margin: "0 auto 12px" }} />
-                  <SkeletonBox width="70%" height={18} style={{ margin: "0 auto" }} />
-                </>
-              ) : (
-                <AvatarPicker userId={user.uid} avatarURL={avatarURL} onChangeAvatar={setAvatarURL} />
-              )}
-              <div className="text-center">
-                <div className="badge bg-light text-dark border mt-2">
-                  {user.email}
+      {activeTab === "perfil" && (
+        <div className="row g-4 fade-in-up">
+          <div className="col-lg-4">
+            <div className="card shadow-sm border-0 card-hover" style={{ borderRadius: 14 }}>
+              <div className="card-body">
+                {loadingProfile ? (
+                  <>
+                    <SkeletonBox width={128} height={128} style={{ borderRadius: "50%", margin: "0 auto 12px" }} />
+                    <SkeletonBox width="70%" height={18} style={{ margin: "0 auto" }} />
+                  </>
+                ) : (
+                  <AvatarPicker userId={user.uid} avatarURL={avatarURL} onChangeAvatar={setAvatarURL} />
+                )}
+                <div className="text-center">
+                  <div className="badge bg-light text-dark border mt-2">
+                    {user.email}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="col-lg-8">
-          <div className="card shadow-sm border-0" style={{ borderRadius: 14 }}>
-            <div className="card-header bg-white d-flex justify-content-between align-items-center" style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
-              <h5 className="mb-0">Dados Pessoais</h5>
-              <button type="button" className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onClick={() => setShowUserData((v) => !v)} aria-label={showUserData ? "Ocultar dados" : "Mostrar dados"}>
-                <i className={`bi ${showUserData ? "bi-chevron-up" : "bi-chevron-down"}`} />
-              </button>
-            </div>
-            <div className="card-body">
-              {showUserData && (loadingProfile || !profileData ? <SkeletonBox width="100%" height={24} /> : <ProfileForm user={user} defaultValues={profileData} onSaved={handleSave} />)}
+          <div className="col-lg-8">
+            <div className="card shadow-sm border-0 card-hover" style={{ borderRadius: 14 }}>
+              <div className="card-header bg-white d-flex justify-content-between align-items-center" style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+                <h5 className="mb-0 d-flex align-items-center gap-2">
+                  <i className="bi bi-card-checklist"></i>
+                  Dados Pessoais
+                </h5>
+                <button type="button" className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 btn-glow" onClick={() => setShowUserData((v) => !v)} aria-label={showUserData ? "Ocultar dados" : "Mostrar dados"}>
+                  <i className={`bi ${showUserData ? "bi-chevron-up" : "bi-chevron-down"}`} />
+                </button>
+              </div>
+              <div className={`card-body ${showUserData ? "fade-in-up" : ""}`} style={{ display: showUserData ? "block" : "none" }}>
+                {showUserData && (loadingProfile || !profileData ? <SkeletonBox width="100%" height={24} /> : <ProfileForm user={user} defaultValues={profileData} onSaved={handleSave} />)}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === "carrinhos" && (
+        <div className="row g-4 fade-in-up">
+          <div className="col-12">
+            <div className="card shadow-sm border-0 card-hover" style={{ borderRadius: 14 }}>
+              <div className="card-header bg-white d-flex justify-content-between align-items-center" style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+                <h5 className="mb-0 d-flex align-items-center gap-2">
+                  <i className="bi bi-bag"></i>
+                  Seus Carrinhos
+                </h5>
+              </div>
+              <div className="card-body">
+                {cartsLoading ? (
+                  <>
+                    <SkeletonBox height={18} />
+                    <SkeletonBox height={18} />
+                    <SkeletonBox height={18} />
+                  </>
+                ) : (
+                  <CartList userId={user.uid} carts={carts} onDelete={handleDeleteCart} onCompare={handleCompare} />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
