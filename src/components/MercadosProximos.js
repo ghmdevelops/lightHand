@@ -1238,7 +1238,7 @@ export default function BuscarMercadosOSM({ user }) {
                 style={{ color: "#0f172a", fontSize: "1.4rem" }}
                 variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
               >
-                Compare e economize perto de você 
+                Compare e economize perto de você
               </motion.h2>
 
               <motion.p
@@ -1251,7 +1251,7 @@ export default function BuscarMercadosOSM({ user }) {
               </motion.p>
 
               <motion.div
-                className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-2"
+                className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-3"
                 variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
               >
                 <div className="d-flex align-items-center gap-2">
@@ -1269,7 +1269,7 @@ export default function BuscarMercadosOSM({ user }) {
               </motion.div>
 
               <motion.div
-                className="d-flex flex-wrap justify-content-center gap-3"
+                className="d-flex flex-wrap justify-content-center gap-3 mb-3"
                 variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
               >
                 <motion.button
@@ -1322,34 +1322,60 @@ export default function BuscarMercadosOSM({ user }) {
           >
             {welcome.show && (
               <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="card border-0 shadow-sm mb-4 mx-auto"
-                style={{ maxWidth: 720, borderRadius: 16, background: "linear-gradient(135deg,#ecfeff,#ffffff)" }}
+                initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="card border-0 shadow-lg mb-4 mx-auto"
+                style={{
+                  maxWidth: 720,
+                  borderRadius: 20,
+                  background: "linear-gradient(135deg,#f0f9ff 0%, #ffffff 100%)",
+                  border: "1px solid #e2e8f0",
+                  width: "100%",
+                }}
               >
-                <div className="card-body d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
-                  <div className="text-start">
-                    <div className="fw-bold" style={{ fontSize: "1.1rem", color: "#0f172a" }}>
-                      Olá{welcome.name ? `, ${welcome.name}` : ""}! Que bom te ver de novo.
+                <div className="card-body d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-between gap-3 p-3 p-md-4">
+                  <div className="text-start flex-grow-1">
+                    <div
+                      className="fw-bold"
+                      style={{ fontSize: "1.125rem", color: "#0f172a", lineHeight: 1.4 }}
+                    >
+                      👋 Olá{welcome.name ? `, ${welcome.name}` : ""}!
                     </div>
-                    <div className="text-muted" style={{ fontSize: ".95rem" }}>
-                      Você quer continuar normalmente e fazer suas escolhas ou repetir sua última compra?
+                    <div className="text-muted" style={{ fontSize: "1rem", lineHeight: 1.5 }}>
+                      Que bom te ver de novo. Deseja continuar normalmente e fazer novas escolhas
+                      ou repetir sua última compra?
                     </div>
                   </div>
-                  <div className="d-flex gap-2 flex-wrap">
+
+                  <div className="d-grid d-md-flex gap-2 w-100 w-md-auto">
                     <button
-                      className="btn btn-outline-primary"
+                      className="btn btn-light border fw-semibold px-3 py-2"
                       onClick={() => setWelcome((w) => ({ ...w, show: false }))}
-                      style={{ borderRadius: 12, fontWeight: 700 }}
+                      style={{
+                        borderRadius: 14,
+                        borderColor: "#cbd5e1",
+                        transition: "all 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "white")}
                     >
                       Continuar normalmente
                     </button>
                     <button
-                      className="btn btn-primary"
+                      className="btn fw-semibold px-3 py-2"
                       onClick={handleRepetirUltimaCompra}
-                      style={{ borderRadius: 12, fontWeight: 700 }}
+                      style={{
+                        borderRadius: 14,
+                        background: "linear-gradient(135deg,#3b82f6,#2563eb)",
+                        color: "white",
+                        boxShadow: "0 2px 6px rgba(37, 99, 235, 0.4)",
+                        transition: "transform 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                     >
-                      Repetir última compra
+                      🔄 Repetir última compra
                     </button>
                   </div>
                 </div>

@@ -73,13 +73,13 @@ function loadPixFromStorage() {
 function saveCardToStorage(card) {
   try {
     localStorage.setItem(CARD_STORAGE_KEY, JSON.stringify(card));
-  } catch {}
+  } catch { }
 }
 
 function savePixToStorage(pix) {
   try {
     localStorage.setItem(PIX_STORAGE_KEY, JSON.stringify(pix));
-  } catch {}
+  } catch { }
 }
 
 function sanitizeCardForDB(card) {
@@ -252,7 +252,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
           await navigator.clipboard.writeText(pixKey.value || pixCopy.textContent);
           btnCopy.textContent = "Copiado!";
           setTimeout(() => (btnCopy.textContent = "Copiar chave"), 1200);
-        } catch {}
+        } catch { }
       });
     },
     preConfirm: () => {
@@ -299,7 +299,7 @@ async function askPayment(totalBRL = "", pixKeyPrefill = "") {
       try {
         const c = loadCardFromStorage();
         if (c && typeof c === "object") saveCardToStorage({ ...c, cvv: "" });
-      } catch {}
+      } catch { }
     },
   });
   if (!isConfirmed) return null;
@@ -362,6 +362,41 @@ export default function CompararCarrinhosPage({ user }) {
   const refTabela = useRef(null);
   const refOpcoes = useRef(null);
   const refPedido = useRef(null);
+  const topRef = useRef(null);
+  const [precosUpdatedAt, setPrecosUpdatedAt] = useState(null);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 15000); // re-render a cada 15s
+    return () => clearInterval(id);
+  }, []);
+
+  const timeAgo = (ts) => {
+    if (!ts) return "—";
+    const diff = Math.floor((Date.now() - ts) / 1000);
+    if (diff < 5) return "agora";
+    if (diff < 60) return `${diff}s atrás`;
+    const m = Math.floor(diff / 60);
+    if (m < 60) return `${m} min atrás`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} h atrás`;
+    const d = Math.floor(h / 24);
+    return `${d} d atrás`;
+  };
+
+  useEffect(() => {
+    if (!isMobile || transitionDir !== "forward") return;
+
+    const timer = setTimeout(() => {
+      if (topRef.current) {
+        topRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 360);
+
+    return () => clearTimeout(timer);
+  }, [stepIndex, isMobile, transitionDir]);
 
   const parseNum = (x) => {
     const n = parseFloat(String(x).replace(",", "."));
@@ -410,7 +445,7 @@ export default function CompararCarrinhosPage({ user }) {
         if (c) setCep(c);
         const n = await fetchNearbyMarkets(latitude, longitude);
         setMercadosProximos(n);
-      } catch {}
+      } catch { }
     });
   }, []);
 
@@ -446,6 +481,7 @@ export default function CompararCarrinhosPage({ user }) {
     if (!carrinhoSelecionadoId || !mercadosSelecionados.length) return;
     const carrinho = carrinhos.find((c) => c.id === carrinhoSelecionadoId);
     if (!carrinho) return;
+
     setPrecosFixos((prev) => {
       const n = { ...prev };
       carrinho.items.forEach((item) => {
@@ -464,6 +500,8 @@ export default function CompararCarrinhosPage({ user }) {
       });
       return n;
     });
+
+    setPrecosUpdatedAt(Date.now());
   }, [carrinhoSelecionadoId, mercadosSelecionados, carrinhos]);
 
   useEffect(() => {
@@ -607,13 +645,25 @@ export default function CompararCarrinhosPage({ user }) {
 
   async function aplicarCupom(code) {
     const c = String(code || "").trim().toUpperCase();
+
     if (!c) {
       Swal.fire("Cupom vazio", "Cole um código de cupom.", "warning");
       return;
     }
+
+    if (isReferralCupom(c)) {
+      setCupomCodigo(c);
+      setCupomTipo("percentual");
+      setCupomValor("15");
+      setCupomInput(c);
+      Swal.fire("Cupom aplicado", "Cupom de indicação reconhecido (15%).", "success");
+      return;
+    }
+
     try {
       const snap = await get(ref(db, `cupons/${c}`));
       const data = snap.val();
+
       if (data && (data.tipo === "percentual" || data.tipo === "fixo") && data.valor != null) {
         setCupomCodigo(c);
         setCupomTipo(data.tipo);
@@ -622,14 +672,7 @@ export default function CompararCarrinhosPage({ user }) {
         Swal.fire("Cupom aplicado", `Cupom ${c} aplicado.`, "success");
         return;
       }
-      if (isReferralCupom(c)) {
-        setCupomCodigo(c);
-        setCupomTipo("percentual");
-        setCupomValor("15");
-        setCupomInput(c);
-        Swal.fire("Cupom aplicado", "Cupom de indicação reconhecido (15%).", "success");
-        return;
-      }
+
       Swal.fire("Cupom inválido", "Não encontramos este cupom.", "warning");
     } catch {
       Swal.fire("Erro", "Não foi possível validar o cupom.", "error");
@@ -868,24 +911,41 @@ export default function CompararCarrinhosPage({ user }) {
 
   const bestSingleOption = useMemo(() => {
     if (!mercadosSelecionados.length) return null;
-    let bestId = null;
-    let bestTot = Infinity;
     let bestData = null;
+    let bestTot = Infinity;
+
     mercadosSelecionados.forEach((id) => {
       const sub = totalPorMercado[id] || 0;
-      const desc = calcDesconto(sub, false);
       const m = mercadosProximos.find((x) => x.id === id);
       const km = (m?.distance || 0) / 1000;
-      const frete = incluirFrete ? calcFrete(km) : 0;
+      const desc = calcDesconto(sub, retirarNaLoja);
+      const frete = retirarNaLoja ? 0 : (incluirFrete ? calcFrete(km) : 0);
       const tot = Math.max(0, sub - desc) + frete;
+
       if (tot < bestTot) {
         bestTot = tot;
-        bestId = id;
         bestData = { id, nome: m?.nome || id, km, sub, desc, frete, tot };
       }
     });
+
     return bestData;
-  }, [mercadosSelecionados, totalPorMercado, mercadosProximos, incluirFrete, fretePorKmBase, freteFaixa1Max, freteFaixa2Max, freteExtraFaixa1, freteExtraFaixa2, freteExtraFaixa3, cupomCodigo, cupomTipo, cupomValor, descontoRetiradaPercent]);
+  }, [
+    mercadosSelecionados,
+    totalPorMercado,
+    mercadosProximos,
+    incluirFrete,
+    retirarNaLoja,
+    fretePorKmBase,
+    freteFaixa1Max,
+    freteFaixa2Max,
+    freteExtraFaixa1,
+    freteExtraFaixa2,
+    freteExtraFaixa3,
+    cupomCodigo,
+    cupomTipo,
+    cupomValor,
+    descontoRetiradaPercent
+  ]);
 
   const customPlan = useMemo(() => computeCustomPlan(), [selecionados, mercadosSelecionados, precosFixos, carrinhoSelecionado, userLat, userLon, incluirFrete, fretePorKmBase, freteFaixa1Max, freteFaixa2Max, freteExtraFaixa1, freteExtraFaixa2, freteExtraFaixa3, cupomCodigo, cupomTipo, cupomValor]);
 
@@ -970,8 +1030,31 @@ export default function CompararCarrinhosPage({ user }) {
 
   if (loading) return <div className="container mt-5" style={{ paddingTop: "90px" }}>Carregando comparação...</div>;
 
+  const handleClearAll = () => {
+    setSelecionados({});
+    setMercadosSelecionados([]);
+    setMercadoSelecionadoPedido("");
+    setPrecosFixos({});
+    setOrdenarPor("distancia");
+  };
+
+  const refreshMarketPrices = () => {
+    setPrecosFixos((prev) => {
+      const n = { ...prev };
+      Object.keys(n).forEach((prod) => {
+        Object.keys(n[prod] || {}).forEach((mid) => {
+          const base = Number(n[prod][mid]);
+          const factor = 1 + (Math.random() * 0.04 - 0.02);
+          n[prod][mid] = (base * factor).toFixed(2);
+        });
+      });
+      return n;
+    });
+    setPrecosUpdatedAt(Date.now());
+  };
+
   return (
-    <div className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
+    <div ref={topRef} className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
       <style>{`
         .steps{display:flex;gap:.75rem;list-style:none;margin:0;padding:0}
         .step{flex:1;display:flex;align-items:center;gap:.5rem;font-weight:600;border:1px solid #e5e7eb;padding:.5rem .75rem;border-radius:12px;justify-content:center;background:#fff}
@@ -1023,7 +1106,7 @@ export default function CompararCarrinhosPage({ user }) {
                     try {
                       await navigator.clipboard.writeText(referralCode);
                       Swal.fire("Copiado", "Código de indicação copiado para a área de transferência.", "success");
-                    } catch {}
+                    } catch { }
                   }}>Copiar código</button>
                 </div>
 
@@ -1146,29 +1229,103 @@ export default function CompararCarrinhosPage({ user }) {
               <div className="mb-4 p-4 bg-light rounded shadow-sm" ref={refMercados}>
                 <h5 className="mb-1">Comparar preços por mercado</h5>
                 <p className="text-muted mb-3">{stepDescriptions[1]}</p>
-                <div className="row g-2 mb-3">
-                  <div className="col-12 col-md-6">
-                    <div className="btn-group w-100">
-                      <button className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`} onClick={() => setOrdenarPor("distancia")}>Ordenar por Distância</button>
-                      <button className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`} onClick={() => setOrdenarPor("preco")}>Ordenar por Preço Total</button>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-6 text-end">
-                    <button className="btn btn-outline-dark w-100 w-md-auto" onClick={() => setSelecionados({})}>Limpar escolhas</button>
-                  </div>
-                </div>
-
-                <div className="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
-                  <span><strong>Mais perto:</strong> {mercadoMaisPerto ? `${mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} (${kmFmt(mercadoMaisPertoObj.dist)} km)` : "-"}</span>
-                  <span><strong>Mais barato:</strong> {mercadoMaisBarato ? `${mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} (${fmt(minTotal)})` : "-"}</span>
-                </div>
 
                 {mercadosProximos.length > 0 && (
                   <>
-                    <div className="form-check mb-2">
-                      <input type="checkbox" className="form-check-input" id="check-todos" checked={todosMarcados} onChange={toggleSelecionarTodos} />
-                      <label className="form-check-label" htmlFor="check-todos">Selecionar todos</label>
+                    <div className={`card border-0 shadow-sm mb-3 ${todosMarcados ? "border border-primary" : ""}`}>
+                      <div className="card-body d-flex align-items-center justify-content-between gap-3">
+                        <div className="flex-grow-1">
+                          <div className="d-flex align-items-center gap-2">
+                            <span className="fw-semibold">Selecionar todos</span>
+                            <span className="badge text-bg-light">{mercadosSelecionados.length}/{mercadosProximos.length || 0}</span>
+                          </div>
+                          <div className="small text-muted">Marcar ou desmarcar todos os mercados</div>
+                          <div className="progress mt-2" style={{ height: 6 }}>
+                            <div
+                              className={`progress-bar ${todosMarcados ? "bg-primary" : "bg-info"}`}
+                              role="progressbar"
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={mercadosProximos.length ? Math.round((mercadosSelecionados.length / mercadosProximos.length) * 100) : 0}
+                              style={{ width: `${mercadosProximos.length ? ((mercadosSelecionados.length / mercadosProximos.length) * 100).toFixed(0) : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="form-check form-switch m-0">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="check-todos"
+                            checked={todosMarcados}
+                            onChange={toggleSelecionarTodos}
+                            role="switch"
+                            aria-checked={todosMarcados}
+                          />
+                          <label className="form-check-label ms-2 d-none d-sm-inline" htmlFor="check-todos">
+                            {todosMarcados ? "Todos" : "Parcial"}
+                          </label>
+                        </div>
+                      </div>
                     </div>
+
+                    <div className="alert border-0 shadow-sm mb-3 bg-body-tertiary">
+                      <div className="row g-2 align-items-center">
+                        <div className="col-12 col-sm-6 d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
+                          <span className="badge bg-info-subtle text-info-emphasis rounded-pill">Mais perto</span>
+                          <span className="fw-semibold text-truncate">
+                            {mercadoMaisPerto ? `${mercadosProximos.find((m) => m.id === mercadoMaisPerto)?.nome} (${kmFmt(mercadoMaisPertoObj.dist)} km)` : "—"}
+                          </span>
+                        </div>
+                        <div className="col-12 col-sm-6 d-flex align-items-center justify-content-sm-end gap-2" style={{ minWidth: 0 }}>
+                          <span className="badge bg-success-subtle text-success-emphasis rounded-pill">Mais barato</span>
+                          <span className="fw-semibold text-truncate text-sm-end">
+                            {mercadoMaisBarato ? `${mercadosProximos.find((m) => m.id === mercadoMaisBarato)?.nome} (${fmt(minTotal)})` : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="row g-2 mb-3 align-items-stretch">
+                      <div className="col-12 col-md-7">
+                        <div className="card border-0 shadow-sm h-100">
+                          <div className="card-body d-flex flex-wrap align-items-center gap-2">
+                            <span className="text-muted small me-1">Ordenar por</span>
+                            <div className="btn-group flex-grow-1 flex-md-grow-0" role="group" aria-label="Ordenação">
+                              <button
+                                className={`btn btn-outline-secondary ${ordenarPor === "distancia" ? "active" : ""}`}
+                                onClick={() => setOrdenarPor("distancia")}
+                                aria-pressed={ordenarPor === "distancia"}
+                              >
+                                Distância
+                              </button>
+                              <button
+                                className={`btn btn-outline-secondary ${ordenarPor === "preco" ? "active" : ""}`}
+                                onClick={() => setOrdenarPor("preco")}
+                                aria-pressed={ordenarPor === "preco"}
+                              >
+                                Preço total
+                              </button>
+                            </div>
+                            <span className="ms-auto small text-muted d-none d-md-inline">
+                              {mercadosSelecionados.length}/{mercadosProximos.length || 0} mercados
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-md-5">
+                        <div className="d-grid">
+                          <button
+                            className="btn btn-outline-danger"
+                            onClick={handleClearAll}
+                          >
+                            Limpar tudo
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+
                     <p className="text-muted fw-semibold mb-2">Selecione os mercados para comparar:</p>
                     <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
                       {mercadosOrdenados.map((m) => {
@@ -1202,48 +1359,112 @@ export default function CompararCarrinhosPage({ user }) {
 
             {stepIndex === 2 && (
               <div className="mt-2" ref={refTabela}>
-                <h5 className="mb-1">Comparativo de Preços</h5>
-                <p className="text-muted mb-2">{stepDescriptions[2]}</p>
-                <div className="comp-hint mb-2">Dica: no celular, arraste a tabela lateralmente.</div>
-                <div className="table-responsive">
-                  <table className="table table-bordered table-sm align-middle comp-table">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Produto</th>
-                        {mercadosSelecionadosOrdenados.map((id) => {
-                          const p = mercadosProximos.find((m) => m.id === id)?.nome;
-                          return <th key={id}>{p}</th>;
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {carrinhoSelecionado.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>{item.name}</td>
+                <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2 mb-2">
+                  <div>
+                    <h5 className="mb-0">Comparativo de Preços</h5>
+                    <div className="text-muted small">{stepDescriptions[2]}</div>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <span
+                      className="badge text-bg-light"
+                      title={precosUpdatedAt ? new Date(precosUpdatedAt).toLocaleString() : ""}
+                    >
+                      {precosUpdatedAt ? `Atualizado ${timeAgo(precosUpdatedAt)}` : "Nunca atualizado"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="comp-hint mb-2">Dica: no celular, arraste a lista ou a tabela lateralmente.</div>
+
+                <div className="d-lg-none">
+                  {carrinhoSelecionado.items.map((item, idx) => {
+                    const min = menoresPrecosPorProduto[item.name];
+                    return (
+                      <div key={idx} className="card border-0 shadow-sm mb-2">
+                        <div className="card-body">
+                          <div className="d-flex align-items-center justify-content-between">
+                            <div className="fw-semibold">{item.name}</div>
+                            {Number.isFinite(min) && <span className="badge text-bg-success">melhor preço {fmt(min)}</span>}
+                          </div>
+                          <div className="d-flex gap-2 overflow-auto pt-2">
+                            {mercadosSelecionadosOrdenados.map((id) => {
+                              const p = precosFixos[item.name]?.[id];
+                              const chosen = selecionados[item.name] === id;
+                              const isMin = p && Number(p) === min;
+                              const nome = mercadosProximos.find((m) => m.id === id)?.nome || id;
+                              return (
+                                <button
+                                  key={id}
+                                  className={`btn btn-sm d-flex flex-column align-items-start ${isMin ? "btn-success" : "btn-outline-secondary"} ${chosen ? "active" : ""}`}
+                                  onClick={() => p && handleChoose(item.name, id)}
+                                  disabled={!p}
+                                  style={{ minWidth: 140 }}
+                                >
+                                  <span className="fw-bold">
+                                    {p ? `R$ ${Number(p).toFixed(2).replace(".", ",")}` : "—"}
+                                  </span>
+                                  <small className="text-truncate" style={{ maxWidth: 120 }}>{nome}</small>
+                                  {p && !isMin && Number.isFinite(min) && (
+                                    <small className="text-muted">+{fmt(Number(p) - min)}</small>
+                                  )}
+                                  {chosen && <span className="badge text-bg-primary mt-1">Selecionado</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="d-none d-lg-block">
+                  <div className="table-responsive">
+                    <table className="table table-bordered table-hover table-sm align-middle comp-table">
+                      <thead className="table-light">
+                        <tr>
+                          <th style={{ minWidth: 240 }}>Produto</th>
                           {mercadosSelecionadosOrdenados.map((id) => {
-                            const p = precosFixos[item.name]?.[id];
-                            const min = menoresPrecosPorProduto[item.name];
-                            const chosen = selecionados[item.name] === id;
-                            let cls = "text-center";
-                            if (p && Number(p) === min) cls += " table-success";
-                            if (chosen) cls += " fw-bold";
-                            return (
-                              <td
-                                key={id}
-                                className={cls}
-                                style={{ cursor: p ? "pointer" : "not-allowed" }}
-                                onClick={() => p && handleChoose(item.name, id)}
-                                title={p ? "Clique para escolher este mercado para o item" : "Sem preço"}
-                              >
-                                {p ? `R$ ${Number(p).toFixed(2).replace(".", ",")}` : "-"}
-                                {chosen && <div><small className="badge bg-primary">Selecionado</small></div>}
-                              </td>
-                            );
+                            const p = mercadosProximos.find((m) => m.id === id)?.nome;
+                            return <th key={id} className="text-center">{p}</th>;
                           })}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {carrinhoSelecionado.items.map((item, idx) => {
+                          const min = menoresPrecosPorProduto[item.name];
+                          return (
+                            <tr key={idx}>
+                              <td className="fw-semibold">{item.name}</td>
+                              {mercadosSelecionadosOrdenados.map((id) => {
+                                const p = precosFixos[item.name]?.[id];
+                                const chosen = selecionados[item.name] === id;
+                                const isMin = p && Number(p) === min;
+                                let cls = "text-center";
+                                if (isMin) cls += " table-success";
+                                if (chosen) cls += " fw-bold";
+                                return (
+                                  <td
+                                    key={id}
+                                    className={cls}
+                                    style={{ cursor: p ? "pointer" : "not-allowed", whiteSpace: "nowrap" }}
+                                    onClick={() => p && handleChoose(item.name, id)}
+                                    title={p ? "Clique para escolher este mercado para o item" : "Sem preço"}
+                                  >
+                                    {p ? `R$ ${Number(p).toFixed(2).replace(".", ",")}` : "—"}
+                                    {p && !isMin && Number.isFinite(min) && (
+                                      <div className="small text-muted">+{fmt(Number(p) - min)}</div>
+                                    )}
+                                    {chosen && <div><small className="badge text-bg-primary">Selecionado</small></div>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -1567,9 +1788,36 @@ export default function CompararCarrinhosPage({ user }) {
                 <div className="d-flex justify-content-between"><span>Carrinho:</span><strong>{carrinhoSelecionadoId ? "#" + (carrinhos.findIndex(c => c.id === carrinhoSelecionadoId) + 1) : "-"}</strong></div>
                 <div className="d-flex justify-content-between"><span>Itens:</span><strong>{carrinhoSelecionado.items.length}</strong></div>
                 <div className="d-flex justify-content-between"><span>Mercados sel.:</span><strong>{mercadosSelecionados.length}</strong></div>
-                {bestSingleOption && <div className="d-flex justify-content-between"><span>Normal:</span><strong>{fmt(bestSingleOption.tot)}</strong></div>}
-                {customPlan && <div className="d-flex justify-content-between"><span>Personalizado:</span><strong>{fmt(customPlan.total)}</strong></div>}
-                {economia > 0 && <div className="d-flex justify-content-between"><span>Economia potencial:</span><strong className="text-success">{fmt(economia)}</strong></div>}
+
+                {bestSingleOption && (
+                  <div className="mt-2">
+                    <div className="d-flex justify-content-between">
+                      <span>Normal</span><strong>{fmt(bestSingleOption.tot)}</strong>
+                    </div>
+                    <div className="small text-muted">
+                      desconto: -{fmt(bestSingleOption.desc)}
+                      {!retirarNaLoja ? ` • frete: +${fmt(bestSingleOption.frete)}` : ""}
+                    </div>
+                  </div>
+                )}
+
+                {customPlan && (
+                  <div className="mt-2">
+                    <div className="d-flex justify-content-between">
+                      <span>Personalizado</span><strong>{fmt(customPlan.total)}</strong>
+                    </div>
+                    <div className="small text-muted">
+                      desconto: -{fmt(customPlan.desconto)} • frete: +{fmt(customPlan.freteRota)}
+                    </div>
+                  </div>
+                )}
+
+                {economia > 0 && (
+                  <div className="d-flex justify-content-between mt-2">
+                    <span>Economia potencial:</span><strong className="text-success">{fmt(economia)}</strong>
+                  </div>
+                )}
+
                 <div className="mt-3 d-grid gap-2">
                   <button className="btn btn-outline-secondary" onClick={() => { setTransitionDir("backward"); setStepIndex(0); }}>Carrinho</button>
                   <button className="btn btn-outline-secondary" onClick={() => { setTransitionDir("forward"); setStepIndex(1); }}>Mercados</button>
@@ -1615,7 +1863,9 @@ export default function CompararCarrinhosPage({ user }) {
                   {bestSingleOption ? fmt(bestSingleOption.tot) : "—"}
                 </div>
                 <div className="small text-muted">
-                  {bestSingleOption ? `com frete: ${fmt(bestSingleOption.frete)}` : ""}
+                  {bestSingleOption
+                    ? `desconto: -${fmt(bestSingleOption.desc)}${!retirarNaLoja ? ` • frete: +${fmt(bestSingleOption.frete)}` : ""}`
+                    : ""}
                 </div>
               </div>
 
@@ -1627,7 +1877,7 @@ export default function CompararCarrinhosPage({ user }) {
                   {customPlan ? fmt(customPlan.total) : "—"}
                 </div>
                 <div className="small text-muted">
-                  {customPlan ? `com frete: ${fmt(customPlan.freteRota)}` : ""}
+                  {customPlan ? `desconto: -${fmt(customPlan.desconto)} • frete: +${fmt(customPlan.freteRota)}` : ""}
                 </div>
               </div>
             </div>
