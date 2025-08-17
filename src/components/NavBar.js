@@ -281,7 +281,6 @@ export default function NavBar({
         />
       </div>
 
-      {/* keyframes/estilos para o badge e dot */}
       <style>{`
         @keyframes cartBlink {
           0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,.55); }

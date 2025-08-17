@@ -739,7 +739,7 @@ export default function UserProfile({ user, onVoltar }) {
             Meu Perfil
           </h3>
           <ul className="nav nav-pills">
-            <li className="nav-item">
+            <li className="nav-item d-none">
               <button className={`nav-link ${activeTab === "perfil" ? "active" : ""}`} onClick={() => setActiveTab("perfil")}>
                 Perfil
               </button>
