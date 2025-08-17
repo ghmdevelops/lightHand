@@ -23,7 +23,6 @@ import Button from "react-bootstrap/Button";
 import Offcanvas from "react-bootstrap/Offcanvas";
 import Nav from "react-bootstrap/Nav";
 
-// >>> ADIÇÕES PARA OUVIR O FIREBASE <<<
 import { ref, onValue } from "firebase/database";
 import { db } from "../firebase";
 
@@ -253,12 +252,10 @@ export default function NavBar({
     </Nav>
   );
 
-  // estilos do badge/dot do carrinho
   const countLabel = pendingCount > 99 ? "99+" : String(pendingCount);
 
   return (
     <>
-      {/* barra de progresso topo */}
       <div
         style={{
           position: "fixed",
@@ -395,7 +392,6 @@ export default function NavBar({
             </div>
           </Navbar.Brand>
 
-          {/* MOBILE: carrinho + avatar */}
           <div className="d-flex d-lg-none ms-auto align-items-center gap-2">
             {user && pendingCount > 0 && (
               <Link
@@ -483,7 +479,6 @@ export default function NavBar({
             </Button>
           </div>
 
-          {/* DESKTOP: carrinho + avatar/menu */}
           <div className="ms-auto d-none d-lg-flex align-items-center gap-3">
             {user && pendingCount > 0 && (
               <Link

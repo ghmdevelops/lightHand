@@ -744,7 +744,7 @@ export default function UserProfile({ user, onVoltar }) {
                 Perfil
               </button>
             </li>
-            <li className="nav-item">
+            <li className="nav-item d-none">
               <button className={`nav-link ${activeTab === "carrinhos" ? "active" : ""}`} onClick={() => setActiveTab("carrinhos")}>
                 Carrinhos Salvos
               </button>

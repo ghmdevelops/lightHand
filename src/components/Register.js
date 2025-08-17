@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { auth, db } from "../firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { ref, set } from "firebase/database";
+import { Link } from "react-router-dom";
 import {
   FaUserCircle,
   FaEnvelope,
@@ -286,14 +287,13 @@ export default function Register({ showLogin }) {
 
         <div className="text-center mt-4">
           <span className="text-muted me-2">Já possui conta?</span>
-          <button
-            type="button"
+          <Link
+            to="/login"
             className="btn btn-link fw-semibold p-0 text-decoration-none"
-            onClick={showLogin}
             style={{ color: "#4a6ef0" }}
           >
             Entrar
-          </button>
+          </Link>
         </div>
       </div>
     </div>

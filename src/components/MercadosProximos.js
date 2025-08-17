@@ -1,3 +1,4 @@
+import { BiArrowBack } from "react-icons/bi";
 import { TbBrandWaze } from "react-icons/tb";
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +17,7 @@ import {
   faSliders,
   faSort,
   faSearch,
+  faWallet,
   faStar,
   faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
@@ -28,7 +30,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Swal from "sweetalert2";
 import { AnimatePresence, motion } from "framer-motion";
 import { db } from "../firebase";
-import { ref, get, set, remove, onValue, off, update, serverTimestamp } from "firebase/database";
+import { ref, get, set, remove, onValue, off, update, serverTimestamp, push } from "firebase/database";
 
 const CONTACT_EMAIL = "savvy@suporte.com.br";
 
@@ -512,6 +514,7 @@ export default function BuscarMercadosOSM({ user }) {
   const [sortFuel, setSortFuel] = useState("price");
   const [hasPriceOnly, setHasPriceOnly] = useState(false);
   const [query, setQuery] = useState("");
+  const [welcome, setWelcome] = useState({ show: false, name: "", lastOrder: null });
   const debouncedRadius = useDebounced(radius, 250);
   const deferredQuery = useDeferredValue(query);
   const navigate = useNavigate();
@@ -534,17 +537,43 @@ export default function BuscarMercadosOSM({ user }) {
   useEffect(() => {
     if (!user) {
       setFavoritos(new Set());
+      setWelcome({ show: false, name: "", lastOrder: null });
       return;
     }
-    const favRef = ref(db, `usuarios/${user.uid}/favoritos`);
-    get(favRef)
-      .then((snap) => {
-        const data = snap.val() || {};
+    const run = async () => {
+      try {
+        const favRef = ref(db, `usuarios/${user.uid}/favoritos`);
+        const favSnap = await get(favRef);
+        const data = favSnap.val() || {};
         setFavoritos(new Set(Object.keys(data)));
-      })
-      .catch(() => {
+      } catch {
         setFavoritos(new Set());
-      });
+      }
+      try {
+        const uRef = ref(db, `usuarios/${user.uid}`);
+        const pRef = ref(db, `usuarios/${user.uid}/pedidos`);
+        const [uSnap, pSnap] = await Promise.all([get(uRef), get(pRef)]);
+        const u = uSnap.val() || {};
+        const pedidos = pSnap.val() || {};
+        const name =
+          user.displayName ||
+          u.nome ||
+          u.name ||
+          (u.profile && (u.profile.firstName || u.profile.name)) ||
+          (u.perfil && (u.perfil.nome || u.perfil.nomeCompleto)) ||
+          "";
+        let last = null;
+        Object.entries(pedidos).forEach(([pid, p]) => {
+          const t = Date.parse(p.dataHora || p.createdAt || p.timestamp || 0) || 0;
+          if (!last || t > last._t) last = { id: pid, ...p, _t: t };
+        });
+        const firstName = (name || "").split(" ")[0] || "";
+        setWelcome({ show: !!last, name: firstName, lastOrder: last });
+      } catch {
+        setWelcome({ show: false, name: "", lastOrder: null });
+      }
+    };
+    run();
   }, [user]);
 
   const getEnderecoFromCoords = useCallback(async (lat, lon, controller) => {
@@ -1076,6 +1105,32 @@ export default function BuscarMercadosOSM({ user }) {
     if (pos && tipoBusca === "fuel") buscarProximos(pos.lat, pos.lon, debouncedRadius);
   };
 
+  const handleRepetirUltimaCompra = useCallback(async () => {
+    if (!user || !welcome.lastOrder) {
+      toast.info("Não encontramos uma compra anterior.");
+      return;
+    }
+    try {
+      const itens = (welcome.lastOrder.itens || []).map((it) => ({
+        name: it.nome,
+        price: it.preco || 0,
+        qtd: it.qtd || it.quantidade || 1,
+      }));
+      if (itens.length === 0) {
+        toast.info("Sua última compra não possui itens.");
+        return;
+      }
+      const novo = { criadoEm: Date.now(), items: itens };
+      const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
+      const newRef = await push(cartsRef, novo);
+      const newId = newRef.key;
+      setWelcome((w) => ({ ...w, show: false }));
+      navigate(`/comparar-carrinhos?ids=${newId}&selected=${newId}`);
+    } catch {
+      toast.error("Não foi possível preparar sua última compra.");
+    }
+  }, [user, welcome]);
+
   if (mercadoSelecionado && tipoBusca === "market") {
     return (
       <>
@@ -1117,7 +1172,7 @@ export default function BuscarMercadosOSM({ user }) {
   const approxText = pos ? ([localInfo.rua, localInfo.estado, localInfo.pais].filter(Boolean).join(", ") || `${pos.lat.toFixed(4)}, ${pos.lon.toFixed(4)}`) : "";
 
   return (
-    <div className="container my-5 px-2 px-md-4" style={{ zIndex: 2, paddingTop: "10px" }}>
+    <div className="container my-5 px-2 px-md-4" style={{ zIndex: 2, paddingTop: "5px" }}>
       <ToastContainer position="top-right" pauseOnHover />
       <AnimatePresence mode="wait">
         {showIntro ? (
@@ -1134,8 +1189,8 @@ export default function BuscarMercadosOSM({ user }) {
                 transition: { duration: 0.25, when: "beforeChildren", staggerChildren: 0.06 }
               }
             }}
-            className="d-flex align-items-center justify-content-center"
-            style={{ minHeight: "70vh" }}
+            className="d-flex align-items-center justify-content-center text-center"
+            style={{ minHeight: "80vh", padding: "2rem" }}
             role="region"
             aria-labelledby="intro-title"
             tabIndex={0}
@@ -1145,13 +1200,13 @@ export default function BuscarMercadosOSM({ user }) {
             }}
           >
             <motion.div
-              className="text-center p-4 p-md-5 shadow-sm"
+              className="p-4 p-md-5 shadow-sm"
               style={{
-                maxWidth: 720,
-                borderRadius: 20,
+                maxWidth: 820,
+                borderRadius: 24,
                 background: "linear-gradient(135deg,#f8fafc 0%, #eef2ff 100%)",
                 border: "1px solid #e5e7eb",
-                boxShadow: "0 12px 28px rgba(2,6,23,.08)"
+                boxShadow: "0 16px 40px rgba(2,6,23,.12)"
               }}
               variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
             >
@@ -1167,47 +1222,66 @@ export default function BuscarMercadosOSM({ user }) {
                   <motion.div
                     key={i}
                     className="d-flex align-items-center justify-content-center"
-                    style={{ width: 64, height: 64, borderRadius: "50%", background: it.bg, color: "#fff" }}
+                    style={{ width: 70, height: 70, borderRadius: "50%", background: it.bg, color: "#fff" }}
                     variants={{ hidden: { opacity: 0, y: 8, scale: .9 }, show: { opacity: 1, y: 0, scale: 1 } }}
-                    whileHover={{ y: -3 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ y: -4 }}
+                    whileTap={{ scale: 0.96 }}
                   >
-                    <FontAwesomeIcon icon={it.icon} />
+                    <FontAwesomeIcon icon={it.icon} size="lg" />
                   </motion.div>
                 ))}
               </motion.div>
 
               <motion.h2
                 id="intro-title"
-                className="fw-bold mb-2"
-                style={{ color: "#0f172a" }}
+                className="fw-bold mb-3"
+                style={{ color: "#0f172a", fontSize: "1.4rem" }}
                 variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
               >
-                Encontre e compare perto de você
+                Compare e economize perto de você 
               </motion.h2>
 
               <motion.p
-                className="mb-4"
-                style={{ color: "#334155", fontSize: "1.05rem" }}
+                className="mb-2"
+                style={{ color: "#334155", fontSize: "1rem" }}
                 variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
               >
-                Mercados e postos próximos, horários atualizados e comparador de preços em uma experiência simples e rápida.
+                Mercados e postos próximos, preços atualizados e comparador inteligente.
+                Tudo em uma experiência rápida, prática e feita para você.
               </motion.p>
 
               <motion.div
-                className="d-flex flex-wrap justify-content-center gap-2"
+                className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-2"
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+              >
+                <div className="d-flex align-items-center gap-2">
+                  <FontAwesomeIcon icon={faClock} className="text-primary" />
+                  <span>Economize tempo</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <FontAwesomeIcon icon={faWallet} className="text-success" />
+                  <span>Gaste menos</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <FontAwesomeIcon icon={faMapLocationDot} className="text-info" />
+                  <span>Veja o que está perto</span>
+                </div>
+              </motion.div>
+
+              <motion.div
+                className="d-flex flex-wrap justify-content-center gap-3"
                 variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
               >
                 <motion.button
-                  className="btn btn-lg px-4"
+                  className="btn btn-lg px-5"
                   onClick={() => setShowIntro(false)}
                   aria-label="Começar agora"
                   style={{
-                    borderRadius: 14,
+                    borderRadius: 16,
                     background: "linear-gradient(135deg,#0ea5e9,#2563eb)",
                     color: "#fff",
                     border: "none",
-                    boxShadow: "0 8px 24px rgba(37,99,235,.25)",
+                    boxShadow: "0 10px 28px rgba(37,99,235,.3)",
                     fontWeight: 700
                   }}
                   whileHover={{ y: -2 }}
@@ -1215,13 +1289,15 @@ export default function BuscarMercadosOSM({ user }) {
                 >
                   Começar
                 </motion.button>
-                <motion.span
-                  className="text-muted d-block w-100 mt-2"
-                  style={{ fontSize: ".9rem" }}
-                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: .1 } } }}
-                >
-                </motion.span>
               </motion.div>
+
+              <motion.p
+                className="mt-4 text-muted"
+                style={{ fontSize: ".95rem" }}
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: .1 } } }}
+              >
+                +500 usuários já estão economizando com a gente 💙
+              </motion.p>
             </motion.div>
           </motion.section>
         ) : !tipoBusca ? (
@@ -1244,65 +1320,105 @@ export default function BuscarMercadosOSM({ user }) {
             }}
             tabIndex={0}
           >
-            <motion.h3
-              id="choose-type-title"
-              className="fw-bold mb-4"
-              style={{ color: "#0d6efd" }}
-              variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
-            >
-              O que você quer encontrar?
-            </motion.h3>
-
-            <div className="d-flex justify-content-center gap-3 gap-md-4 flex-wrap" style={{ maxWidth: 680, margin: "0 auto" }}>
-              <motion.button
-                type="button"
-                onClick={() => setTipoBusca("market")}
-                aria-label="Procurar mercados próximos"
-                variants={{ hidden: { opacity: 0, y: 10, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="btn btn-lg d-flex align-items-center justify-content-center shadow"
-                style={{
-                  borderRadius: 16,
-                  padding: "1rem 1.5rem",
-                  minWidth: 260,
-                  background: "linear-gradient(135deg,#2563eb,#3b82f6)",
-                  color: "#fff",
-                  border: "none"
-                }}
+            {welcome.show && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card border-0 shadow-sm mb-4 mx-auto"
+                style={{ maxWidth: 720, borderRadius: 16, background: "linear-gradient(135deg,#ecfeff,#ffffff)" }}
               >
-                <FontAwesomeIcon icon={faStore} size="lg" className="me-3" />
-                <div className="text-start">
-                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Mercados</div>
-                  <div className="opacity-90" style={{ fontSize: ".9rem" }}>Supermercados e mercearias perto de você</div>
+                <div className="card-body d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+                  <div className="text-start">
+                    <div className="fw-bold" style={{ fontSize: "1.1rem", color: "#0f172a" }}>
+                      Olá{welcome.name ? `, ${welcome.name}` : ""}! Que bom te ver de novo.
+                    </div>
+                    <div className="text-muted" style={{ fontSize: ".95rem" }}>
+                      Você quer continuar normalmente e fazer suas escolhas ou repetir sua última compra?
+                    </div>
+                  </div>
+                  <div className="d-flex gap-2 flex-wrap">
+                    <button
+                      className="btn btn-outline-primary"
+                      onClick={() => setWelcome((w) => ({ ...w, show: false }))}
+                      style={{ borderRadius: 12, fontWeight: 700 }}
+                    >
+                      Continuar normalmente
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleRepetirUltimaCompra}
+                      style={{ borderRadius: 12, fontWeight: 700 }}
+                    >
+                      Repetir última compra
+                    </button>
+                  </div>
                 </div>
-              </motion.button>
+              </motion.div>
+            )}
 
-              <motion.button
-                type="button"
-                onClick={() => setTipoBusca("fuel")}
-                aria-label="Procurar postos de gasolina próximos"
-                variants={{ hidden: { opacity: 0, y: 10, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="btn btn-lg d-flex align-items-center justify-content-center"
-                style={{
-                  borderRadius: 16,
-                  padding: "1rem 1.5rem",
-                  minWidth: 240,
-                  background: "#fff",
-                  color: "#0d6efd",
-                  border: "2px solid #cfe0ff",
-                  boxShadow: "0 6px 18px rgba(13,110,253,.10)"
-                }}
-              >
-                <FontAwesomeIcon icon={faGasPump} size="lg" className="me-3" />
-                <div className="text-start">
-                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Postos de gasolina</div>
-                  <div className="text-muted" style={{ fontSize: ".9rem" }}>Encontre preços e distância rapidamente</div>
+            {!welcome.show && (
+              <>
+                <motion.h3
+                  id="choose-type-title"
+                  className="fw-bold mb-4"
+                  style={{ color: "#0d6efd" }}
+                  variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+                >
+                  O que você quer encontrar?
+                </motion.h3>
+
+                <div className="d-flex justify-content-center gap-3 gap-md-4 flex-wrap" style={{ maxWidth: 680, margin: "0 auto" }}>
+                  <motion.button
+                    type="button"
+                    onClick={() => setTipoBusca("market")}
+                    aria-label="Procurar mercados próximos"
+                    variants={{ hidden: { opacity: 0, y: 10, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="btn btn-lg d-flex align-items-center justify-content-center shadow"
+                    style={{
+                      borderRadius: 16,
+                      padding: "1rem 1.5rem",
+                      minWidth: 260,
+                      background: "linear-gradient(135deg,#2563eb,#3b82f6)",
+                      color: "#fff",
+                      border: "none"
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faStore} size="lg" className="me-3" />
+                    <div className="text-start">
+                      <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Mercados</div>
+                      <div className="opacity-90" style={{ fontSize: ".9rem" }}>Supermercados e mercearias perto de você</div>
+                    </div>
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    onClick={() => setTipoBusca("fuel")}
+                    aria-label="Procurar postos de gasolina próximos"
+                    variants={{ hidden: { opacity: 0, y: 10, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="btn btn-lg d-flex align-items-center justify-content-center"
+                    style={{
+                      borderRadius: 16,
+                      padding: "1rem 1.5rem",
+                      minWidth: 240,
+                      background: "#fff",
+                      color: "#0d6efd",
+                      border: "2px solid #cfe0ff",
+                      boxShadow: "0 6px 18px rgba(13,110,253,.10)"
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faGasPump} size="lg" className="me-3" />
+                    <div className="text-start">
+                      <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Postos de gasolina</div>
+                      <div className="text-muted" style={{ fontSize: ".9rem" }}>Encontre preços e distância rapidamente</div>
+                    </div>
+                  </motion.button>
                 </div>
-              </motion.button>
-            </div>
+              </>
+            )}
 
             <motion.p
               className="mt-3 text-muted"
@@ -1332,15 +1448,6 @@ export default function BuscarMercadosOSM({ user }) {
             aria-labelledby="choose-mode-title"
             tabIndex={0}
           >
-            <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-              <button
-                className="btn btn-outline-secondary mb-4"
-                onClick={() => setTipoBusca(null)}
-                aria-label="Voltar para a etapa anterior"
-              >
-                <FontAwesomeIcon icon={faArrowLeft} className="me-1" /> Voltar
-              </button>
-            </motion.div>
 
             <motion.h3
               id="choose-mode-title"
@@ -1436,6 +1543,29 @@ export default function BuscarMercadosOSM({ user }) {
                 <div className="text-start">
                   <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Digitar CEP</div>
                   <div className="text-muted" style={{ fontSize: ".9rem" }}>Buscar por endereço</div>
+                </div>
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={() => setTipoBusca(null)}
+                aria-label="Voltar para a etapa anterior"
+                variants={{ hidden: { opacity: 0, y: 12, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1 } }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn btn-lg d-flex align-items-center justify-content-center shadow"
+                style={{
+                  borderRadius: 16,
+                  padding: "1rem 1.5rem",
+                  minWidth: 240,
+                  background: "linear-gradient(135deg,#0ea5e9,#2563eb)",
+                  color: "#fff",
+                  border: "none"
+                }}
+              >
+                <BiArrowBack className="me-3" />
+                <div className="text-start">
+                  <div className="fw-bold" style={{ fontSize: "1.05rem" }}>Voltar</div>
                 </div>
               </motion.button>
             </div>
