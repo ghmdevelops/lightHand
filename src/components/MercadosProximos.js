@@ -319,7 +319,7 @@ const MarketCard = React.memo(function MarketCard({ market: m, user, onVisit, on
   );
 }, (prev, next) => prev.isFavorited === next.isFavorited && prev.market === next.market && prev.user === next.user);
 
-const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight }) {
+const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight, litros, fuelKey, baselinePrice }) {
   const fallbackAddr = `${posto.lat?.toFixed(4)}, ${posto.lon?.toFixed(4)}`;
   const address = [posto.rua, posto.estado, posto.pais].filter(Boolean).join(", ") || fallbackAddr;
   const { label: openLabel } = useOpeningStatusLazy(posto.opening_hours);
@@ -334,6 +334,9 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
   const est = posto.estimated || {};
   const googleRoute = `https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lon}&travelmode=driving`;
   const wazeRoute = `https://waze.com/ul?ll=${posto.lat},${posto.lon}&navigate=yes`;
+  const ownPrice = posto.prices?.[fuelKey];
+  const canCalc = litros > 0 && baselinePrice != null && ownPrice != null;
+  const economia = canCalc ? Math.max(0, (baselinePrice - ownPrice) * litros) : null;
 
   return (
     <motion.div layout className="col-12 col-md-6 col-lg-4">
@@ -390,7 +393,7 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
             <div className="d-flex align-items-center gap-2 mb-2">
               <FontAwesomeIcon icon={faFilter} />
               <strong>Preços</strong>
-              {!g && !e && !d && !ds10 && !ds500 && !gnv && <span className="badge bg-light text-dark">sem preço</span>}
+              {!g && !e && !d && !ds10 && !ds500 && !gnv && <span className="badge bg-secondary-subtle text-secondary border">sem preço</span>}
               {highlight && <span className="badge bg-success"><FontAwesomeIcon icon={faStar} className="me-1" />melhor preço</span>}
             </div>
             <div className="d-flex flex-wrap gap-2">
@@ -401,6 +404,11 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
               {ds500 != null && <PriceChip label="Diesel S500" value={ds500} est={!!est.diesel_s500} />}
               {gnv != null && <PriceChip label="GNV" value={gnv} est={!!est.gnv} />}
             </div>
+            {economia != null && economia > 0 && (
+              <div className="mt-3">
+                <span className="badge bg-success-subtle text-success border">Economia vs padrão: R$ {fmtBR(economia, 2)}</span>
+              </div>
+            )}
             <div className="mt-3 d-flex gap-2">
               <button className="btn btn-sm btn-outline-primary" onClick={() => onUpdatePrice(posto)}>Atualizar preço</button>
             </div>
@@ -409,7 +417,7 @@ const FuelCard = React.memo(function FuelCard({ posto, onUpdatePrice, highlight 
       </motion.div>
     </motion.div>
   );
-}, (prev, next) => prev.posto === next.posto && prev.highlight === next.highlight);
+}, (prev, next) => prev.posto === next.posto && prev.highlight === next.highlight && prev.litros === next.litros && prev.fuelKey === next.fuelKey && prev.baselinePrice === next.baselinePrice);
 
 const fmtBR = (v, digits = 2) =>
   new Intl.NumberFormat("pt-BR", {
@@ -515,6 +523,12 @@ export default function BuscarMercadosOSM({ user }) {
   const [hasPriceOnly, setHasPriceOnly] = useState(false);
   const [query, setQuery] = useState("");
   const [welcome, setWelcome] = useState({ show: false, name: "", lastOrder: null });
+  const [litros, setLitros] = useState(30);
+  const [filtersQuick, setFiltersQuick] = useState({ openNow: false, card: false, restroom: false, convenience: false, open24: false });
+  const [tankL, setTankL] = useState(45);
+  const [kmMes, setKmMes] = useState(800);
+  const [consGas, setConsGas] = useState(12);
+  const [consEtoh, setConsEtoh] = useState(8.5);
   const debouncedRadius = useDebounced(radius, 250);
   const deferredQuery = useDeferredValue(query);
   const navigate = useNavigate();
@@ -798,6 +812,11 @@ export default function BuscarMercadosOSM({ user }) {
             prices[fuelKey] = fakePrice(fuelKey, Number(e.id));
             estimated[fuelKey] = true;
           }
+          const tl = Object.fromEntries(Object.entries(tags).map(([kk, vv]) => [kk.toLowerCase(), String(vv).toLowerCase()]));
+          const hasCard = Object.keys(tl).some((kk) => kk.startsWith("payment:") && tl[kk] === "yes");
+          const hasRestroom = tl["toilets"] === "yes";
+          const hasConv = tl["shop"] === "convenience" || tl["convenience"] === "yes" || tl["shop:convenience"] === "yes";
+          const is24 = (tags.opening_hours && String(tags.opening_hours).includes("24/7")) || tl["opening_hours"] === "24/7";
           return {
             id: `${e.id}`,
             type: e.type,
@@ -815,6 +834,7 @@ export default function BuscarMercadosOSM({ user }) {
             updatedAt: merged.updatedAt || Date.now(),
             ...addr,
             _needsReverse: !(addr.rua || addr.estado || addr.pais),
+            features: { card: hasCard, restroom: hasRestroom, convenience: hasConv, open24: is24 },
           };
         })
         .filter(Boolean);
@@ -843,10 +863,15 @@ export default function BuscarMercadosOSM({ user }) {
     return r;
   };
 
-  const applyFuelSortAndFilters = (arr, sortKey, fuelKey, q) => {
+  const applyFuelSortAndFilters = (arr, sortKey, fuelKey, q, quick) => {
     const ql = (q || "").trim().toLowerCase();
     let r = arr;
     if (ql) r = r.filter((p) => [p.nome, p.brand].filter(Boolean).some((s) => s.toLowerCase().includes(ql)));
+    if (quick.card) r = r.filter((p) => p.features?.card);
+    if (quick.restroom) r = r.filter((p) => p.features?.restroom);
+    if (quick.convenience) r = r.filter((p) => p.features?.convenience);
+    if (quick.open24) r = r.filter((p) => p.features?.open24);
+    if (quick.openNow) r = r.filter((p) => getOpeningStatus(p.opening_hours).isOpen === true);
     if (sortKey === "distance") r = [...r].sort((a, b) => a.distance - b.distance);
     else {
       r = [...r].sort((a, b) => {
@@ -890,7 +915,7 @@ export default function BuscarMercadosOSM({ user }) {
           const lista = await fetchNearbyFuel(lat, lon, r, 20, fuelFilter);
           if (seq !== fetchSeqRef.current) return;
           if (lista.length > 0) {
-            setPostos(applyFuelSortAndFilters(lista, sortFuel, fuelFilter, deferredQuery));
+            setPostos(applyFuelSortAndFilters(lista, sortFuel, fuelFilter, deferredQuery, filtersQuick));
             setErro("");
             found = true;
             break;
@@ -907,7 +932,7 @@ export default function BuscarMercadosOSM({ user }) {
     } finally {
       if (seq === fetchSeqRef.current) setBuscando(false);
     }
-  }, [tipoBusca, getEnderecoFromCoords, fetchNearbyMarkets, fetchNearbyFuel, sortMarket, sortFuel, fuelFilter, deferredQuery]);
+  }, [tipoBusca, getEnderecoFromCoords, fetchNearbyMarkets, fetchNearbyFuel, sortMarket, sortFuel, fuelFilter, deferredQuery, filtersQuick]);
 
   useEffect(() => {
     if (!pos) return;
@@ -1047,16 +1072,16 @@ export default function BuscarMercadosOSM({ user }) {
     } else if (tipoBusca === "fuel") {
       setPostos((prev) => {
         const merged = prev.map((p) => ({ ...p, ...(addrCache[keyOf(p)] || {}) }));
-        return applyFuelSortAndFilters(merged, sortFuel, fuelFilter, deferredQuery);
+        return applyFuelSortAndFilters(merged, sortFuel, fuelFilter, deferredQuery, filtersQuick);
       });
     }
-  }, [sortMarket, sortFuel, deferredQuery, fuelFilter, tipoBusca, pos, addrCache]);
+  }, [sortMarket, sortFuel, deferredQuery, fuelFilter, tipoBusca, pos, addrCache, filtersQuick]);
 
   useEffect(() => {
     if (!pos) return;
     if (tipoBusca === "fuel") buscarProximos(pos.lat, pos.lon, debouncedRadius);
     if (tipoBusca === "market") buscarProximos(pos.lat, pos.lon, debouncedRadius);
-  }, [debouncedRadius, fuelFilter, hasPriceOnly]);
+  }, [debouncedRadius, fuelFilter, hasPriceOnly, filtersQuick]);
 
   const handleUpdatePrice = async (posto) => {
     const { value: formValues } = await Swal.fire({
@@ -1130,6 +1155,55 @@ export default function BuscarMercadosOSM({ user }) {
       toast.error("Não foi possível preparar sua última compra.");
     }
   }, [user, welcome]);
+
+  const baselinePosto = useMemo(() => {
+    const candidates = postos.filter((p) => p?.prices?.[fuelFilter] != null);
+    if (candidates.length === 0) return null;
+    let best = candidates[0];
+    for (const p of candidates) {
+      if (p.distance < best.distance) best = p;
+    }
+    return best;
+  }, [postos, fuelFilter]);
+
+  const baselinePrice = baselinePosto?.prices?.[fuelFilter] ?? null;
+
+  const bestPriceGas = useMemo(() => {
+    const vals = postos.map((p) => p?.prices?.gasolina).filter((v) => v != null);
+    return vals.length ? Math.min(...vals) : null;
+  }, [postos]);
+
+  const bestPriceEtoh = useMemo(() => {
+    const vals = postos.map((p) => p?.prices?.etanol).filter((v) => v != null);
+    return vals.length ? Math.min(...vals) : null;
+  }, [postos]);
+
+  const monthlyCostGas = useMemo(() => {
+    if (!bestPriceGas || !consGas || !kmMes) return null;
+    return (kmMes / consGas) * bestPriceGas;
+  }, [bestPriceGas, consGas, kmMes]);
+
+  const monthlyCostEtoh = useMemo(() => {
+    if (!bestPriceEtoh || !consEtoh || !kmMes) return null;
+    return (kmMes / consEtoh) * bestPriceEtoh;
+  }, [bestPriceEtoh, consEtoh, kmMes]);
+
+  const tankCostGas = useMemo(() => {
+    if (!bestPriceGas || !tankL) return null;
+    return tankL * bestPriceGas;
+  }, [bestPriceGas, tankL]);
+
+  const tankCostEtoh = useMemo(() => {
+    if (!bestPriceEtoh || !tankL) return null;
+    return tankL * bestPriceEtoh;
+  }, [bestPriceEtoh, tankL]);
+
+  const advisorChoice = useMemo(() => {
+    if (monthlyCostGas == null || monthlyCostEtoh == null) return null;
+    if (monthlyCostEtoh < monthlyCostGas) return { fuel: "Etanol", save: monthlyCostGas - monthlyCostEtoh };
+    if (monthlyCostGas < monthlyCostEtoh) return { fuel: "Gasolina", save: monthlyCostEtoh - monthlyCostGas };
+    return { fuel: "Igual", save: 0 };
+  }, [monthlyCostGas, monthlyCostEtoh]);
 
   if (mercadoSelecionado && tipoBusca === "market") {
     return (
@@ -1249,24 +1323,6 @@ export default function BuscarMercadosOSM({ user }) {
                 Mercados e postos próximos, preços atualizados e comparador inteligente.
                 Tudo em uma experiência rápida, prática e feita para você.
               </motion.p>
-
-              <motion.div
-                className="d-flex flex-column flex-md-row justify-content-center gap-3 mb-3"
-                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
-              >
-                <div className="d-flex align-items-center gap-2">
-                  <FontAwesomeIcon icon={faClock} className="text-primary" />
-                  <span>Economize tempo</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <FontAwesomeIcon icon={faWallet} className="text-success" />
-                  <span>Gaste menos</span>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  <FontAwesomeIcon icon={faMapLocationDot} className="text-info" />
-                  <span>Veja o que está perto</span>
-                </div>
-              </motion.div>
 
               <motion.div
                 className="d-flex flex-wrap justify-content-center gap-3 mb-3"
@@ -1661,7 +1717,7 @@ export default function BuscarMercadosOSM({ user }) {
                           value={fuelFilter}
                           onChange={(e) => setFuelFilter(e.target.value)}
                         >
-                          <option value="gasolina">Gasolina</option>
+                          <option value="gasolina">Preço</option>
                           <option value="etanol">Etanol</option>
                           <option value="diesel">Diesel</option>
                           <option value="diesel_s10">Diesel S10</option>
@@ -1721,6 +1777,34 @@ export default function BuscarMercadosOSM({ user }) {
                 )}
               </div>
             </div>
+
+            {tipoBusca === "fuel" && (
+              <div className="mb-3">
+                <div className="d-flex flex-wrap align-items-center gap-2">
+                  <span className="text-muted">Filtros rápidos:</span>
+                  <div className="form-check form-check-inline">
+                    <input className="form-check-input" type="checkbox" id="f-open" checked={filtersQuick.openNow} onChange={(e) => setFiltersQuick((s) => ({ ...s, openNow: e.target.checked }))} />
+                    <label className="form-check-label" htmlFor="f-open">Aberto agora</label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input className="form-check-input" type="checkbox" id="f-card" checked={filtersQuick.card} onChange={(e) => setFiltersQuick((s) => ({ ...s, card: e.target.checked }))} />
+                    <label className="form-check-label" htmlFor="f-card">Aceita cartão</label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input className="form-check-input" type="checkbox" id="f-rest" checked={filtersQuick.restroom} onChange={(e) => setFiltersQuick((s) => ({ ...s, restroom: e.target.checked }))} />
+                    <label className="form-check-label" htmlFor="f-rest">Banheiro</label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input className="form-check-input" type="checkbox" id="f-conv" checked={filtersQuick.convenience} onChange={(e) => setFiltersQuick((s) => ({ ...s, convenience: e.target.checked }))} />
+                    <label className="form-check-label" htmlFor="f-conv">Loja conveniência</label>
+                  </div>
+                  <div className="form-check form-check-inline">
+                    <input className="form-check-input" type="checkbox" id="f-24" checked={filtersQuick.open24} onChange={(e) => setFiltersQuick((s) => ({ ...s, open24: e.target.checked }))} />
+                    <label className="form-check-label" htmlFor="f-24">24h</label>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {(modoBusca === "cep" || pos) && (
               <div className="mb-4 text-center">
@@ -1783,6 +1867,71 @@ export default function BuscarMercadosOSM({ user }) {
               </div>
             )}
 
+            {tipoBusca === "fuel" && (
+              <div className="row g-3 mb-4">
+                <div className="col-12 col-lg-6">
+                  <div className="card shadow-sm" style={{ borderRadius: 14 }}>
+                    <div className="card-body d-flex flex-column gap-2">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <h6 className="mb-0 fw-bold">Quanto vou economizar?</h6>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="text-muted">Litros:</span>
+                          <input type="number" min="0" step="1" value={litros} onChange={(e) => setLitros(Math.max(0, Number(e.target.value)))} className="form-control form-control-sm" style={{ width: 90 }} />
+                        </div>
+                      </div>
+                      <div className="small text-muted">
+                        Padrão: {baselinePosto ? (<><strong>{baselinePosto.nome}</strong> • R$ {fmtBR(baselinePrice || 0, 2)} ({fuelFilter})</>) : "sem referência disponível"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12 col-lg-6">
+                  <div className="card shadow-sm" style={{ borderRadius: 14 }}>
+                    <div className="card-body">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <h6 className="mb-0 fw-bold">Etanol x Gasolina</h6>
+                      </div>
+                      <div className="row g-2">
+                        <div className="col-4">
+                          <label className="form-label small">Tanque (L)</label>
+                          <input type="number" min="1" step="1" className="form-control form-control-sm" value={tankL} onChange={(e) => setTankL(Math.max(1, Number(e.target.value)))} />
+                        </div>
+                        <div className="col-4">
+                          <label className="form-label small">Km/mês</label>
+                          <input type="number" min="1" step="10" className="form-control form-control-sm" value={kmMes} onChange={(e) => setKmMes(Math.max(1, Number(e.target.value)))} />
+                        </div>
+                        <div className="col-4">
+                          <label className="form-label small">Gasolina (km/L)</label>
+                          <input type="number" min="0.1" step="0.1" className="form-control form-control-sm" value={consGas} onChange={(e) => setConsGas(Math.max(0.1, Number(e.target.value)))} />
+                        </div>
+                        <div className="col-12 col-sm-6">
+                          <label className="form-label small">Etanol (km/L)</label>
+                          <input type="number" min="0.1" step="0.1" className="form-control form-control-sm" value={consEtoh} onChange={(e) => setConsEtoh(Math.max(0.1, Number(e.target.value)))} />
+                        </div>
+                        <div className="col-12 col-sm-6 d-flex align-items-end">
+                          <div className="w-100 small">
+                            <div>Melhor Gasolina: {bestPriceGas != null ? `R$ ${fmtBR(bestPriceGas, 2)}` : "—"}</div>
+                            <div>Melhor Etanol: {bestPriceEtoh != null ? `R$ ${fmtBR(bestPriceEtoh, 2)}` : "—"}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                        <span className="badge bg-light text-dark border">Tanque Gasolina: {tankCostGas != null ? `R$ ${fmtBR(tankCostGas, 2)}` : "—"}</span>
+                        <span className="badge bg-light text-dark border">Tanque Etanol: {tankCostEtoh != null ? `R$ ${fmtBR(tankCostEtoh, 2)}` : "—"}</span>
+                        <span className="badge bg-light text-dark border">Mês Gasolina: {monthlyCostGas != null ? `R$ ${fmtBR(monthlyCostGas, 2)}` : "—"}</span>
+                        <span className="badge bg-light text-dark border">Mês Etanol: {monthlyCostEtoh != null ? `R$ ${fmtBR(monthlyCostEtoh, 2)}` : "—"}</span>
+                        {advisorChoice && (
+                          <span className={`badge ${advisorChoice.fuel === "Etanol" ? "bg-success" : advisorChoice.fuel === "Gasolina" ? "bg-primary" : "bg-secondary"}`}>
+                            Recomenda: {advisorChoice.fuel}{advisorChoice.save > 0 ? ` • economiza R$ ${fmtBR(advisorChoice.save, 2)}/mês` : ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="mb-0" style={{ fontWeight: 700 }}>
                 {tipoBusca === "market"
@@ -1842,7 +1991,10 @@ export default function BuscarMercadosOSM({ user }) {
                         key={`${p.type}-${p.id}`}
                         posto={{ ...p, ...(addr || {}) }}
                         onUpdatePrice={handleUpdatePrice}
-                        highlight={idx === 0 && p.prices && p.prices[fuelFilter] != null}
+                        highlight={idx === 0 && p.prices && p.prices[fuelFilter] != null && sortFuel === "price"}
+                        litros={litros}
+                        fuelKey={fuelFilter}
+                        baselinePrice={baselinePrice}
                       />
                     );
                   })}
@@ -1884,7 +2036,6 @@ function BestDealBanner({ postos, focus }) {
     >
       <div className="d-flex align-items-center gap-2 flex-wrap">
         <FontAwesomeIcon icon={faStar} className="me-1 flex-shrink-0" />
-
         <div className="d-flex flex-wrap align-items-center gap-1 text-wrap">
           <span>Melhor preço de</span>
           <strong className="text-capitalize">{focus}</strong>
@@ -1893,7 +2044,6 @@ function BestDealBanner({ postos, focus }) {
             R$ {fmtBR(best.p.prices[focus], 2)}
           </span>
           {best.est && <span className="text-muted">(estimado)</span>}
-
           <span className="d-block d-sm-inline">
             em{" "}
             <strong
@@ -1906,7 +2056,6 @@ function BestDealBanner({ postos, focus }) {
           </span>
         </div>
       </div>
-
       <div className="mt-1 mt-sm-0">
         <span className="badge bg-success-subtle text-success border">
           {(best.p.distance / 1000).toFixed(2)} km
