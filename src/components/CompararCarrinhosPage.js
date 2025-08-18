@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
 import { ref, get, push, update } from "firebase/database";
+import { AnimatePresence, motion } from "framer-motion";
 import Swal from "sweetalert2";
 
 function useQuery() {
@@ -336,10 +337,10 @@ export default function CompararCarrinhosPage({ user }) {
   const [freteExtraFaixa2, setFreteExtraFaixa2] = useState(5);
   const [freteExtraFaixa3, setFreteExtraFaixa3] = useState(10);
   const [descontoRetiradaPercent, setDescontoRetiradaPercent] = useState(10);
-  const [cupomCodigo, setCupomCodigo] = useState("BEMVINDO10");
+  const [cupomCodigo, setCupomCodigo] = useState("");
   const [cupomTipo, setCupomTipo] = useState("percentual");
   const [cupomValor, setCupomValor] = useState("10");
-  const [cupomInput, setCupomInput] = useState("BEMVINDO10");
+  const [cupomInput, setCupomInput] = useState("");
   const [raioAtendimentoKm, setRaioAtendimentoKm] = useState(7);
   const [janelaEntrega, setJanelaEntrega] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -1069,6 +1070,38 @@ export default function CompararCarrinhosPage({ user }) {
     Swal.fire("Pronto!", "Selecionamos automaticamente o melhor preço por item.", "success");
   }
 
+  const PULSE_COLORS = {
+    blue: "13,110,253", // #0d6efd
+    green: "16,185,129", // #10b981
+    red: "239,68,68",  // #ef4444
+  };
+
+  const pulseVariants = {
+    idle: (rgb) => ({
+      scale: 1,
+      boxShadow: `0 0 0 0 rgba(${rgb},0)`,
+      backgroundColor: "transparent",
+      borderColor: "var(--bs-border-color)",
+    }),
+    pulse: (rgb) => ({
+      scale: [1, 1.02, 1],
+      boxShadow: [
+        `0 0 0 0 rgba(${rgb},.55)`,
+        `0 0 0 12px rgba(${rgb},0)`,
+        `0 0 0 0 rgba(${rgb},0)`,
+      ],
+      backgroundColor: [
+        `rgba(${rgb},.06)`,
+        `rgba(${rgb},.12)`,
+        `rgba(${rgb},.06)`,
+      ],
+      borderColor: `rgba(${rgb}, .55)`,
+      transition: { duration: 1.4, repeat: Infinity, ease: "easeInOut" },
+    }),
+  };
+
+  const pulseRGB = PULSE_COLORS.red;
+
   return (
     <div ref={topRef} className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
       <style>{`
@@ -1248,10 +1281,13 @@ export default function CompararCarrinhosPage({ user }) {
 
                 {mercadosProximos.length > 0 && (
                   <>
-                    <div
+                    <motion.div
+                      custom={pulseRGB}
+                      variants={pulseVariants}
+                      animate={todosMarcados ? "idle" : "pulse"}
                       className={`card mb-3 ${todosMarcados
-                        ? "border border-2 border-primary shadow-lg bg-primary-subtle"
-                        : "border border-secondary-subtle shadow-sm"
+                          ? "border border-2 border-primary shadow-lg bg-primary-subtle"
+                          : "border border-secondary-subtle shadow-sm"
                         }`}
                       onClick={toggleSelecionarTodos}
                       role="switch"
@@ -1263,7 +1299,7 @@ export default function CompararCarrinhosPage({ user }) {
                           toggleSelecionarTodos();
                         }
                       }}
-                      style={{ cursor: "pointer" }}
+                      style={{ cursor: "pointer", willChange: "transform, box-shadow, background-color" }}
                     >
                       <div className="card-body d-flex align-items-center justify-content-between gap-3">
                         <div className="flex-grow-1">
@@ -1310,7 +1346,7 @@ export default function CompararCarrinhosPage({ user }) {
                           </label>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
 
                     <div className="alert border-0 shadow-sm mb-3 bg-body-tertiary">
                       <div className="row g-2 align-items-center">
