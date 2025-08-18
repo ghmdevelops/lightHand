@@ -367,7 +367,7 @@ export default function CompararCarrinhosPage({ user }) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 15000); // re-render a cada 15s
+    const id = setInterval(() => setTick((t) => t + 1), 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -710,7 +710,7 @@ export default function CompararCarrinhosPage({ user }) {
     const sub = totalPorMercado[mid] || 0;
     const m = mercadosProximos.find((x) => x.id === mid);
     const km = (m?.distance || 0) / 1000;
-    const frete = incluirFrete ? calcFrete(km) : 0;
+    const frete = incluirFrete ? calcFrete(km) * 1.29 : 0;
     const desc = calcDesconto(sub, false);
     descontoPorMercado[mid] = desc;
     fretePorMercado[mid] = frete;
@@ -840,9 +840,9 @@ export default function CompararCarrinhosPage({ user }) {
     }
     const routeKm = routeMeters / 1000;
     const extraStops = Math.max(0, order.length - 1);
-    const multiStopFactor = 1 + 0.2 * extraStops;
+    const multiStopFactor = 1 + 0.05 * extraStops;
     const desconto = calcDesconto(subtotal, false);
-    const freteRota = incluirFrete ? calcFrete(routeKm) * multiStopFactor : 0;
+    const freteRota = incluirFrete ? calcFrete(routeKm) * multiStopFactor * 0.8 : 0;
     const total = Math.max(0, subtotal - desconto) + freteRota;
     const mercadosInfo = order.map((id) => {
       const m = mercadosProximos.find((x) => x.id === id);
@@ -1038,20 +1038,36 @@ export default function CompararCarrinhosPage({ user }) {
     setOrdenarPor("distancia");
   };
 
-  const refreshMarketPrices = () => {
-    setPrecosFixos((prev) => {
-      const n = { ...prev };
-      Object.keys(n).forEach((prod) => {
-        Object.keys(n[prod] || {}).forEach((mid) => {
-          const base = Number(n[prod][mid]);
-          const factor = 1 + (Math.random() * 0.04 - 0.02);
-          n[prod][mid] = (base * factor).toFixed(2);
-        });
+  function autoSelectBestPrices() {
+    if (!mercadosSelecionados.length) {
+      Swal.fire("Selecione mercados", "Escolha ao menos um mercado para comparar.", "warning");
+      return;
+    }
+
+    const next = {};
+    carrinhoSelecionado.items.forEach((item) => {
+      let bestId = null;
+      let bestPrice = Infinity;
+      let bestRank = Infinity;
+
+      mercadosSelecionadosOrdenados.forEach((mid, idx) => {
+        const raw = precosFixos[item.name]?.[mid];
+        const price = Number(raw);
+        if (!Number.isFinite(price)) return;
+
+        if (price < bestPrice || (price === bestPrice && idx < bestRank)) {
+          bestPrice = price;
+          bestId = mid;
+          bestRank = idx;
+        }
       });
-      return n;
+
+      if (bestId) next[item.name] = bestId;
     });
-    setPrecosUpdatedAt(Date.now());
-  };
+
+    setSelecionados(next);
+    Swal.fire("Pronto!", "Selecionamos automaticamente o melhor preço por item.", "success");
+  }
 
   return (
     <div ref={topRef} className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
@@ -1232,12 +1248,30 @@ export default function CompararCarrinhosPage({ user }) {
 
                 {mercadosProximos.length > 0 && (
                   <>
-                    <div className={`card border-0 shadow-sm mb-3 ${todosMarcados ? "border border-primary" : ""}`}>
+                    <div
+                      className={`card mb-3 ${todosMarcados
+                        ? "border border-2 border-primary shadow-lg bg-primary-subtle"
+                        : "border border-secondary-subtle shadow-sm"
+                        }`}
+                      onClick={toggleSelecionarTodos}
+                      role="switch"
+                      aria-checked={todosMarcados}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === " " || e.key === "Enter") {
+                          e.preventDefault();
+                          toggleSelecionarTodos();
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
                       <div className="card-body d-flex align-items-center justify-content-between gap-3">
                         <div className="flex-grow-1">
                           <div className="d-flex align-items-center gap-2">
-                            <span className="fw-semibold">Selecionar todos</span>
-                            <span className="badge text-bg-light">{mercadosSelecionados.length}/{mercadosProximos.length || 0}</span>
+                            <span className="fw-semibold">Clique aqui para selecionar todos</span>
+                            <span className="badge text-bg-light">
+                              {mercadosSelecionados.length}/{mercadosProximos.length || 0}
+                            </span>
                           </div>
                           <div className="small text-muted">Marcar ou desmarcar todos os mercados</div>
                           <div className="progress mt-2" style={{ height: 6 }}>
@@ -1246,12 +1280,22 @@ export default function CompararCarrinhosPage({ user }) {
                               role="progressbar"
                               aria-valuemin={0}
                               aria-valuemax={100}
-                              aria-valuenow={mercadosProximos.length ? Math.round((mercadosSelecionados.length / mercadosProximos.length) * 100) : 0}
-                              style={{ width: `${mercadosProximos.length ? ((mercadosSelecionados.length / mercadosProximos.length) * 100).toFixed(0) : 0}%` }}
+                              aria-valuenow={
+                                mercadosProximos.length
+                                  ? Math.round((mercadosSelecionados.length / mercadosProximos.length) * 100)
+                                  : 0
+                              }
+                              style={{
+                                width: `${mercadosProximos.length
+                                  ? ((mercadosSelecionados.length / mercadosProximos.length) * 100).toFixed(0)
+                                  : 0
+                                  }%`,
+                              }}
                             />
                           </div>
                         </div>
-                        <div className="form-check form-switch m-0">
+
+                        <div className="form-check form-switch m-0" onClick={(e) => e.stopPropagation()}>
                           <input
                             className="form-check-input"
                             type="checkbox"
@@ -1365,6 +1409,22 @@ export default function CompararCarrinhosPage({ user }) {
                     <div className="text-muted small">{stepDescriptions[2]}</div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={autoSelectBestPrices}
+                      disabled={!mercadosSelecionados.length}
+                    >
+                      Selecionar melhores preços
+                    </button>
+
+                    <button
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => setSelecionados({})}
+                      disabled={!Object.keys(selecionados).length}
+                    >
+                      Limpar seleção
+                    </button>
+
                     <span
                       className="badge text-bg-light"
                       title={precosUpdatedAt ? new Date(precosUpdatedAt).toLocaleString() : ""}
@@ -1646,7 +1706,7 @@ export default function CompararCarrinhosPage({ user }) {
                     const sub = totalPorMercado[id] || 0;
                     const descBase = calcDesconto(sub, retirarNaLoja);
                     const km = (m?.distance || 0) / 1000;
-                    const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
+                    const fretePedido = retirarNaLoja ? 0 : calcFrete(km) * 1.28;
                     const tot = Math.max(0, sub - descBase) + fretePedido;
                     const diff = tot - Math.min(...mercadosSelecionados.map((mid) => {
                       const mm = mercadosProximos.find((x) => x.id === mid);
@@ -1691,7 +1751,7 @@ export default function CompararCarrinhosPage({ user }) {
                     const sub = totalPorMercado[mercadoSelecionadoPedido] || 0;
                     const desc = calcDesconto(sub, retirarNaLoja);
                     const km = (mSel?.distance || 0) / 1000;
-                    const fretePedido = retirarNaLoja ? 0 : calcFrete(km);
+                    const fretePedido = retirarNaLoja ? 0 : calcFrete(km) * 1.28;
                     const tot = Math.max(0, sub - desc) + fretePedido;
                     const totalBRL = fmt(tot);
                     const payment = await askPayment(totalBRL, "");

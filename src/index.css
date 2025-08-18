@@ -25,14 +25,14 @@ code {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(220, 53, 69, 0.85); /* vermelho translúcido */
+  background: rgba(220, 53, 69, 0.85);
   color: #fff;
   font-size: 0.75rem;
   font-weight: bold;
   padding: 2px 6px;
   border-radius: 4px;
   transform: rotate(-20deg);
-  pointer-events: none; /* o selo não atrapalha cliques no conteúdo */
+  pointer-events: none; 
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
