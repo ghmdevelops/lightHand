@@ -1103,7 +1103,7 @@ export default function CompararCarrinhosPage({ user }) {
   const pulseRGB = PULSE_COLORS.red;
 
   return (
-    <div ref={topRef} className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "82px" : undefined }}>
+    <div ref={topRef} className="container mt-5 mb-4" style={{ paddingTop: "90px", paddingBottom: isMobile ? "calc(96px + env(safe-area-inset-bottom, 0px))" : undefined }}>
       <style>{`
         .steps{display:flex;gap:.75rem;list-style:none;margin:0;padding:0}
         .step{flex:1;display:flex;align-items:center;gap:.5rem;font-weight:600;border:1px solid #e5e7eb;padding:.5rem .75rem;border-radius:12px;justify-content:center;background:#fff}
@@ -1286,8 +1286,8 @@ export default function CompararCarrinhosPage({ user }) {
                       variants={pulseVariants}
                       animate={todosMarcados ? "idle" : "pulse"}
                       className={`card mb-3 ${todosMarcados
-                          ? "border border-2 border-primary shadow-lg bg-primary-subtle"
-                          : "border border-secondary-subtle shadow-sm"
+                        ? "border border-2 border-primary shadow-lg bg-primary-subtle"
+                        : "border border-secondary-subtle shadow-sm"
                         }`}
                       onClick={toggleSelecionarTodos}
                       role="switch"
@@ -1948,7 +1948,19 @@ export default function CompararCarrinhosPage({ user }) {
       </div>
 
       {isMobile && (
-        <div className="mobile-cta">
+        <div className="mobile-cta"
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "#fff",
+            borderTop: "1px solid #e5e7eb",
+            padding: ".6rem .9rem",
+            paddingBottom: "calc(.6rem + env(safe-area-inset-bottom, 0px))",
+            boxShadow: "0 -6px 16px rgba(0,0,0,.06)",
+            zIndex: 1100
+          }}>
           <div className="d-flex flex-column gap-2 w-100">
             <div className="d-flex gap-3">
               <div className="flex-fill" style={{ minWidth: 0 }}>

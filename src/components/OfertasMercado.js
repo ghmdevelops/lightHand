@@ -8,6 +8,41 @@ import { ToastContainer, toast } from "react-toastify";
 import { motion } from "framer-motion";
 import "react-toastify/dist/ReactToastify.css";
 
+const STOPWORDS = new Set(["de", "da", "do", "das", "dos", "para", "com", "sem", "e", "ou", "a", "o", "as", "os"]);
+const aliasMap = {
+  "ovo": "ovos",
+  "ovos": "ovos",
+  "oleo": "óleo",
+  "acucar": "açúcar",
+  "fermento": "fermento químico",
+  "baunilha": "essência de baunilha",
+  "oleo para fritar": "óleo de soja",
+  "pitada de sal": "sal",
+  "chocolate 50": "chocolate em pó",
+  "cacau": "cacau em pó"
+};
+
+const normalizeText = (s) =>
+  (s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const canonicalizeQuery = (q) => {
+  const n = normalizeText(q);
+  if (aliasMap[n]) return aliasMap[n];
+  return n;
+};
+
+const strictNameMatch = (name, query) => {
+  const n = normalizeText(name);
+  const parts = normalizeText(query).split(" ").filter(t => t && !STOPWORDS.has(t));
+  if (!parts.length) return true;
+  return parts.every(t => new RegExp(`\\b${t}\\b`).test(n));
+};
+
 const CATEGORIAS = {
   Bebidas: "beverages",
   Padaria: "breads",
@@ -28,6 +63,54 @@ const FONTES = {
 const PAGE_SIZE = 12;
 const MAX_CARTS = 100;
 const TOAST_ID = "ofertas";
+
+const priceRanges = [
+  [/ovo|ovos?/, [8, 18]],
+  [/salsicha|frankfurt|hot\s*dog/, [10, 28]],
+  [/pao|pães|paes/, [5, 14]],
+  [/cebola/, [2, 6]],
+  [/alho/, [2, 8]],
+  [/oleo|óleo/, [8, 22]],
+  [/molho\s*de?\s*tomate|tomate\s*pelado|passata/, [4, 10]],
+  [/a[cç]u[cç]ar/, [5, 12]],
+  [/sal\b/, [2, 6]],
+  [/pimenta|oregano|or[eé]gano/, [3, 9]],
+  [/batata\s*palha/, [7, 18]],
+  [/queijo|moz+arella|mu+çarela|mussa?rela/, [12, 42]],
+  [/milho|ervilha|dueto/, [5, 12]],
+  [/fermento/, [4, 10]],
+  [/cacau|chocolate\s*em\s*p[oó]/, [10, 28]],
+  [/leite\s*condensado/, [6, 12]],
+  [/creme\s*de\s*leite/, [4, 10]]
+];
+
+const hashCode = (s) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i) | 0;
+  return Math.abs(h);
+};
+
+const pickInRange = (min, max, seed) => {
+  const r = (seed % 1000) / 1000;
+  const v = min + r * (max - min);
+  return Math.round(v * 100) / 100;
+};
+
+const estimatePrice = (term, used = new Set()) => {
+  const t = normalizeText(term);
+  let range = [6, 24];
+  for (const [rx, r] of priceRanges) {
+    if (rx.test(t)) {
+      range = r;
+      break;
+    }
+  }
+  let price = pickInRange(range[0], range[1], hashCode(t));
+  while (used.has(price)) {
+    price = Math.round((price + 0.1) * 100) / 100;
+  }
+  return price;
+};
 
 export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisita }) {
   const [ofertas, setOfertas] = useState([]);
@@ -50,6 +133,10 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
   const [suggestions, setSuggestions] = useState([]);
   const [showSug, setShowSug] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
+  const [recipeText, setRecipeText] = useState("");
+  const [recipeLoading, setRecipeLoading] = useState(false);
+  const [recipeError, setRecipeError] = useState("");
 
   const inputRef = useRef(null);
   const sugRef = useRef(null);
@@ -114,13 +201,14 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     const res = await fetch(url);
     if (!res.ok) throw new Error("OpenFoodFacts fora do ar");
     const data = await res.json();
-    const products = (data.products || []).map((p) => ({
+    let products = (data.products || []).map((p) => ({
       source: "off",
       key: p.code || (crypto?.randomUUID?.() || `${Date.now()}_${Math.random()}`),
       name: p.product_name || p.generic_name || "Produto",
       image: p.image_front_url || p.image_url || "https://via.placeholder.com/300x200?text=Sem+Imagem",
       price: Number((Math.random() * 19 + 1).toFixed(2)),
     }));
+    if (searchTerm) products = products.filter((p) => strictNameMatch(p.name, searchTerm));
     return { products, hasMore: products.length === PAGE_SIZE };
   }, []);
 
@@ -143,47 +231,50 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
   const fetchDummy = useCallback(async (pageNum, searchTerm) => {
     const skip = (pageNum - 1) * PAGE_SIZE;
     const base = "https://dummyjson.com";
-    const url = normalize(searchTerm)
+    const url = searchTerm
       ? `${base}/products/search?q=${encodeURIComponent(searchTerm)}&limit=${PAGE_SIZE}&skip=${skip}`
       : `${base}/products?limit=${PAGE_SIZE}&skip=${skip}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("DummyJSON fora do ar");
     const data = await res.json();
-    const list = data.products || [];
-    const mapped = list.map((p) => ({
+    let list = data.products || [];
+    let mapped = list.map((p) => ({
       source: "dummy",
       key: `dummy-${p.id}`,
       name: p.title,
       image: (p.images && p.images[0]) || p.thumbnail || "https://via.placeholder.com/300x200?text=Sem+Imagem",
       price: Number((p.price || Math.random() * 20 + 1).toFixed(2)),
     }));
+    if (searchTerm) mapped = mapped.filter((p) => strictNameMatch(p.name, searchTerm));
     return { products: mapped, hasMore: (data.total || 0) > skip + (data.limit || mapped.length) };
   }, []);
 
   const fetchMeli = useCallback(async (pageNum, searchTerm, categoriaSlug) => {
-    const qterm = normalize(searchTerm) || categoriaSlug || "mercado";
+    const qterm = searchTerm || categoriaSlug || "mercado";
     const offset = (pageNum - 1) * PAGE_SIZE;
     const url = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(qterm)}&limit=${PAGE_SIZE}&offset=${offset}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Mercado Libre indisponível");
     const data = await res.json();
-    const mapped = (data.results || []).map((p) => ({
+    let mapped = (data.results || []).map((p) => ({
       source: "meli",
       key: `meli-${p.id}`,
       name: p.title,
       image: (p.thumbnail_id ? `https://http2.mlstatic.com/D_${p.thumbnail_id}-O.jpg` : p.thumbnail) || "https://via.placeholder.com/300x200?text=Sem+Imagem",
       price: Number((p.price || Math.random() * 20 + 1).toFixed(2)),
     }));
+    if (searchTerm) mapped = mapped.filter((p) => strictNameMatch(p.name, searchTerm));
     return { products: mapped, hasMore: (data.paging?.offset || 0) + mapped.length < (data.paging?.total || 0) };
   }, []);
 
   const doFetchProdutos = useCallback(async (fonteKey, categoriaSlug, pageNum, searchTerm) => {
-    const cacheKey = JSON.stringify({ fonteKey, categoriaSlug, pageNum, searchTerm: normalize(searchTerm) });
+    const qCanon = searchTerm ? canonicalizeQuery(searchTerm) : "";
+    const cacheKey = JSON.stringify({ fonteKey, categoriaSlug, pageNum, searchTerm: qCanon });
     if (cacheRef.current[cacheKey]) return cacheRef.current[cacheKey];
     let result;
-    if (FONTES[fonteKey] === "off") result = await fetchOFF(categoriaSlug, pageNum, searchTerm);
-    else if (FONTES[fonteKey] === "dummy") result = await fetchDummy(pageNum, searchTerm);
-    else result = await fetchMeli(pageNum, searchTerm, categoriaSlug);
+    if (FONTES[fonteKey] === "off") result = await fetchOFF(categoriaSlug, pageNum, qCanon);
+    else if (FONTES[fonteKey] === "dummy") result = await fetchDummy(pageNum, qCanon);
+    else result = await fetchMeli(pageNum, qCanon, categoriaSlug);
     cacheRef.current[cacheKey] = result;
     return result;
   }, [fetchOFF, fetchDummy, fetchMeli]);
@@ -353,7 +444,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
   const salvarCarrinho = async () => {
     setSaveError("");
     setSucesso("");
-
     if (!user) {
       setSaveError("Você precisa estar logado para salvar.");
       return;
@@ -362,7 +452,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
       setSaveError("Carrinho vazio.");
       return;
     }
-
     setSalvando(true);
     try {
       const cartsRef = ref(db, `usuarios/${user.uid}/carts`);
@@ -372,7 +461,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
         setSaveError(`Você já tem ${MAX_CARTS} carrinhos. Exclua um antes.`);
         return;
       }
-
       const newRef = push(cartsRef);
       await firebaseSet(newRef, {
         items: carrinho,
@@ -383,10 +471,8 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
         mercadoEstado: mercado.estado || "",
         mercadoPais: mercado.pais || "",
       });
-
       setSucesso("Carrinho salvo com sucesso!");
       setCarrinho([]);
-
       const res = await Swal.fire({
         title: "Carrinho salvo!",
         text: "Deseja ir para o carrinho agora?",
@@ -448,7 +534,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
         <h6 className="mb-2 mb-md-0">Carrinho ({carrinho.length} item{carrinho.length === 1 ? "" : "s"})</h6>
         <div className="fw-semibold">Total: {fmt(total)}</div>
       </div>
-
       {carrinho.length === 0 ? (
         <div className="alert alert-info mt-3 mb-2">Seu carrinho está vazio.</div>
       ) : (
@@ -498,7 +583,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
           </table>
         </div>
       )}
-
       <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
         <div>
           {saveError && <div className="text-danger">{saveError}</div>}
@@ -525,11 +609,123 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
     setPage(1);
   };
 
+  const isPriceLine = (line) => /(^|\s)(r\$|\$|€)\s*\d/i.test(line) || /\b\d+,\d{2}\b/.test(line) || /\b\d+\.\d{2}\b/.test(line);
+  const isQtyOnly = (line) => /^\s*\d+([xX])?\s*$/.test(line);
+
+  const parseQty = (line) => {
+    const fracMap = { "½": "1/2", "¼": "1/4", "¾": "3/4", "⅓": "1/3", "⅔": "2/3", "⅛": "1/8", "⅜": "3/8", "⅝": "5/8", "⅞": "7/8" };
+    let s = line.replace(/[½¼¾⅓⅔⅛⅜⅝⅞]/g, m => fracMap[m] || m);
+    s = s.replace(/(\d+),(\d+)/g, "$1.$2");
+    const m = s.match(/(\d+(?:\.\d+)?)?\s*(\d+\/\d+)?/);
+    if (!m) return 1;
+    const base = m[1] ? parseFloat(m[1]) : 0;
+    let frac = 0;
+    if (m[2]) {
+      const [a, b] = m[2].split("/").map(Number);
+      if (b) frac = a / b;
+    }
+    const v = base + frac || 1;
+    return Math.max(1, Math.round(v));
+  };
+
+  const ingredientToSearch = (line) => {
+    let s = line
+      .replace(/^[\s•*\-–—]+\s*/, " ")
+      .replace(/\(.*?\)/g, " ")
+      .replace(/\b(opcional|ou|a gosto)\b.*$/i, " ")
+      .replace(/[\d.,/]+/g, " ")
+      .toLowerCase();
+
+    s = s
+      .replace(/\b(xicara|xícaras|xícara|xic|colher|colheres|sopa|chá|cha|pitada|lata|caixinha|caixa|un|unid|unidade|unidades|pacote|kg|g|ml|l|gramas|litros?)\b/gi, " ")
+      .replace(/\bde\b|\bdo\b|\bda\b|\bdas\b|\bdos\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    s = s
+      .replace(/\bovos?\b/g, "ovo")
+      .replace(/\bchocolate\s*50\s*%\b/g, "chocolate em pó")
+      .replace(/\bcacau\/chocolate em pó\b/g, "cacau em pó");
+
+    return s || "mercado";
+  };
+
+  const handleRecipeToCart = async () => {
+    setRecipeError("");
+    const rawLines = (recipeText || "").split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    const lines = rawLines.filter((l) => !(isPriceLine(l) || isQtyOnly(l)));
+    if (!lines.length) return;
+    setRecipeLoading(true);
+    try {
+      const slug = CATEGORIAS[categoria];
+      const usedPrices = new Set(carrinho.map((i) => Number(i.price) || 0).filter((p) => p > 0));
+      const tasks = lines.map(async (line) => {
+        const term = ingredientToSearch(line);
+        const qtd = parseQty(line);
+        try {
+          const { products } = await doFetchProdutos(fonte, slug, 1, term);
+          const pick = products && products.length ? products[0] : null;
+          if (pick) {
+            const price = Number(pick.price) > 0 ? Number(pick.price) : estimatePrice(term, usedPrices);
+            usedPrices.add(price);
+            return { ...pick, price, quantidade: qtd, fromRecipe: true };
+          } else {
+            const price = estimatePrice(term, usedPrices);
+            usedPrices.add(price);
+            return {
+              source: "recipe",
+              key: `recipe-${term}`,
+              name: term.charAt(0).toUpperCase() + term.slice(1),
+              image: "https://via.placeholder.com/300x200?text=Produto",
+              price,
+              quantidade: qtd,
+              fromRecipe: true,
+            };
+          }
+        } catch {
+          const price = estimatePrice(term, usedPrices);
+          usedPrices.add(price);
+          return {
+            source: "recipe",
+            key: `recipe-${term}`,
+            name: term.charAt(0).toUpperCase() + term.slice(1),
+            image: "https://via.placeholder.com/300x200?text=Produto",
+            price,
+            quantidade: qtd,
+            fromRecipe: true,
+          };
+        }
+      });
+      const items = await Promise.all(tasks);
+      setCarrinho((prev) => {
+        const base = prev.filter((p) => !p.fromRecipe);
+        const map = new Map(base.map((p) => [p.key, { ...p }]));
+        for (const it of items) {
+          const k = it.key;
+          if (map.has(k)) {
+            const cur = map.get(k);
+            cur.quantidade = (cur.quantidade || 1) + (it.quantidade || 1);
+            cur.price = Number(cur.price) > 0 ? cur.price : it.price;
+            map.set(k, cur);
+          } else {
+            map.set(k, it);
+          }
+        }
+        return Array.from(map.values());
+      });
+      toast.success("Receita adicionada ao carrinho", { containerId: TOAST_ID });
+      setCartOpen(true);
+    } catch {
+      setRecipeError("Não foi possível montar o carrinho da receita.");
+    } finally {
+      setRecipeLoading(false);
+    }
+  };
+
   return (
     <div className="container my-4" style={{ zIndex: 2, paddingTop: "80px", maxWidth: 1180 }}>
       <button className="btn btn-outline-secondary mb-3" onClick={onVoltar || (() => navigate(-1))}>&larr; Voltar</button>
       <ToastContainer position="top-right" pauseOnHover containerId={TOAST_ID} />
-
       <motion.div
         key={mercado.id || mercado.nome}
         className="d-flex align-items-center justify-content-between mb-3"
@@ -556,7 +752,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
         </div>
         <motion.div style={{ width: 140 }} variants={itemVariants} />
       </motion.div>
-
       {produtosLoading && page === 1 ? (
         <LoadingGrid count={PAGE_SIZE} />
       ) : (
@@ -683,47 +878,66 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
                     </div>
                   </div>
                 </div>
-
-
-                <div className="mt-3">
+                <div className="mt-3 d-flex flex-wrap gap-2">
                   <button className="btn btn-outline-primary btn-sm" onClick={() => setShowSaved((v) => !v)}>
                     <i className="bi bi-heart me-1" />
                     Salvos ({savedList.length})
                   </button>
-                  {showSaved && (
-                    <div className="mt-3 p-2 border rounded-3 bg-light">
-                      {savedList.length === 0 ? (
-                        <div className="text-muted">Nenhum produto salvo.</div>
-                      ) : (
-                        <div className="row g-2">
-                          {savedList.map((p) => (
-                            <div key={p.key} className="col-12 col-md-6 col-lg-4">
-                              <div className="d-flex align-items-center p-2 bg-white border rounded-3 shadow-sm gap-2">
-                                <img src={p.image} alt="" width={44} height={44} style={{ objectFit: "cover", borderRadius: 8 }} />
-                                <div className="flex-grow-1">
-                                  <div className="text-truncate">{p.name}</div>
-                                  <small className="text-muted">{fmt(p.price)}</small>
-                                </div>
-                                <div className="d-flex gap-1">
-                                  <button className="btn btn-outline-success btn-sm" onClick={() => adicionar({ ...p, source: p.source })}>
-                                    <i className="bi bi-bag-plus" />
-                                  </button>
-                                  <button className="btn btn-outline-danger btn-sm" onClick={() => toggleSalvar(p)}>
-                                    <i className="bi bi-trash" />
-                                  </button>
-                                </div>
+                  <button className="btn btn-outline-success btn-sm" onClick={() => setRecipeOpen((v) => !v)}>
+                    <i className="bi bi-journal-text me-1" />
+                    Receita
+                  </button>
+                </div>
+                {showSaved && (
+                  <div className="mt-3 p-2 border rounded-3 bg-light">
+                    {savedList.length === 0 ? (
+                      <div className="text-muted">Nenhum produto salvo.</div>
+                    ) : (
+                      <div className="row g-2">
+                        {savedList.map((p) => (
+                          <div key={p.key} className="col-12 col-md-6 col-lg-4">
+                            <div className="d-flex align-items-center p-2 bg-white border rounded-3 shadow-sm gap-2">
+                              <img src={p.image} alt="" width={44} height={44} style={{ objectFit: "cover", borderRadius: 8 }} />
+                              <div className="flex-grow-1">
+                                <div className="text-truncate">{p.name}</div>
+                                <small className="text-muted">{fmt(p.price)}</small>
+                              </div>
+                              <div className="d-flex gap-1">
+                                <button className="btn btn-outline-success btn-sm" onClick={() => adicionar({ ...p, source: p.source })}>
+                                  <i className="bi bi-bag-plus" />
+                                </button>
+                                <button className="btn btn-outline-danger btn-sm" onClick={() => toggleSalvar(p)}>
+                                  <i className="bi bi-trash" />
+                                </button>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {recipeOpen && (
+                  <div className="mt-3 p-3 border rounded-3 bg-light">
+                    <div className="mb-2 fw-semibold d-flex align-items-center gap-2">
+                      <i className="bi bi-journal-text" /> Adicionar receita
                     </div>
-                  )}
-                </div>
+                    <textarea
+                      className="form-control"
+                      rows={8}
+                      value={recipeText}
+                      onChange={(e) => setRecipeText(e.target.value)}
+                      placeholder="Cole os ingredientes, um por linha"
+                    />
+                    {recipeError && <div className="text-danger mt-2">{recipeError}</div>}
+                    <div className="d-flex gap-2 mt-2">
+                      <button className="btn btn-outline-secondary" onClick={() => setRecipeText("")}>Limpar</button>
+                      <button className="btn btn-success" onClick={handleRecipeToCart} disabled={recipeLoading}>{recipeLoading ? "Processando..." : "Montar carrinho da receita"}</button>
+                    </div>
+                  </div>
+                )}
               </div>
-
               {produtosError && <div className="alert alert-danger">{produtosError}</div>}
-
               <div className="row g-3">
                 {ordenar(produtos).map((p) => {
                   const isSaved = !!(salvos && salvos[p.key]);
@@ -781,7 +995,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
                   );
                 })}
               </div>
-
               {hasMore && (
                 <div className="text-center my-3">
                   <button className="btn btn-outline-secondary" onClick={() => setPage((p) => p + 1)} disabled={produtosLoading}>
@@ -790,7 +1003,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
                 </div>
               )}
             </div>
-
             <div className="col-12 col-lg-3 d-none d-lg-block">
               <div className="position-sticky" style={{ top: 90 }}>
                 <CartContent />
@@ -799,7 +1011,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
           </div>
         </>
       )}
-
       {carrinho.length > 0 && (
         <>
           <button
@@ -817,7 +1028,6 @@ export default function OfertasMercado({ mercado, user, onVoltar, setUltimaVisit
           </button>
         </>
       )}
-
       <Offcanvas placement="end" show={cartOpen} onHide={() => setCartOpen(false)} className="d-lg-none">
         <Offcanvas.Header closeButton>
           <Offcanvas.Title>Carrinho</Offcanvas.Title>
